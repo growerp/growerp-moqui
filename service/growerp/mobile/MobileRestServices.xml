@@ -1,0 +1,985 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domaicrn Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+
+    <service verb="register" noun="UserAndCompany" authenticate="anonymous-all">
+        <description>
+            registers with a minimal setup for a user with a given role to an existing company or when not provided
+            will create an accounting organization with the provided name and currency
+        </description>
+        <in-parameters>
+            <!-- user information -->
+            <parameter name="firstName" required="true"/><parameter name="middleName"/><parameter name="lastName" required="true"/>
+            <parameter name="emailAddress" required="true"><text-email/></parameter>
+            <parameter name="username" default="emailAddress"/>
+            <parameter name="newPassword" default="org.moqui.util.StringUtilities.getRandomString(6) + '9!'"/>
+            <parameter name="newPasswordVerify" default="newPassword"/>
+            <parameter name="groupDescription"/><!--securitygroup description-->
+            <parameter name="locale"/>
+            <!-- company information -->
+            <parameter name="companyPartyId"/><!-- add users for existing company -->
+            <parameter name="companyName"/>
+            <parameter name="companyEmailAddress" default="emailAddress"/>
+            <parameter name="currencyUomId"/>
+            <parameter name="partyClassificationId" default-value="AppRestaurant"/><!-- allocate party to mobile application -->
+            <!-- default setup -->
+            <parameter name="environment"/>
+            <parameter name="transData" type="List"/><!-- [ 'kitchen','food','macaroni','bar','inside','garden','drinks','cola' -->
+        </in-parameters>
+        <out-parameters>
+            <parameter name="user"/>
+            <parameter name="company"/>
+            <parameter name="partyId"/>
+        </out-parameters>
+        <actions>
+            <service-call name="mantle.party.PartyServices.create#Account"
+                in-map="context + [roleTypeId: 'Employee', loginAfterCreate: false]"
+                out-map="userAccount"/>
+            <if condition="userAccount.partyId != null">
+                
+                <if condition="companyPartyId == null">
+                    <service-call name="mantle.party.PartyServices.create#Organization"
+                        in-map="context + [roleTypeId: 'OrgInternal',organizationName: companyName]"
+                        out-map="company"/>
+                    <set field="companyPartyId" from="company.partyId"/>
+                    <service-call name="mantle.party.ContactServices.create#EmailAddress" out-map="emailOut"
+                        in-map="[emailAddress:companyEmailAddress, partyId:companyPartyId, contactMechPurposeId:'EmailPrimary']"/>
+                    <service-call name="create#mantle.ledger.config.PartyAcctgPreference"
+                        in-map="[organizationPartyId: companyPartyId, baseCurrencyUomId: currencyUomId]"/>
+                    <!-- register as a restaurant App user -->
+                    <service-call name="create#mantle.party.PartyClassificationAppl"
+                        in-map="[partyId: companyPartyId, partyClassificationId: 'AppRestaurant']"/>
+                    <!-- create productStore -->
+                    <set field="productCategoryTypeEnumId" value="PctCatalog"/><!-- Default product category type -->
+                    <if condition="partyClassificationId == 'AppRestaurant'">
+                        <then>
+                            <set field="productCategoryTypeEnumId" value="PctRestaurant"/>
+                            <set field="categoryName" value="Restaurant company root category"/>
+                        </then>
+                        <else-if condition="partyClassificationId == 'AppShop'">
+                            <set field="categoryName" value="Shop company root category"/>
+                        </else-if>
+                        <else-if condition="partyClassificationId == 'AppService'">
+                            <set field="categoryName" value="Service company root category"/>
+                        </else-if>
+                    </if>
+                    <service-call name="create#mantle.product.store.ProductStore" out-map="context"
+                        in-map="[organizationPartyId: companyPartyId,
+                            requireInventory: 'N',
+                            reservationOrderEnumId:'AsResAutoNone',
+                            defaultCurrencyUomId: currencyUomId]"/>
+                    <!-- create root category -->
+                    <set field="fromDate" from="ec.user.nowTimestamp"/>
+                    <service-call name="create#mantle.product.category.ProductCategory" out-map="rootCat"
+                        in-map="[ownerPartyId: companyPartyId, productCategoryTypeEnumId: productCategoryTypeEnumId,
+                            categoryName: categoryName]"/>
+                    <service-call name="create#mantle.product.store.ProductStoreCategory" in-map="[productCategoryId: rootCat.productCategoryId, storeCategoryTypeEnumId: 'PsctBrowseRoot',
+                            productStoreId: context.productStoreId, fromDate: fromDate]"/>
+                </if>
+                <if condition="groupDescription">
+                    <entity-find entity-name="moqui.security.UserGroup" list="userGroups">
+                        <econdition field-name="description" from="groupDescription"/></entity-find>
+                    <if condition="userGroups">
+                        <set field="userGroupId" from="userGroups[0].userGroupId"/></if></if>
+                <if condition="!userGroupId">
+                    <set field="userGroupId" value="GROWERP_M_EMPLOYEE"/></if> 
+                <!-- attach the user as an employee to the organization. -->
+                <service-call name="create#mantle.party.PartyRelationship"
+                    in-map="[fromPartyId: userAccount.partyId, fromRoleTypeId: 'Employee', relationshipTypeEnumId: 'PrtEmployee',
+                        fromDate: fromDate, toPartyId: companyPartyId, toRoleTypeId: 'OrgInternal']"/>
+                <!-- set company in as ACTIVE_ORGANIZATION UserPreference to be sure only this company can be looked at-->
+                <service-call name="create#moqui.security.UserPreference"
+                    in-map="[userId: userAccount.userId, preferenceKey: 'ACTIVE_ORGANIZATION', preferenceValue: companyPartyId]"/>
+                <!-- setup the organization -->
+                <service-call name="mantle.party.PartyServices.setup#UserOrganizationInfo"/>
+                <log message="============sending email to: ${emailAddress} with class: ${partyClassificationId}"/>
+                <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
+                    <field-map field-name="emailTemplateId" value="WELCOME"/>
+                    <field-map field-name="toAddresses" from="emailAddress"/>
+                    <field-map field-name="bodyParameters" 
+                        from="[classification: partyClassificationId.substring(3), newPassword:newPassword]"/>
+                </service-call>
+                <if condition="company"><!-- initial company/user needs login for loading default data (create#user calls this service)-->
+                    <!-- add the user as admin -->
+                    <service-call name="create#moqui.security.UserGroupMember"
+                        in-map="[userGroupId: 'GROWERP_M_ADMIN', userId: userAccount.userId]"/>
+                    <script>ec.user.loginUser(username, newPassword)</script>
+                    <service-call name="growerp.mobile.MobileRestServices.load#DefaultData" async="true" in-map="context"/>
+                    <else><!-- no need for logging when adding employees -->
+                        <!-- add the user as an employee(or what is provided) to a security group -->
+                        <service-call name="create#moqui.security.UserGroupMember"
+                        in-map="[userGroupId: userGroupId, userId: userAccount.userId]"/>
+                    </else>
+                </if>
+                <set field="user" from="[firstName: firstName, lastName: lastName, name: emailAddress, email: emailAddress]"/>
+                <set field="company" from="[name: companyName]"/>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="reset" noun="Password" authenticate="anonymous-all">
+        <in-parameters>
+            <parameter name="username"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="response"/>
+        </out-parameters>
+        <actions>
+            <log message="===reset pw with user: ${username}"/>
+            <service-call name="org.moqui.impl.UserServices.reset#Password" in-map="[username: username]"
+                out-map="response"/>
+        </actions>
+    </service>
+
+     <service verb="update" noun="Password"><description>Change the password of an account and re-enable also used with reset password logged off</description>
+        <in-parameters>
+            <parameter name="username" required="true"/>
+            <parameter name="newPassword" required="true"/>
+            <parameter name="oldPassword" default-value="dummy"/>
+        </in-parameters>
+        <actions>
+            <if condition="ec.user.userAccount"><!-- only possible with a loggedin user -->
+                <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context" />
+                <!-- make sure that username is only searched for in the logged in user own company -->
+                <entity-find entity-name="growerp.mobile.CompanyPersonAndLogin" list="accounts">
+                    <econdition field-name="username"/><econdition field-name="toPartyId" from="ownerPartyId"/></entity-find>
+                <if condition="!accounts"><return error="true" message="cannot find username: ${username}" public="true"/></if>
+            </if>
+            <service-call name="org.moqui.impl.UserServices.update#Password"
+                 in-map="[username: username, oldPassword: oldPassword, newPassword: newPassword, newPasswordVerify: newPassword]"/>
+            <!-- enable useraccount -->
+            <service-call name="update#moqui.security.UserAccount"
+                    in-map="[username:username, disabled:'N', disabledDateTime:null, successiveFailedLogins:0]"/>
+        </actions>
+    </service>
+
+    <service verb="logout" noun="User" authenticate="anonymous-all"><description>service logout</description>
+        <actions>
+            <script>ec.user.logoutUser()</script>
+        </actions>
+    </service>
+
+    <service verb="login" noun="User" authenticate="anonymous-all"><description>service to return and apikey if user/password ok, when not check for a reset password</description>
+        <in-parameters>
+            <parameter name="username" required="true"/><parameter name="password" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="apiKey"/>
+            <parameter name="moquiSessionToken"/>
+            <parameter name="user" type="Map"/>
+            <parameter name="company" type="Map"/>
+            <parameter name="passwordChange" default="false"/>
+        </out-parameters>
+        <actions>
+            <log message="=====logging in with username: ${username} and pw: ${password}"/>
+            <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount" cache="false">
+                <field-map field-name="username"/></entity-find-one>
+            <set field="oldPassword" from="password"/>
+            <if condition="!userAccount"><return error="true" message="cannot find username: ${username}" public="true"/></if>
+            <script>
+                def token = new org.apache.shiro.authc.UsernamePasswordToken((String) userAccount.username, (String) oldPassword)
+                def info = new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.currentPassword,
+                        userAccount.passwordSalt ? new org.apache.shiro.util.SimpleByteSource((String) userAccount.passwordSalt) : null, "moquiRealm")
+            </script>
+            <if condition="!userAccount.currentPassword || !ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
+                <log message="======checking if userAccount has reset password....."/>
+                <if condition="userAccount.resetPassword">
+                    <log message="======try reset passwor...."/>
+                    <!-- try the resetPassword -->
+                    <script>
+                        info = new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.resetPassword,
+                                userAccount.passwordSalt ? new org.apache.shiro.util.SimpleByteSource((String) userAccount.passwordSalt) : null, "moquiRealm")
+                    </script>
+                    <log message="===after script"/>
+                    <if condition="ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
+                        <set field="passwordChange" value="true"/>
+                        <log message="====reset password ok!"/>
+                    </if>
+                </if>
+            </if>
+            <if condition="!passwordChange">
+                <script>ec.user.loginUser(username, password)</script>
+                <service-call name="growerp.mobile.MobilePartyServices.get#UserAndCompany" out-map="context"/>
+                <set field="apiKey" from="ec.user.getLoginKey()"/>
+                <set field="moquiSessionToken" from="ec.web.sessionToken"/>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="check" noun="ApiKey">
+        <out-parameters><parameter name="ok"/></out-parameters>
+        <actions><set field="ok" value="ok"/></actions>
+    </service>
+
+    <service verb="load" noun="DefaultData" authenticate="anonymous-all"><!-- not reachable outside -->
+        <in-parameters>
+            <parameter name="environment"/>
+            <parameter name="transData" type="List"/><!-- [ 'kitchen','food','macaroni','bar','inside','garden','drinks','cola' -->
+        </in-parameters>
+        <actions>
+            <!-- billing -->
+            <service-call name="growerp.mobile.MobileLocationServices.create#PreparationArea" 
+                in-map="[description: transData[8]]" out-map="context"/>
+            <service-call name="create#PreparationAreaContent"
+                in-map="[
+                    preparationAreaId: preparationAreaId, preparationAreaContentTypeEnumId: 'PactImageThumbNail',
+                    contentLocation: 'dbresource://GrowERP/images/billingSmall.png']"/>
+            <service-call name="create#PreparationAreaContent"
+                in-map="[
+                    preparationAreaId: preparationAreaId, preparationAreaContentTypeEnumId: 'PactImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/billingMedium.png']"/>
+            <!-- kitchen -->
+            <service-call name="growerp.mobile.MobileLocationServices.create#PreparationArea" 
+                in-map="[description: transData[0]]" out-map="context"/>
+            <service-call name="create#PreparationAreaContent"
+                in-map="[
+                    preparationAreaId: preparationAreaId, preparationAreaContentTypeEnumId: 'PactImageThumbNail',
+                    contentLocation: 'dbresource://GrowERP/images/kitchenSmall.png']"/>
+            <service-call name="create#PreparationAreaContent"
+                in-map="[
+                    preparationAreaId: preparationAreaId, preparationAreaContentTypeEnumId: 'PactImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/kitchenMedium.png']"/>
+            <service-call name="growerp.mobile.MobileCatgProdServices.create#ProductCategory"
+                in-map="[
+                    categoryName: transData[1], preparationAreaId: preparationAreaId]" out-map="context"/><!-- food -->
+            <service-call name="create#ProductCategoryContent"
+                in-map="[
+                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageThumbNail',
+                    contentLocation: 'dbresource://GrowERP/images/foodSmall.png']"/>
+            <service-call name="create#ProductCategoryContent"
+                in-map="[
+                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/foodMedium.png']"/>
+            <service-call name="growerp.mobile.MobileCatgProdServices.create#Product"
+                in-map="[
+                    productName: transData[2], productCategoryId: productCategoryId, price: '10.00']" out-map="context"/><!-- macaroni-->
+            <service-call name="create#ProductContent"
+                in-map="[
+                    productId: productId, productContentTypeEnumId: 'PcntImageSmall',
+                    contentLocation: 'dbresource://GrowERP/images/macaroniSmall.png']"/>
+            <service-call name="create#ProductContent"
+                in-map="[
+                    productId: productId, productContentTypeEnumId: 'PcntImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/macaroniMedium.png']"/>
+            <!-- bar -->
+            <service-call name="growerp.mobile.MobileLocationServices.create#PreparationArea"
+                in-map="[description: transData[3]]" out-map="context"/>
+            <service-call name="create#PreparationAreaContent"
+                in-map="[
+                    preparationAreaId: preparationAreaId, preparationAreaContentTypeEnumId: 'PactImageThumbNail',
+                    contentLocation: 'dbresource://GrowERP/images/barSmall.png']"/>
+            <service-call name="create#PreparationAreaContent"
+                in-map="[
+                    preparationAreaId: preparationAreaId, preparationAreaContentTypeEnumId: 'PactImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/barMedium.png']"/>
+            <service-call name="growerp.mobile.MobileCatgProdServices.create#ProductCategory"
+                in-map="[
+                    categoryName: transData[6], preparationAreaId: preparationAreaId]" out-map="context"/><!-- drinks -->
+            <service-call name="create#ProductCategoryContent"
+                in-map="[
+                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageThumbNail',
+                    contentLocation: 'dbresource://GrowERP/images/drinksSmall.png']"/>
+            <service-call name="create#ProductCategoryContent"
+                in-map="[
+                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/drinksMedium.png']"/>
+            <service-call name="growerp.mobile.MobileCatgProdServices.create#Product"
+                in-map="[
+                    productName: transData[7], productCategoryId: productCategoryId, price: '15.00']" out-map="context"/><!-- macaroni-->
+            <service-call name="create#ProductContent"
+                in-map="[
+                    productId: productId, productContentTypeEnumId: 'PcntImageSmall',
+                    contentLocation: 'dbresource://GrowERP/images/colaSmall.png']"/>
+            <service-call name="create#ProductContent"
+                in-map="[
+                    productId: productId, productContentTypeEnumId: 'PcntImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/colaMedium.png']"/>
+
+            <service-call name="growerp.mobile.MobileLocationServices.create#AccommodationArea"
+                in-map="[description: transData[4], nbrOfSpots: 10]" out-map="context"/>
+            <service-call name="create#AccommodationAreaContent"
+                in-map="[
+                    accommodationAreaId: accommodationAreaId, accommodationAreaContentTypeEnumId: 'AactImageThumbNail',
+                    contentLocation: 'dbresource://GrowERP/images/insideSmall.png']"/>
+            <service-call name="create#AccommodationAreaContent"
+                in-map="[
+                    accommodationAreaId: accommodationAreaId, accommodationAreaContentTypeEnumId: 'AactImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/insideMedium.png']"/>
+
+            <service-call name="growerp.mobile.MobileLocationServices.create#AccommodationArea"
+                 in-map="[description: transData[5], nbrOfSpots: 15]" out-map="context"/>
+            <service-call name="create#AccommodationAreaContent"
+                in-map="[
+                    accommodationAreaId: accommodationAreaId, accommodationAreaContentTypeEnumId: 'AactImageThumbNail',
+                    contentLocation: 'dbresource://GrowERP/images/gardenSmall.png']"/>
+            <service-call name="create#AccommodationAreaContent"
+                in-map="[
+                    accommodationAreaId: accommodationAreaId, accommodationAreaContentTypeEnumId: 'AactImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/gardenMedium.png']"/>
+
+            <if condition="environment != 'production'">
+                <service-call name="growerp.mobile.MobilePartyServices.get#Company" out-map="context"/>
+                <set field="random" value="${org.moqui.util.StringUtilities.getRandomString(8)}"/>
+                <service-call name="growerp.mobile.MobilePartyServices.create#User" in-map="[
+                        firstName: 'Peter', lastName: 'Coster', companyPartyId: company.partyId,
+                        emailAddress: random.toLowerCase() + '@example.com',
+                        roleTypeId: 'Employee', groupDescription: 'Employee']"
+                        out-map="context"/>
+                <service-call name="growerp.mobile.MobileTaskRequestServices.create#WorkEffort" 
+                    in-map="[workEffortName:'This a first task for Peter',
+                        partyId: partyId, priority: '5']"/>
+                <service-call name="growerp.mobile.MobileTaskRequestServices.create#WorkEffort"
+                    in-map="[workEffortName:'This a first task for me',
+                        priority: '5']"/>
+                <entity-find entity-name="PreparationArea" list="prepAreas">
+                    <econdition field-name="ownerPartyId" from="company.partyId"/>
+                </entity-find>
+                <set field="index" value="0" type="Integer"/>
+                <iterate list="prepAreas" entry="prepArea"><!-- setup up ports for virtual escpos printers -->
+                   <service-call name="growerp.mobile.MobileLocationServices.update#PreparationArea"
+                   in-map="[preparationAreaId: prepArea.preparationAreaId, description: prepArea.description, printerIp: ':' + (9100 + index++)]"/>
+                </iterate>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="print" noun="Item">
+        <description>
+            print an item depending on the item.type
+        </description>
+        <in-parameters>
+            <parameter name="item" type="Map" required="true"/>
+        </in-parameters>
+        <actions>
+            <set field="jobName" value="ShipmentLabel${shipmentId}-${packageRouteSeg.shipmentRouteSegmentSeqId}-${packageRouteSeg.shipmentPackageSeqId}"/>
+            <service-call name="org.moqui.impl.PrintServices.print#Document" out-map="printOut" out-map-add-to-existing="false"
+                    in-map="[networkPrinterId:networkPrinterId, jobName:jobName, serialBlob:labelImage, contentType:contentType]"/>
+            <message>Printed label for package ${packageRouteSeg.shipmentPackageSeqId} route segment ${packageRouteSeg.shipmentRouteSegmentSeqId}, print job ${printOut.printJobId} CUPS job ${printOut.jobId}</message>
+        </actions>
+    </service>
+
+    <service verb="get" noun="ItemInfo"><!-- local service -->
+        <description>
+            check security access(=true) to a party or product
+        </description>
+        <in-parameters>
+            <parameter name="type"/>
+            <parameter name="id"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="productId"/>
+            <parameter name="productCategoryId"/>
+            <parameter name="partyId"/>
+            <parameter name="accommodationAreaId"/>
+            <parameter name="preparationAreaId"/>
+            <parameter name="companyPartyId"/><!-- requested company -->
+            <parameter name="ownerPartyId"/><!-- related company -->
+            <parameter name="workEffortId"/>
+        </out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="relCompany"/>
+            <if condition="type == 'company'"><set field="companyPartyId" from="relCompany.ownerPartyId"/></if>
+            <if condition="type == 'user'">
+                <set field="partyId" from="id"/>
+                <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId"
+                    in-map="[userPartyId: partyId]" out-map="check"/>
+                <if condition="check.ownerPartyId != relCompany.ownerPartyId">
+                        <return error="true" message="can only access persons within your own company"/>
+                </if></if>
+            <!-- following record have ownerPartyId in their records and will be searched on that -->
+            <if condition="type == 'product'"><set field="productId" from="id"/></if>
+            <if condition="type == 'category'"><set field="productCategoryId" from="id"/></if>
+            <if condition="type == 'area'"><set field="accommodationAreaId" from="id"/></if>
+            <if condition="type == 'prep'"><set field="preparationAreaId" from="id"/></if>
+            <if condition="type == 'task'"><set field="workEffortId" from="id"/></if>
+            <set field="ownerPartyId" from="relCompany.ownerPartyId"/>
+        </actions>
+    </service>
+
+    <service verb="upload" noun="Image">
+        <description>
+            upload an image to connect to a product or party (company or user)
+        </description>
+        <in-parameters>
+            <parameter name="size" required="true"/> <!-- small, medium -->
+            <parameter name="contentFile" required="true"/>
+            <parameter name="type" required="true"/>
+            <parameter name="id" required="true"/>
+        </in-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobileRestServices.get#ItemInfo" in-map="context" out-map="context"/>
+            <if condition="companyPartyId">
+                    <if condition="size == 'small'">
+                        <set field="filename" value="logo-small.png"/>
+                        <set field="partyContentTypeEnumId" value="PcntLogoThumbImage"/></if>
+                    <if condition="size == 'medium'">
+                        <set field="filename" value="logo-medium.png"/>
+                        <set field="partyContentTypeEnumId" value="PcntLogoImage"/></if></if>
+           <if condition="partyId">
+                    <if condition="size == 'small'">
+                        <set field="filename" value="face-small.png"/>
+                        <set field="partyContentTypeEnumId" value="PcntFaceThumbImage"/></if>
+                    <if condition="size == 'medium'">
+                        <set field="filename" value="face-medium.png"/>
+                        <set field="partyContentTypeEnumId" value="PcntFaceImage"/></if></if>
+           <if condition="workEffortId">
+                    <if condition="size == 'small'">
+                        <set field="filename" value="task-small.png"/>
+                        <set field="contentTypeEnumId" value="WectImageSmall"/></if>
+                    <if condition="size == 'medium'">
+                        <set field="filename" value="task-medium.png"/>
+                        <set field="contentTypeEnumId" value="WectImageMedium"/></if></if>
+           <if condition="productId">
+                    <if condition="size == 'small'">
+                        <set field="filename" value="${productId}-small.png"/>
+                        <set field="productContentTypeEnumId" value="PcntImageSmall"/></if>
+                    <if condition="size == 'medium'">
+                        <set field="filename" value="${productId}-medium.png"/>
+                        <set field="productContentTypeEnumId" value="PcntImageMedium"/></if></if>
+           <if condition="productCategoryId">
+                    <if condition="size == 'small'">
+                        <set field="filename" value="${productCategoryId}-small.png"/>
+                        <set field="categoryContentTypeEnumId" value="PcctImageThumbNail"/></if>
+                    <if condition="size == 'medium'">
+                        <set field="filename" value="${productCategoryId}-medium.png"/>
+                        <set field="categoryContentTypeEnumId" value="PcctImageMedium"/></if></if>
+           <if condition="accommodationAreaId">
+                    <if condition="size == 'small'">
+                        <set field="filename" value="${accommodationAreaId}-small.png"/>
+                        <set field="accommodationAreaContentTypeEnumId" value="AactImageThumbNail"/></if>
+                    <if condition="size == 'medium'">
+                        <set field="filename" value="${accommodationAreaId}-medium.png"/>
+                        <set field="accommodationAreaContentTypeEnumId" value="AactImageMedium"/></if></if>
+           <if condition="preparationAreaId">
+                    <if condition="size == 'small'">
+                        <set field="filename" value="${preparationAreaId}-small.png"/>
+                        <set field="preparationAreaContentTypeEnumId" value="PactImageThumbNail"/></if>
+                    <if condition="size == 'medium'">
+                        <set field="filename" value="${preparationAreaId}-medium.png"/>
+                        <set field="preparationAreaContentTypeEnumId" value="PactImageMedium"/></if></if>
+            <!-- delete old records and images and create new record update content location later-->
+            <if condition="partyId || companyPartyId">
+                <if condition="companyPartyId"><set field="partyId" from="companyPartyId"/></if>
+                <entity-find entity-name="mantle.party.PartyContent" list="partyContents" for-update="true">
+                    <econdition field-name="partyId"/><econdition field-name="partyContentTypeEnumId"/></entity-find>
+                <iterate entry="partyContent" list="partyContents">
+                    <entity-delete value-field="partyContent"/>
+                </iterate>
+                <service-call name="create#mantle.party.PartyContent" in-map="context" out-map="context"/></if>
+            <if condition="workEffortId">
+                <entity-find entity-name="mantle.work.effort.WorkEffortContent" list="weContents" for-update="true">
+                    <econdition field-name="workEffortId"/><econdition field-name="contentTypeEnumId"/></entity-find>
+                <iterate entry="weContent" list="weContents">
+                    <entity-delete value-field="weContent"/>
+                </iterate>
+                <service-call name="create#mantle.work.effort.WorkEffortContent" in-map="context" out-map="context"/></if>
+            <if condition="productId">
+                <entity-find entity-name="mantle.product.ProductContent" list="productContents" for-update="true">
+                    <econdition field-name="productId"/><econdition field-name="productContentTypeEnumId"/>
+                    <econdition field-name="thruDate" from="null"/></entity-find>
+                <iterate entry="productContent" list="productContents">
+                    <set field="productContent.thruDate" from="ec.user.nowTimestamp"/>
+                    <entity-update value-field="productContent"/>
+                </iterate>
+                <service-call name="create#mantle.product.ProductContent" in-map="context" out-map="context"/>
+            </if>
+            <if condition="productCategoryId">
+                <entity-find entity-name="mantle.product.category.ProductCategoryContent" list="productCategoryContents" for-update="true">
+                    <econdition field-name="productCategoryId"/><econdition field-name="categoryContentTypeEnumId"/>
+                    <econdition field-name="thruDate" from="null"/></entity-find>
+                <iterate entry="productCategoryContent" list="productCategoryContents">
+                    <set field="productCategoryContent.thruDate" from="ec.user.nowTimestamp"/>
+                    <entity-update value-field="productCategoryContent"/>
+                </iterate>
+                <service-call name="create#mantle.product.category.ProductCategoryContent" in-map="context" out-map="context"/>
+            </if>
+            <if condition="accommodationAreaId">
+                <entity-find entity-name="growerp.mobile.location.AccommodationAreaContent" list="areaContents" for-update="true">
+                    <econdition field-name="accommodationAreaId"/><econdition field-name="accommodationAreaContentTypeEnumId"/>
+                    <econdition field-name="thruDate" from="null"/></entity-find>
+                <iterate entry="areaContent" list="areaContents">
+                    <set field="areaContent.thruDate" from="ec.user.nowTimestamp"/>
+                    <entity-update value-field="areaContent"/>
+                </iterate>
+                <service-call name="create#growerp.mobile.location.AccommodationAreaContent" in-map="context" out-map="context"/>
+            </if>
+            <if condition="preparationAreaId">
+                <entity-find entity-name="growerp.mobile.location.PreparationAreaContent" list="prepContents" for-update="true">
+                    <econdition field-name="preparationAreaId"/><econdition field-name="preparationAreaContentTypeEnumId"/>
+                    <econdition field-name="thruDate" from="null"/></entity-find>
+                <iterate entry="prepContent" list="prepContents">
+                    <set field="prepContent.thruDate" from="ec.user.nowTimestamp"/>
+                    <entity-update value-field="prepContent"/>
+                </iterate>
+                <service-call name="create#growerp.mobile.location.PreparationAreaContent" in-map="context" out-map="context"/>
+            </if>
+            <!-- update content location -->
+            <set field="contentRoot" value="dbresource://growerp/${ownerPartyId}/content"/>
+            <if condition="partyId">
+                <set field="contentLocation" value="${contentRoot}/party/${partyId}/content_${partyContentId}/${filename}"/>
+                <service-call name="update#mantle.party.PartyContent"
+                    in-map="[partyContentId: partyContentId, contentLocation: contentLocation]"/></if>
+            <if condition="workEffortId">
+                <set field="contentLocation" value="${contentRoot}/workEffort/${workEffortId}/content_${workEffortContentId}/${filename}"/>
+                <service-call name="update#mantle.work.effort.WorkEffortContent"
+                    in-map="[workEffortContentId: workEffortContentId, contentLocation: contentLocation]"/></if>
+            <if condition="productId">
+                <set field="contentLocation" value="${contentRoot}/product/${productId}/content_${productContentId}/${filename}"/>
+                <service-call name="update#mantle.product.ProductContent"
+                    in-map="[productContentId: productContentId, contentLocation: contentLocation]"/></if>
+            <if condition="productCategoryId">
+                <set field="contentLocation" value="${contentRoot}/productCategory/${productCategoryId}/content_${productCategoryContentId}/${filename}"/>
+                <service-call name="update#mantle.product.category.ProductCategoryContent"
+                    in-map="[productCategoryContentId: productCategoryContentId, contentLocation: contentLocation]"/></if>
+            <if condition="accommodationAreaId">
+                <set field="contentLocation" value="${contentRoot}/accommodationArea/${accommodationAreaId}/content_${accommodationAreaContentId}/${filename}"/>
+                <service-call name="update#growerp.mobile.location.AccommodationAreaContent"
+                    in-map="[accommodationAreaContentId: accommodationAreaContentId, contentLocation: contentLocation]"/></if>
+            <if condition="preparationAreaId">
+                <set field="contentLocation" value="${contentRoot}/preparationArea/${preparationAreaId}/content_${preparationAreaContentId}/${filename}"/>
+                <service-call name="update#growerp.mobile.location.PreparationAreaContent"
+                    in-map="[preparationAreaContentId: preparationAreaContentId, contentLocation: contentLocation]"/></if>
+            <!-- save image -->
+            <script>byte[] base64Decoded = Base64.getMimeDecoder().decode(contentFile)</script>
+            <if condition="base64Decoded == null || base64Decoded.size() == 0">
+                <return error="true" message="No valid base64 decoded image file found"/></if>
+            <set field="docRr" from="ec.resource.getLocationReference(contentLocation)"/>
+            <script>
+                fileStream = new ByteArrayInputStream(base64Decoded);
+                try { docRr.putStream(fileStream) } finally { fileStream.close() }
+            </script>
+        </actions>
+    </service>
+
+    <service verb="download" noun="Image">
+        <description>
+            download an image connected to party (company or user) or product
+            providing just a size and type or when type = 'product', a productId
+            type: company , user , product
+        </description>
+        <in-parameters>
+            <parameter name="size" required="true"/>
+            <parameter name="type" required="true"/>
+            <parameter name="id" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="imageFile" default-value=""/>
+        </out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobileRestServices.get#ItemInfo" in-map="context" out-map="context"/>
+            <if condition="size != 'small' &amp;&amp; size != 'medium'">
+                <return error="true"
+                    message="imageDownload parameter error, size = ${size} valid values: small, medium"/>
+            </if>
+            <if condition="companyPartyId">
+                <if condition="size == 'small'">
+                    <set field="partyContentTypeEnumId" value="PcntLogoThumbImage"/></if>
+                <if condition="size == 'medium'">
+                    <set field="partyContentTypeEnumId" value="PcntLogoImage"/></if></if>
+            <if condition="partyId">
+                <if condition="size == 'small'">
+                    <set field="partyContentTypeEnumId" value="PcntFaceThumbImage"/></if>
+                <if condition="size == 'medium'">
+                    <set field="partyContentTypeEnumId" value="PcntFaceImage"/></if></if>
+            <if condition="workEffortId">
+                <if condition="size == 'small'">
+                    <set field="contentTypeEnumId" value="WectImageSmall"/></if>
+                <if condition="size == 'medium'">
+                    <set field="contentTypeEnumId" value="WectImageMedium"/></if></if>
+            <if condition="productId">
+                <if condition="size == 'small'">
+                    <set field="productContentTypeEnumId" value="PcntImageSmall"/></if>
+                <if condition="size == 'medium'">
+                    <set field="productContentTypeEnumId" value="PcntImageMedium"/></if>
+                <entity-find entity-name="mantle.product.ProductContent" list="productContents">
+                    <econdition field-name="productId"/><econdition field-name="productContentTypeEnumId"/>
+                        <date-filter/></entity-find>
+                <if condition="productContents &amp;&amp; productContents[0].contentLocation">
+                    <set field="contentLocation" from="productContents[0].contentLocation"/></if></if>
+            <if condition="productCategoryId">
+                <if condition="size == 'small'">
+                    <set field="categoryContentTypeEnumId" value="PcctImageThumbNail"/></if>
+                <if condition="size == 'medium'">
+                    <set field="categoryContentTypeEnumId" value="PcctImageMedium"/></if>
+                <entity-find entity-name="mantle.product.category.ProductCategoryContent" list="productCategoryContents">
+                    <econdition field-name="productCategoryId"/><econdition field-name="categoryContentTypeEnumId"/>
+                    <date-filter/></entity-find>
+                <if condition="productCategoryContents &amp;&amp; productCategoryContents[0].contentLocation">
+                    <set field="contentLocation" from="productCategoryContents[0].contentLocation"/></if></if>
+            <if condition="companyPartyId || partyId"><!-- download for company or user -->
+                <if condition="companyPartyId"><set field="partyId" from="companyPartyId"/></if>
+                <entity-find entity-name="mantle.party.PartyContent" list="parties" cache="true">
+                    <econdition field-name="partyId"/><econdition field-name="partyContentTypeEnumId"/>
+                    <order-by field-name="-contentDate"/> </entity-find>
+                <if condition="parties">
+                    <set field="contentLocation" from="parties[0].contentLocation"/></if></if>
+            <if condition="workEffortId">
+                <entity-find entity-name="mantle.work.effort.WorkEffortContent" list="workEfforts" cache="true">
+                    <econdition field-name="workEffortId"/><econdition field-name="contentTypeEnumId"/>
+                    <order-by field-name="-contentDate"/> </entity-find>
+                <if condition="workEfforts">
+                    <set field="contentLocation" from="workEfforts[0].contentLocation"/></if></if>
+            <if condition="accommodationAreaId">
+                <if condition="size == 'small'">
+                    <set field="accommodationAreaContentTypeEnumId" value="AactImageThumbNail"/></if>
+                <if condition="size == 'medium'">
+                    <set field="accommodationAreaContentTypeEnumId" value="AactImageMedium"/></if>
+                <entity-find entity-name="growerp.mobile.location.AccommodationAreaContent" list="areas">
+                    <econdition field-name="accommodationAreaId"/><econdition field-name="accommodationAreaContentTypeEnumId"/>
+                    <date-filter/></entity-find>
+                <if condition="areas &amp;&amp; areas[0].contentLocation">
+                    <set field="contentLocation" from="areas[0].contentLocation"/></if></if>
+            <if condition="preparationAreaId">
+                <if condition="size == 'small'">
+                    <set field="preparationAreaContentTypeEnumId" value="PactImageThumbNail"/></if>
+                <if condition="size == 'medium'">
+                    <set field="preparationAreaContentTypeEnumId" value="PactImageMedium"/></if>
+                <entity-find entity-name="growerp.mobile.location.PreparationAreaContent" list="preps">
+                    <econdition field-name="preparationAreaId"/><econdition field-name="preparationAreaContentTypeEnumId"/>
+                    <date-filter/></entity-find>
+                <if condition="preps &amp;&amp; preps[0].contentLocation">
+                    <set field="contentLocation" from="preps[0].contentLocation"/></if></if>
+            <if condition="contentLocation">
+                <set field="resourceReference" from="ec.resource.getLocationReference(contentLocation)"/>
+                <if condition="!resourceReference == null || !resourceReference.getExists()">
+                    <log level="error" message="Could not find resource at [${contentLocation}]!!!!!!!!!!!!!!!! should always be there!!!!!!"/>
+                    <set field="imageFile" value="~/assets/images/addImage.png"/><!-- service should with local image.. -->
+                <else>
+                    <set field="inputStream" from="resourceReference.openStream()"/>
+                    <set field="docBytes" from="org.apache.commons.io.IOUtils.toByteArray(inputStream)"/>
+                    <set field="imageFile" from="'data:image/png;base64,' + org.apache.commons.codec.binary.Base64.encodeBase64String(docBytes)"/>
+                    </else></if>
+            <else>
+                <set field="imageFile" value="~/assets/images/addImage.png"/><!-- service should with local image.. -->
+                </else></if>
+        </actions>
+    </service>
+
+    <service verb="check" noun="Username">
+        <description>
+            check if username already used
+        </description>
+        <in-parameters>
+            <parameter name="username" required="true"/>
+        </in-parameters>
+        <actions>
+            <entity-find entity-name="moqui.security.UserAccount" list="existingUaList">
+                <econdition field-name="username"/></entity-find>
+            <if condition="existingUaList">
+                <return error="true"
+                    message="Username [${username}] is already in use. Please choose another."/></if>
+        </actions>
+    </service>
+
+    <service verb="check" noun="Email">
+        <description>
+            check if email already used
+        </description>
+        <in-parameters>
+            <parameter name="email" required="true"/>
+        </in-parameters>
+        <actions>
+            <entity-find entity-name="moqui.security.UserAccount" list="existingUaList">
+                <econdition field-name="emailAddress"/></entity-find>
+            <if condition="existingUaList">
+                <return error="true"
+                    message="Email ${emailAddress} is already in use. Login with username ${existingUaList[0].username}"/></if>
+        </actions>
+    </service>
+<!-- =================================Accommodation Area ======================================-->
+    <service verb="get" noun="AccommodationAreaList">
+        <description>Get all the (table) areas of the company</description>
+        <in-parameters><parameter name="image" type="Boolean" default-value="true"/> </in-parameters>
+        <out-parameters><parameter name="accommodationAreas" type="List"><parameter name="accommodationAreaInfo" type="Map"/></parameter></out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context"/>
+            <entity-find entity-name="growerp.mobile.location.AccommodationArea"  list="areas">
+                <econdition field-name="ownerPartyId"/><date-filter/></entity-find>
+            <set field="accommodationAreas" from="[]"/>
+            <iterate entry="area" list="areas">
+                <set field="imageFile" value=""/>
+                <if condition="image">
+                    <service-call name="growerp.mobile.MobileRestServices.download#Image"
+                        in-map="[size: 'small', type: 'area', id: area.accommodationAreaId]" out-map="context"/></if>
+                <entity-find-count count-field="nbrOfSpots" entity-name="AccommodationSpot">
+                    <date-filter/><econdition field-name="accommodationAreaId"  from="area.accommodationAreaId"/>
+                    </entity-find-count>
+                <set field="accommodationArea" from="[
+                        accommodationAreaId: area.accommodationAreaId,
+                        description: area.description,
+                        nbrOfSpots: nbrOfSpots,
+                        image: imageFile? imageFile : '~/assets/images/addImage.png',
+                    ]"/>
+                <script>accommodationAreas.add(accommodationArea)</script></iterate></actions></service>
+    <service verb="get" noun="AccommodationArea">
+        <description>Get a single area</description>
+        <in-parameters><parameter name="accommodationAreaId"></parameter></in-parameters>
+        <out-parameters><parameter name="accommodationArea" type="Map"/></out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context"/>
+            <entity-find-one entity-name="growerp.mobile.location.AccommodationArea"  value-field="area">
+                <field-map field-name="ownerPartyId"/><field-map field-name="accommodationAreaId"/></entity-find-one>
+            <entity-find-count count-field="nbrOfSpots" entity-name="AccommodationSpot">
+                <date-filter/><econdition field-name="accommodationAreaId"/></entity-find-count>
+            <set field="accommodationArea" from="[
+                    accommodationAreaId: area.accommodationAreaId,
+                    description: area.description,
+                    nbrOfSpots: nbrOfSpots
+                    ]"/></actions></service>
+<!-- =========================================Preparation Area ========================================-->
+    <service verb="get" noun="PreparationAreaList">
+        <description>Get all the Preparation areas of the company</description>
+        <in-parameters><parameter name="image" type="Boolean" default-value="true"/> </in-parameters>
+        <out-parameters><parameter name="preparationAreas" type="List"><parameter name="preparationAreaInfo" type="Map"/></parameter></out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context"/>
+            <entity-find entity-name="growerp.mobile.location.PreparationArea"  list="preps">
+                <econdition field-name="ownerPartyId"/><date-filter/>
+                <order-by field-name="description"/> </entity-find>
+           <set field="preparationAreas" from="[]"/>
+           <iterate entry="prep" list="preps">
+                <set field="imageFile" value=""/>
+                <if condition="image">
+                    <service-call name="growerp.mobile.MobileRestServices.download#Image"
+                        in-map="[size: 'small', type: 'prep', id: prep.preparationAreaId]" out-map="context"/></if>
+                <set field="preparationArea" from="[
+                        preparationAreaId: prep.preparationAreaId,
+                        description: prep.description,
+                        image: imageFile? imageFile : '~/assets/images/addImage.png']"/>
+                <script>preparationAreas.add(preparationArea)</script></iterate></actions></service>
+    <service verb="get" noun="PreparationArea">
+        <description>Get a specific Preparation area</description>
+        <in-parameters><parameter name="preparationAreaId"/></in-parameters>
+        <out-parameters><parameter name="preparationArea" type="Map"/></out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context"/>
+            <entity-find-one entity-name="growerp.mobile.location.PreparationArea"  value-field="area">
+                <field-map field-name="preparationAreaId"/><field-map field-name="ownerPartyId"/></entity-find-one>
+         <set field="preparationArea" from="[
+                preparationAreaId: area.preparationAreaId,
+                description: area.description
+                ]"/>
+         </actions></service>
+    <service verb="move" noun="PreparationAreaCategory">
+        <description>move a category to another preparation area</description>
+        <in-parameters><parameter name="preparationAreaId"/><parameter name="newPreparationAreaId"/>
+            <parameter name="productCategoryId"/></in-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context"/>
+            <entity-find-one value-field="category" entity-name="ProductCategory" for-update="true">
+                <field-map field-name="productCategoryId"/><field-map field-name="preparationAreaId"/>
+                <field-map field-name="ownerPartyId"/>
+            </entity-find-one>
+            <if condition="category">
+                <set field="category.preparationAreaId" from="newPreparationAreaId"/>
+                <entity-update value-field="category"/></if></actions></service>
+
+    <!-- ============= Category & Product =====================-->
+    <service verb="get" noun="Product">
+        <description> Get a Product with a price</description>
+        <in-parameters><parameter name="productId"/></in-parameters>
+        <out-parameters><parameter name="product"></parameter></out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#Company" out-map="context"/>
+            <set field="ownerPartyId" from="company.partyId"/>
+            <entity-find entity-name="growerp.mobile.product.ProductAndPriceAndProductCategory" list="productList">
+                <econdition field-name="ownerPartyId"/><econdition field-name="productId"/></entity-find>
+            <set field="product" from="[
+                productId: productList[0].productId,
+                name: productList[0].productName,
+                price: productList[0].price,
+                productCategoryId: productList[0].productCategoryId,
+                categoryName: productList[0].categoryName]"/>
+        </actions></service>
+
+    <service verb="get" noun="ProductList">
+        <description> Get all products within a company</description>
+        <in-parameters><parameter name="productCategoryId"/></in-parameters>
+        <out-parameters><parameter name="products"/></out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#Company" out-map="context"/>
+            <set field="ownerPartyId" from="company.partyId"/>
+            <entity-find entity-name="growerp.mobile.product.ProductAndPriceAndProductCategory" list="productList">
+                <econdition field-name="ownerPartyId"/><econdition field-name="productCategoryId" ignore-if-empty="true"/>
+                <order-by field-name="productName"/></entity-find>
+            <set field="products" from="[]"/>
+            <iterate entry="product" list="productList">
+                <service-call name="growerp.mobile.MobileRestServices.download#Image"
+                    in-map="[size: 'small', type: 'product', id: product.productId]" out-map="context"/>
+                <set field="productOut" from="[
+                    productId: product.productId,
+                    name: product.productName,
+                    price: product.price,
+                    productCategoryId: product.productCategoryId,
+                    categoryName: product.categoryName,
+                    image: imageFile? imageFile : '~/assets/images/addImage.png']"/>
+                <script>products.add(productOut)</script>
+            </iterate>
+        </actions></service>
+
+    <service verb="get" noun="ProductCategoryList">
+        <description> Get all categories within a company</description>
+        <in-parameters><parameter name="preparationAreaId"/> </in-parameters>
+        <out-parameters><parameter name="categories"/></out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context"/>
+            <entity-find entity-name="growerp.mobile.party.category.ProductCategoryParentsAndChild" list="categoryList">
+                <econdition field-name="ownerPartyId"/>
+                <econdition field-name="preparationAreaId" ignore-if-empty="true"/>
+                <date-filter/>
+                <order-by field-name="categoryName"/></entity-find>
+            <set field="categories" from="[]"/>
+            <iterate entry="category" list="categoryList">
+                <service-call name="growerp.mobile.MobileRestServices.download#Image"
+                    in-map="[size: 'small', type: 'category', id: category.productCategoryId]" out-map="context"/>
+                <entity-find-count count-field="nbrOfProducts" entity-name="mantle.product.category.ProductCategoryMemberProduct">
+                    <econdition field-name="productCategoryId" from="category.productCategoryId"/>
+                    <econditions combine="or">
+                        <econdition field-name="salesDiscontinuationDate" from="null"/>
+                        <econdition field-name="salesDiscontinuationDate" operator="greater" from="ec.user.nowTimestamp"/>
+                    </econditions>
+                    <date-filter/></entity-find-count>
+                <set field="catOut" from="[
+                    productCategoryId: category.productCategoryId,
+                    categoryName: category.categoryName,
+                    nbrOfProducts: nbrOfProducts,
+                    image: imageFile? imageFile : '~/assets/images/addImage.png']"/>
+                <script>categories.add(catOut)</script>
+            </iterate>
+        </actions></service>
+
+    <service verb="get" noun="ProductCategory">
+        <description> get a ProductCategory info </description>
+        <in-parameters><parameter name="productCategoryId"/></in-parameters>
+        <out-parameters><parameter name="productCategory"/> </out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#Company" out-map="context"/>
+            <set field="ownerPartyId" from="company.partyId"/>
+            <entity-find entity-name="growerp.mobile.product.ProductAndPriceAndProductCategory" list="productList">
+                <econdition field-name="ownerPartyId"/><econdition field-name="productCategoryId"/>
+                <order-by field-name="productName"/></entity-find>
+            <set field="products" from="[]"/>
+            <iterate entry="product" list="productList">
+                <service-call name="growerp.mobile.MobileRestServices.download#Image"
+                    in-map="[size: 'small', type: 'product', id: product.productId]" out-map="context"/>
+                <set field="productOut" from="[
+                    productId: product.productId,
+                    name: product.productName,
+                    price: product.price,
+                    image: imageFile? imageFile : '~/assets/images/addImage.png']"/>
+                <script>products.add(productOut)</script>
+            </iterate>
+            <set field="productCategory" from="[
+                    productCategoryId: productList[0].productCategoryId,
+                    categoryName: productList[0].categoryName,
+                    products: products]"/>
+        </actions></service>
+
+    <service verb="report" noun="Sales">
+        <in-parameters>
+            <parameter name="period" default="Day"/>
+            <parameter name="periodNbr"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="periods"/>
+            <parameter name="fromDate"/>
+            <parameter name="thruDate"/>
+        </out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#Company" out-map="context"/>
+            <set field="nowZdt" from="java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).plusDays(1)"/>
+            <set field="procPeriods" from="[]"/>
+            <set field="count" value="0" type="Long"/>
+            <if condition="period == 'Day'">
+                <set field="periodNbr" default-value="7" type="Long"/>
+                <set field="periodStart" from="nowZdt.minusDays(periodNbr)"/>
+                <while condition="count &lt; periodNbr">
+                    <set field="procPeriod" from="[
+                        start: java.sql.Timestamp.from(periodStart.plusDays(count).toInstant()),
+                        end: java.sql.Timestamp.from(periodStart.plusDays((count++)+1).toInstant())]"/>
+                    <script>procPeriods.add(procPeriod)</script>
+                </while>
+            <else-if condition="period == 'Week'">
+                <set field="periodNbr" default-value="6" type="Long"/>
+                <set field="periodStart" from="nowZdt.minusWeeks(periodNbr)"/>
+                <while condition="count &lt; periodNbr">
+                    <set field="procPeriod" from="[
+                        start: java.sql.Timestamp.from(periodStart.plusWeeks(count).toInstant()),
+                        end: java.sql.Timestamp.from(periodStart.plusWeeks((count++)+1).toInstant())]"/>
+                    <script>procPeriods.add(procPeriod)</script>
+                </while></else-if>
+            <else-if condition="period == 'Month'">
+                <set field="periodNbr" default-value="12" type="Long"/>
+                <set field="periodStart" from="nowZdt.minusMonths(periodNbr).withDayOfMonth(1).plusMonths(1)"/>
+                <while condition="count &lt; periodNbr">
+                    <set field="procPeriod" from="[
+                        start: java.sql.Timestamp.from(periodStart.plusMonths(count).toInstant()),
+                        end: java.sql.Timestamp.from(periodStart.plusMonths((count++)+1).toInstant())]"/>
+                    <script>procPeriods.add(procPeriod)</script>
+                </while></else-if>
+            <else><log level="error" message="Invalid period...." /></else></if>
+            <log message="====procperiods: ${procPeriods}"/>
+            <set field="periods" from="[]"/>
+            <iterate entry="procPeriod" list="procPeriods">
+                <entity-find entity-name="mantle.order.OrderHeaderAndPart" list="orders">
+                    <econdition field-name="placedDate" operator="greater-equals" from="procPeriod.start"/>
+                    <econdition field-name="placedDate" operator="less-equals" from="procPeriod.end"/>
+                    <econdition field-name="vendorPartyId" from="company.partyId"/>
+                    <order-by field-name="orderId" />
+                </entity-find>
+                <set field="periodTotal" value="0" type="BigDecimal"/>
+                <set field="orderCount" value="0" type="Integer"/>
+                <set field="lastOrderid" value=""/>
+                <iterate entry="order" list="orders">
+                    <if condition="!lastOrderId || order.orderId != lastOrderId">
+                        <set field="orderCount" from="orderCount + 1"/>
+                        <set field="periodTotal" from="periodTotal + order.grandTotal"/>
+                    </if>
+                    <set field="lastOrderId" from="order.orderId"/>
+                </iterate>
+                <set field="periodOut" from="[timeStamp: procPeriod.start,
+                                              period: ec.l10n.format(procPeriod.start,'dd-MM-yyyy'),
+                                              amount: periodTotal, orderCount: orderCount]"/>
+                <script>periods.add(periodOut)</script>
+            </iterate>
+            <if condition="procPeriods">
+                <set field="fromDate" from="ec.l10n.format(procPeriods[0].start,'dd/MM/yyyy')"/>
+                <set field="thruDate" from="ec.l10n.format(procPeriods[procPeriods.size()-1].end,'dd/MM/yyyy')"/>
+            </if>
+            <log message="=== output report sales: fromDate / thruDate: ${fromDate} / ${thruDate} periods: ${periods.size()}"/>
+        </actions>
+    </service>
+
+    <service verb="get" noun="CurrencyList">
+        <description>
+            Get currency list for registration.
+        </description>
+        <out-parameters>
+            <parameter name="currencyList" type="List"><parameter name="currencyInfo" type="Map"/></parameter>
+        </out-parameters>
+        <actions>
+            <entity-find entity-name="moqui.basic.Uom" list="allCurrencyList">
+                <econdition field-name="uomTypeEnumId" value="UT_CURRENCY_MEASURE"/><order-by field-name="description"/>
+            </entity-find>
+            <set field="currencyList" from="[]"/>
+            <iterate entry="currencyCtx" list="allCurrencyList">
+                <set field="currencyInfo" from="[:]"></set>
+                <set field="currencyInfo.value" from="currencyCtx.uomId"/>
+                <set field="currencyInfo.display" value="${currencyCtx.description} [${currencyCtx.abbreviation}]"/>
+                <script>currencyList.add(currencyInfo)</script>
+            </iterate>
+        </actions>
+    </service>
+</services>

@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domaicrn Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+
+    <service verb="upload" noun="Image">
+        <in-parameters>
+            <parameter name="type" required="true"/>
+            <parameter name="id" required="true"/>
+            <parameter name="file" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <actions>
+            <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
+            <set field="pagePath" value="/${type}/${id}/"/>
+            <set field="contentLocation" value="dbresource://C${ownerPartyId}/images${pagePath}"/>
+            <set field="attachmentReferenceLarge" from="ec.resource.getLocationReference(contentLocation + 'large')"/>
+            <set field="attachmentReferenceMedium" from="ec.resource.getLocationReference(contentLocation + 'medium')"/>
+            <set field="attachmentReferenceSmall" from="ec.resource.getLocationReference(contentLocation + 'small')"/>
+            <script><![CDATA[
+                import static java.awt.RenderingHints.*
+                import java.awt.image.BufferedImage
+                import javax.imageio.ImageIO
+
+                // store uploaded image to large
+                org.moqui.context.ExecutionContext ec = context.ec
+                org.apache.commons.fileupload.FileItem attachmentFile = context.file
+                InputStream fileStream = attachmentFile.getInputStream()
+                attachmentReferenceLarge.putStream(fileStream)
+                fileStream.close()
+
+                //convert large image to medium
+                fileStreamLarge = attachmentReferenceLarge.openStream()
+                BufferedImage img = ImageIO.read(fileStreamLarge);
+                def scale = 0.5
+                int newWidth = img.width * scale
+                int newHeight = img.height * scale
+                ByteArrayOutputStream os = new ByteArrayOutputStream();
+                new BufferedImage( newWidth, newHeight, img.type ).with { i ->
+                    createGraphics().with {
+                        setRenderingHint( KEY_INTERPOLATION, VALUE_INTERPOLATION_BICUBIC )
+                        drawImage( img, 0, 0, newWidth, newHeight, null )
+                        dispose()
+                    }
+                    ImageIO.write( i, 'png', os )
+                }
+                InputStream is = new ByteArrayInputStream(os.toByteArray());
+                attachmentReferenceMedium.putStream(is)
+                is.close()
+                fileStreamLarge.close()
+                
+                //convert large image to small
+                fileStreamLarge = attachmentReferenceLarge.openStream()
+                img = ImageIO.read(fileStreamLarge);
+                scale = 0.1
+                newWidth = img.width * scale
+                newHeight = img.height * scale
+                os = new ByteArrayOutputStream();
+                new BufferedImage( newWidth, newHeight, img.type ).with { i ->
+                    createGraphics().with {
+                        setRenderingHint( KEY_INTERPOLATION, VALUE_INTERPOLATION_BICUBIC )
+                        drawImage( img, 0, 0, newWidth, newHeight, null )
+                        dispose()
+                    }
+                    ImageIO.write( i, 'png', os )
+                }
+                is = new ByteArrayInputStream(os.toByteArray());
+                attachmentReferenceSmall.putStream(is)
+                is.close()
+                fileStreamLarge.close()
+                ]]></script>
+                <if condition="type == 'user'  || type == 'company">
+                    <service-call name="create#mantle.party.PartyContent" in-map="[
+                        partyId: id, partyContentTypeEnumId: 'PcntImageSmall',
+                        contentLocation: contentLocationSmall]" />
+                    <service-call name="create#mantle.party.PartyContent" in-map="[
+                        partyId: id, partyContentTypeEnumId: 'PcntImageMedium',
+                        contentLocation: contentLocationMedium]" />
+                    <service-call name="create#mantle.party.PartyContent" in-map="[
+                        partyId: id, partyContentTypeEnumId: 'PcntImageLarge',
+                        contentLocation: contentLocationLarge]" />
+                </if>
+                <if condition="type == 'product'">
+                    <service-call name="create#mantle.product.ProductContent" in-map="[
+                        productId: id, productContentTypeEnumId: 'PcntImageSmall',
+                        contentLocation: contentLocationSmall]" />
+                    <service-call name="create#mantle.product.ProductContent" in-map="[
+                        productId: id, productContentTypeEnumId: 'PcntImageMedium',
+                        contentLocation: contentLocationMedium]" />
+                    <service-call name="create#mantle.product.ProductContent" in-map="[
+                        productId: id, productContentTypeEnumId: 'PcntImageLarge',
+                        contentLocation: contentLocationLarge]" />
+                </if>
+                <if condition="type == category">
+                    <service-call name="create#mantle.product.category.ProductCategoryContent" in-map="[
+                        productCategoryId: id, categoryContentTypeEnumId: 'PcctImageThumbNail',
+                        contentLocation: contentLocationSmall]" />
+                    <service-call name="create#mantle.product.category.ProductCategoryContent" in-map="[
+                        productCategoryId: id, categoryContentTypeEnumId: 'PcctImageMedium',
+                        contentLocation: contentLocationMedium]" />
+                    <service-call name="create#mantle.product.category.ProductCategoryContent" in-map="[
+                        productCategoryId: id, categoryContentTypeEnumId: 'PcctImageLarge',
+                        contentLocation: contentLocationLarge]" />
+                </if>
+                <if condition="type == area">
+                    <service-call name="create#growerp.mobile.location.AccommodationAreaContent" in-map="[
+                        accommodationAreaId: id, accommodationAreaContentTypeEnumId: 'AactImageThumbNail',
+                        contentLocation: contentLocationSmall]" />
+                    <service-call name="create#growerp.mobile.location.AccommodationAreaContent" in-map="[
+                        accommodationAreaId: id, accommodationAreaContentTypeEnumId: 'AactImageMedium',
+                        contentLocation: contentLocationMedium]" />
+                    <service-call name="create#growerp.mobile.location.AccommodationAreaContent" in-map="[
+                        accommodationAreaId: id, accommodationAreaContentTypeEnumId: 'AactImageLarge',
+                        contentLocation: contentLocationLarge]" />
+                    </if>
+                <log message="Uploaded ${contentLocation}"/>
+            </actions>
+    </service>
+
+    <service verb="download" noun="Image">
+        <description>
+            download an image from the content store
+        </description>
+        <in-parameters>
+            <parameter name="contentLocation" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="imageFile" default-value=""/>
+        </out-parameters>
+        <actions>
+            <set field="resourceReference" from="ec.resource.getLocationReference(contentLocation)"/>
+            <if condition="!resourceReference || !resourceReference.getExists()">
+                <log level="info" message="Could not find resource at [${contentLocation}]"/>
+            <else>
+                <set field="inputStream" from="resourceReference.openStream()"/>
+                <set field="docBytes" from="org.apache.commons.io.IOUtils.toByteArray(inputStream)"/>
+                <set field="imageFile" from="org.apache.commons.codec.binary.Base64.encodeBase64String(docBytes)"/>
+                <log message="Downloaded ${contentLocation} size: ${imageFile?.length()}"/>
+                </else>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="update" noun="Image">
+        <description>
+            update an image send as base64 as part of a model update =====experimental!======
+        </description>
+        <in-parameters>
+            <parameter name="contentLocation" required="true"/>
+            <parameter name="imageFile"/>
+        </in-parameters>
+        <actions>
+            <script>byte[] base64Decoded = Base64.getMimeDecoder().decode(imageFile)</script>
+            <if condition="base64Decoded == null || base64Decoded.size() == 0">
+                <return error="true" message="No valid base64 decoded image file found"/></if>
+            <set field="resourceReference" from="ec.resource.getLocationReference(contentLocation)"/>
+            <if condition="!resourceReference || !resourceReference.getExists()">
+                <log level="info" message="Could not find resource at [${contentLocation}]"/>
+            <else>
+                <script>
+                    fileStream = new ByteArrayInputStream(base64Decoded);
+                    try { resourceReference.putStream(fileStream) } finally { fileStream.close() }
+                </script>
+                </else>
+            </if>
+
+
+            <!--script>byte[] base64Decoded = Base64.getMimeDecoder().decode(contentFile)</script>
+            <if condition="base64Decoded == null || base64Decoded.size() == 0">
+                <return error="true" message="No valid base64 decoded image file found"/></if>
+            <set field="docRr" from="ec.resource.getLocationReference(contentLocation)"/>
+            <script>
+                fileStream = new ByteArrayInputStream(base64Decoded);
+                try { docRr.putStream(fileStream) } finally { fileStream.close() }
+            </script-->
+
+        </actions>
+    </service>
+
+</services>

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Find FAQ" default-menu-index="3">
+        
+
+    <transition name="findFAQ"><default-response url="."/></transition>
+    <transition name="editFAQ"><default-response url="../EditFAQ"/></transition>
+    <transition name="createFAQ"><service-call name="mantle.request.RequestServices.create#Request"/>
+        <default-response url="."/></transition>
+    <actions>
+        <set field="partyId" from="partyId ?: findPartyId"/>
+    </actions>
+    <widgets>
+        <container-dialog id="NewRequestContainer" button-text="New FAQ`">
+            <form-single name="NewRequestForm" transition="createFAQ">
+                <field name="statusId"><default-field><hidden default-value="ReqInProgress"/></default-field></field>
+                <field name="requestTypeEnumId"><default-field><hidden default-value="RqtFAQ"/></default-field></field>
+
+                <field name="requestName"><default-field title="Name"><text-line size="60"/></default-field></field>
+                <field name="description"><default-field title="Description"><text-area rows="10"/></default-field></field>
+
+                <field name="submitButton"><default-field title="Create"><submit/></default-field></field>
+            </form-single>
+        </container-dialog>
+
+        <form-list name="ListRequests" list="requestList" skip-form="true" header-dialog="true">
+            <entity-find entity-name="mantle.request.Request" list="requestList">
+                <search-form-inputs default-order-by="requestName">
+                    <default-parameters statusId="ReqInProgress,ReqCompleted" statusId_op="in"/></search-form-inputs>
+                <econdition field-name="requestTypeEnumId" value="RqtFAQ"/>
+            </entity-find>
+            <field name="requestId">
+                <header-field title="ID"><text-find size="10" hide-options="true"/></header-field>
+                <default-field><link url="editFAQ" text="${requestId}" link-type="anchor"/></default-field>
+            </field>
+            <field name="requestName">
+                <header-field title="Name" show-order-by="true"><text-find size="30"/></header-field>
+                <default-field><link url="editFAQ" text="${requestName}" link-type="anchor"/></default-field>
+            </field>
+            <field name="description">
+                <header-field title="Description" show-order-by="false"><text-find size="30"/></header-field>
+                <default-field><link url="editFAQ" text="${requestName}" link-type="anchor"/></default-field>
+            </field>
+            <field name="statusId">
+                <header-field title="Status" show-order-by="true">
+                    <widget-template-include location="component://webroot/template/screen/BasicWidgetTemplates.xml#statusDropDown">
+                        <set field="statusTypeId" value="Request"/><set field="allowEmpty" value="true"/>
+                        <set field="allowMultiple" value="true"/></widget-template-include>
+                </header-field>
+                <default-field><display-entity entity-name="moqui.basic.StatusItem"/></default-field>
+            </field>
+            <field name="requestDate">
+                <header-field title="FAQ Date" show-order-by="true"><date-period allow-empty="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+            <field name="submitButton"><header-field title="Find"><submit/></header-field></field>
+
+            <form-list-column><field-ref name="requestDate"/><field-ref name="statusId"/></form-list-column>
+            <form-list-column><field-ref name="requestName"/><field-ref name="requestId"/></form-list-column>
+            <form-list-column><field-ref name="description"/></form-list-column>
+        </form-list>
+    </widgets>
+</screen>

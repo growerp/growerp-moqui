@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domaicrn Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+
+<!-- category related-->
+    <service verb="get" noun="CategoriesAndProducts">
+        <description>
+            Get table data for data entry product categories and products
+        </description>
+        <in-parameters>
+            <parameter name="companyPartyId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="categories" type="List"/>
+            <parameter name="products" type="List"/>
+        </out-parameters>
+        <actions>
+            <set field="ownerPartyId" from="companyPartyId"/>
+            <!-- categories -->
+            <entity-find entity-name="mantle.product.category.ProductCategory" list="rootList">
+                <econdition field-name="ownerPartyId"/>
+                <econdition field-name="productCategoryTypeEnumId" value="PctRoot"/></entity-find>
+            <if condition="rootList">
+                <set field="parentProductCategoryId" from="rootList[0].productCategoryId"/>
+            <else><return error="true" message="Category root not found for company: ${ownerPartyId}"/></else></if>
+            <entity-find entity-name="growerp.mobile.party.category.ProductCategoryParentsAndChild" list="groups">
+                <date-filter/>
+                <econdition field-name="ownerPartyId"/>
+                <econdition field-name="parentProductCategoryId"/>
+                <econdition field-name="productCategoryId" ignore-if-empty="true"/></entity-find>
+            <set field="categories" from="[]"/>
+            <iterate entry="group" list="groups">
+                <entity-find entity-name="mantle.product.category.ProductCategoryContent" list="contents">
+                    <econdition field-name="productCategoryId" from="group.productCategoryId"/>
+                    <econdition field-name="categoryContentTypeEnumId" value="PcctImageThumbNail" />
+                </entity-find>
+                <if condition="contents">
+                    <service-call name="growerp.100.ImageServices100.download#Image"
+                        in-map="[contentLocation: contents[0].contentLocation]" out-map="context"/></if>
+                <entity-find-count entity-name="growerp.mobile.product.ProductAndPriceAndProductCategory" count-field="nbrOfProducts">
+                    <econdition field-name="ownerPartyId"/>
+                    <econdition field-name="productCategoryId" from="group.productCategoryId"/></entity-find-count>
+                <set field="groupOut" from="[
+                    productCategoryId: group.productCategoryId,
+                    categoryName: group.categoryName,
+                    preparationAreaId: group.preparationAreaId,
+                    description: group.description,
+                    image: imageFile,
+                    nbrOfProducts: nbrOfProducts
+                    ]"/>
+                <script>categories.add(groupOut)</script>
+            </iterate>
+            <script>categories.sort{a, b -> a.categoryName.compareToIgnoreCase(b.categoryName) } </script>
+
+            <!-- products -->
+            <entity-find entity-name="growerp.mobile.product.ProductAndPriceAndProductCategory" list="productList">
+                <econdition field-name="ownerPartyId"/><econdition field-name="productCategoryId" ignore-if-empty="true"/>
+            </entity-find>
+            <set field="products" from="[]"/>
+            <iterate entry="product" list="productList">
+                <entity-find entity-name="mantle.product.ProductContent" list="contents">
+                    <econdition field-name="productId" from="product.productId"/>
+                    <econdition field-name="productContentTypeEnumId" value="PcntImageSmall" />
+                </entity-find>
+                <if condition="contents">
+                    <service-call name="growerp.100.ImageServices100.download#Image"
+                        in-map="[contentLocation: contents[0].contentLocation]" out-map="context"/></if>
+                <set field="productOut" from="[
+                    productId: product.productId,
+                    name: product.productName,
+                    name: product.productName,
+                    description: product.description,
+                    price: product.price.toString(),
+                    currencyId: product.priceUomId,
+                    productCategoryId: product.productCategoryId,
+                    categoryName: product.categoryName,
+                    image: imageFile? imageFile : null]"/>
+                <script>products.add(productOut)</script>
+            </iterate>
+            <script>products.sort{a, b -> a.name.compareToIgnoreCase(b.name) } </script>
+        </actions>
+    </service>
+    <service verb="create" noun="ProductCategory">
+        <description> Create a category to group products by drinks , salads, deserts etc</description>
+        <in-parameters><parameter name="categoryName" required="true"/>
+            <parameter name="preparationAreaId"/></in-parameters>
+        <out-parameters><parameter name="productCategoryId"/></out-parameters>
+        <actions>
+            <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
+            <entity-find entity-name="mantle.product.category.ProductCategory" list="rootList">
+                <econdition field-name="productCategoryTypeEnumId" value="PctRoot"/>
+                <econdition field-name="ownerPartyId"/></entity-find>
+            <if condition="rootList">
+                <set field="rootProductCategoryId" from="rootList[0].productCategoryId"/>
+            <else>
+                <return error="true" message="Root category could not be found for compant: ${ownerPartyId}"/></else></if>
+            <service-call name="create#mantle.product.category.ProductCategory" in-map="context" out-map="context"/>
+            <service-call name="create#mantle.product.category.ProductCategoryRollup"
+                    in-map="[description: description, parentProductCategoryId: rootProductCategoryId,
+                    productCategoryId: productCategoryId]"/>
+        </actions></service>
+
+</services>

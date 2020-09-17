@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any 
+warranty.
+
+You should have received a copy of the CC0 Public Domaicrn Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+
+    <service verb="check" noun="ApiKey">
+        <out-parameters><parameter name="ok"/></out-parameters>
+        <actions><set field="ok" value="ok"/></actions>
+    </service>
+
+    <service verb="get" noun="CurrencyList" authenticate="anonymous-all">
+        <description>
+            Get currency list for registration.
+        </description>
+        <out-parameters>
+            <parameter name="currencyList" type="List"/>
+        </out-parameters>
+        <actions>
+            <entity-find entity-name="moqui.basic.Uom" list="allCurrencyList">
+                <econdition field-name="uomTypeEnumId" value="UT_CURRENCY_MEASURE"/><order-by field-name="description"/>
+            </entity-find>
+            <set field="currencyList" from="[]"/>
+            <iterate entry="currency" list="allCurrencyList">
+                <script>currencyList.add("${currency.description} [${currency.abbreviation}]")</script>
+            </iterate>
+        </actions>
+    </service>
+
+    <service verb="login" noun="User" authenticate="anonymous-all"><description>service to return and apikey if user/password ok, when not check for a reset password</description>
+        <in-parameters>
+            <parameter name="username" required="true"/>
+            <parameter name="password" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="apiKey"/>
+            <parameter name="moquiSessionToken"/>
+            <parameter name="user" type="Map"/>
+            <parameter name="company" type="Map"/>
+            <parameter name="passwordChange" default="false"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.security.UserAccount" 
+                    value-field="userAccount" cache="false">
+                <field-map field-name="username"/></entity-find-one>
+            <set field="oldPassword" from="password"/>
+            <if condition="!userAccount"><return error="true" 
+                    message="cannot find username: ${username}" public="true"/></if>
+            <script>
+                def token = new org.apache.shiro.authc.UsernamePasswordToken(
+                    (String) userAccount.username, (String) oldPassword)
+                def info = new org.apache.shiro.authc.SimpleAuthenticationInfo(
+                    userAccount.username, userAccount.currentPassword,
+                    userAccount.passwordSalt ? new org.apache.shiro.util.SimpleByteSource(
+                        (String) userAccount.passwordSalt) : null, "moquiRealm")
+            </script>
+            <if condition="!userAccount.currentPassword || 
+                    !ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType, 
+                    'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
+                <if condition="userAccount.resetPassword">
+                    <!-- try the resetPassword -->
+                    <script>
+                        info = new org.apache.shiro.authc.SimpleAuthenticationInfo(
+                            userAccount.username, userAccount.resetPassword,
+                            userAccount.passwordSalt 
+                                ? new org.apache.shiro.util.SimpleByteSource(
+                                        (String) userAccount.passwordSalt) 
+                                : null, "moquiRealm")
+                    </script>
+                    <if condition="ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType,
+                         'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
+                        <set field="passwordChange" value="true"/>
+                    </if>
+                </if>
+            </if>
+            <if condition="!passwordChange">
+                <script>ec.user.loginUser(username, password)</script>
+                <service-call name="growerp.100.PartyServices100.get#User"
+                    in-map="[partyId: userAccount.partyId]" out-map="context"/>
+                <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
+                    out-map="context"/>
+                <if condition="partyId">
+                    <service-call name="growerp.100.PartyServices100.get#Company"
+                        in-map="[companyPartyId: ownerPartyId]" out-map="context"/></if>
+                <set field="apiKey" from="ec.user.getLoginKey()"/>
+                <set field="moquiSessionToken" from="ec.web.sessionToken"/>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="reset" noun="Password" authenticate="anonymous-all">
+        <in-parameters>
+            <parameter name="username"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="response"/>
+        </out-parameters>
+        <actions>
+            <service-call name="org.moqui.impl.UserServices.reset#Password"
+                in-map="[username: username]" out-map="response"/>
+        </actions>
+    </service>
+
+     <service verb="update" noun="Password"><description>Change the password of an account and re-enable also used with reset password logged off</description>
+        <in-parameters>
+            <parameter name="username" required="true"/>
+            <parameter name="newPassword" required="true"/>
+            <parameter name="oldPassword" default-value="dummy"/>
+        </in-parameters>
+        <actions>
+            <if condition="ec.user.userAccount"><!-- only possible with a loggedin user -->
+                <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
+                    out-map="context"/>
+                <!-- make sure that username is only searched for in the logged in user own company -->
+                <entity-find entity-name="growerp.mobile.CompanyPersonAndLogin" list="accounts">
+                    <econdition field-name="username"/>
+                    <econdition field-name="toPartyId" from="ownerPartyId"/></entity-find>
+                <if condition="!accounts"><return error="true"
+                    message="cannot find username: ${username}" public="true"/></if>
+            </if>
+            <service-call name="org.moqui.impl.UserServices.update#Password"
+                 in-map="[username: username, oldPassword: oldPassword,
+                    newPassword: newPassword, newPasswordVerify: newPassword]"/>
+            <!-- enable useraccount -->
+            <service-call name="update#moqui.security.UserAccount"
+                    in-map="[username:username, disabled:'N', disabledDateTime:null,
+                    successiveFailedLogins:0]"/>
+        </actions>
+    </service>
+
+</services>

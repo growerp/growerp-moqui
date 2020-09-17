@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-include="false">
+
+    <transition name="findRequest"><default-response url="."/></transition>
+    <transition name="editRequest"><default-response url="../EditRequest"/></transition>
+    <transition name="createRequest"><service-call name="mantle.request.RequestServices.create#Request"/>
+        <default-response url="."/></transition>
+
+    <transition-include name="searchPartyList" location="component://SimpleScreens/template/party/PartyForms.xml"/>
+
+    <actions>
+        <set field="partyId" from="partyId ?: findPartyId"/>
+    </actions>
+    <widgets>
+        <container-dialog id="NewRequestContainer" button-text="New Request">
+            <form-single name="NewRequestForm" transition="createRequest">
+                <field name="customerPartyId"><default-field title="Customer">
+                    <drop-down allow-empty="true"><dynamic-options transition="searchPartyList" server-search="true" min-length="2"
+                            parameter-map="[roleTypeId:'Customer']"/></drop-down>
+                </default-field></field>
+                <field name="assignToPartyId"><default-field title="Assign To" tooltip="If empty will be assigned to current user">
+                    <text-line ac-transition="searchPartyList" ac-min-length="2" size="50"/>
+                </default-field></field>
+
+                <field name="requestTypeEnumId"><default-field><hidden default-value="RqtQUEST"/></default-field></field>
+                <field name="statusId"><default-field><hidden default-value="ReqSubmitted"/></default-field></field>
+
+                <field name="requestName"><default-field title="Request Name"><text-line size="60"/></default-field></field>
+                <field name="description"><default-field title="Description"><text-area rows="10"/></default-field></field>
+
+                <field name="submitButton"><default-field title="Create"><submit/></default-field></field>
+            </form-single>
+        </container-dialog>
+
+        <form-list name="ListRequests" list="requestList" skip-form="true" header-dialog="true">
+            <entity-find entity-name="mantle.request.RequestAndParty" list="requestList" distinct="true">
+                <search-form-inputs default-order-by="requestDate">
+                    <default-parameters statusId="ReqDraft,ReqSubmitted,ReqReviewed,ReqInProgress" statusId_op="in"/></search-form-inputs>
+                <date-filter ignore="!partyId"/>
+                <econdition field-name="requestTypeEnumId" value="RqtQUEST"/>
+            </entity-find>
+            <row-actions>
+                <entity-find entity-name="mantle.request.RequestParty" list="partyList">
+                    <date-filter/><econdition field-name="requestId"/></entity-find>
+                <set field="customerRp" from="partyList.find({ it.roleTypeId == 'Customer' })"/>
+                <set field="assigneeRp" from="partyList.find({ it.roleTypeId == 'Assignee' })"/>
+            </row-actions>
+            <!-- called findPartyId instead of partyId so form-list.entity-find doesn't automatically select partyId
+                (don't want unless querying by partyId to avoid duplicate records from the RequestParty join) -->
+            <field name="findPartyId"><header-field title="Party">
+                <drop-down allow-empty="true"><dynamic-options transition="searchPartyList" server-search="true" min-length="2"/></drop-down>
+            </header-field></field>
+
+            <field name="requestId">
+                <header-field title="ID"><text-find size="10" hide-options="true"/></header-field>
+                <default-field><link url="editRequest" text="${requestId}" link-type="anchor"/></default-field>
+            </field>
+            <field name="requestName">
+                <header-field title="Name" show-order-by="true"><text-find size="30"/></header-field>
+                <default-field><link url="editRequest" text="${requestName}" link-type="anchor"/></default-field>
+            </field>
+            <field name="requestTypeEnumId">
+                <header-field title="Type" show-order-by="true">
+                    <widget-template-include location="component://webroot/template/screen/BasicWidgetTemplates.xml#enumDropDown">
+                        <set field="enumTypeId" value="RequestType"/><set field="allowEmpty" value="true"/>
+                        <set field="allowMultiple" value="true"/></widget-template-include>
+                </header-field>
+                <default-field><display-entity entity-name="moqui.basic.Enumeration"/></default-field>
+            </field>
+            <field name="statusId">
+                <header-field title="Status" show-order-by="true">
+                    <widget-template-include location="component://webroot/template/screen/BasicWidgetTemplates.xml#statusDropDown">
+                        <set field="statusTypeId" value="Request"/><set field="allowEmpty" value="true"/>
+                        <set field="allowMultiple" value="true"/></widget-template-include>
+                </header-field>
+                <default-field><display-entity entity-name="moqui.basic.StatusItem"/></default-field>
+            </field>
+            <field name="requestResolutionEnumId">
+                <header-field title="Resolution" show-order-by="true">
+                    <widget-template-include location="component://webroot/template/screen/BasicWidgetTemplates.xml#enumDropDown">
+                        <set field="enumTypeId" value="RequestResolution"/><set field="allowEmpty" value="true"/>
+                        <set field="allowMultiple" value="true"/></widget-template-include>
+                </header-field>
+                <default-field><display-entity entity-name="moqui.basic.Enumeration"/></default-field>
+            </field>
+            <field name="requestDate">
+                <header-field title="Request Date" show-order-by="true"><date-period allow-empty="true"/></header-field>
+                <default-field><display/></default-field>
+            </field>
+                   <field name="customerPartyId" from="customerRp?.partyId"><default-field title="Customer">
+                <display-entity entity-name="mantle.party.PartyDetail" text="PartyNameTemplate"/>
+            </default-field></field>
+            <field name="assignToPartyId" from="assigneeRp?.partyId"><default-field title="Assigned To">
+                <display-entity entity-name="mantle.party.PartyDetail" text="PartyNameTemplate"/>
+            </default-field></field>
+
+            <field name="submitButton"><header-field title="Find"><submit/></header-field></field>
+
+            <form-list-column><field-ref name="requestDate"/></form-list-column>
+            <form-list-column><field-ref name="requestName"/><field-ref name="requestId"/></form-list-column>
+            <form-list-column><field-ref name="statusId"/><field-ref name="requestResolutionEnumId"/></form-list-column>
+            <form-list-column><field-ref name="customerPartyId"/><field-ref name="assignToPartyId"/></form-list-column>
+        </form-list>
+    </widgets>
+</screen>

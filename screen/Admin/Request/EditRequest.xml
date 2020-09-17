@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-2.1.xsd"
+        default-menu-title="Request" default-menu-index="1">
+
+    <parameter name="requestId" required="true"/>
+
+    <transition name="updateRequest"><service-call name="mantle.request.RequestServices.update#Request"/><default-response url="."/></transition>
+    <transition name="updateStatus"><service-call name="mantle.request.RequestServices.update#Request"/><default-response url="."/></transition>
+
+    <transition name="createNote"><service-call name="create#mantle.request.RequestNote"/><default-response url="."/></transition>
+    <transition name="updateNote"><service-call name="update#mantle.request.RequestNote"/><default-response url="."/></transition>
+
+    <transition name="addComment"><service-call name="mantle.request.RequestServices.add#RequestComment"/>
+        <default-response url="."/></transition>
+    <transition name="deleteComment"><service-call name="mantle.request.RequestServices.delete#RequestComment"/>
+        <default-response url="."/></transition>
+
+    <actions>
+        <entity-find-one entity-name="mantle.request.Request" value-field="request"/>
+        <set field="statusId" from="request.statusId"/>
+        <set field="changedEntityName" value="mantle.request.Request"/>
+        <set field="pkPrimaryValue" from="requestId"/>
+
+        <entity-find entity-name="mantle.request.RequestParty" list="customerRpList">
+            <date-filter/><econdition field-name="requestId"/><econdition field-name="roleTypeId" value="Customer"/></entity-find>
+        <set field="customerRp" from="customerRpList?.getAt(0)"/>
+        <entity-find entity-name="mantle.request.RequestParty" list="assignToRpList">
+            <date-filter/><econdition field-name="requestId"/><econdition field-name="roleTypeId" value="Assignee"/></entity-find>
+        <set field="assignToRp" from="assignToRpList?.getAt(0)"/>
+    </actions>
+    <widgets>
+        <container-row><row-col md="7">
+            <label text="Request #${requestId}" type="h4"/>
+
+            <form-single name="EditRequest" transition="updateRequest" map="request">
+                <field name="requestId"><default-field title="Request ID"><display/></default-field></field>
+                <field name="requestDate"><default-field><display/></default-field></field>
+                <field name="displayCustomerId" from="customerRp?.partyId"><default-field title="Customer">
+                    <display-entity entity-name="mantle.party.PartyDetail" text="PartyNameTemplate"/></default-field></field>
+                <!-- <field name="customerPartyId" from="customerRp?.partyId"><default-field title="Set Customer">
+                    <text-line ac-transition="searchPartyList" ac-min-length="2" size="50" parameter-map="[roleTypeId:'Customer']"/>
+                </default-field></field> -->
+
+                <field name="displayAssigneeId" from="assignToRp?.partyId"><default-field title="Assignee">
+                    <display-entity entity-name="mantle.party.PartyDetail" text="PartyNameTemplate"/></default-field></field>
+                <field name="assignToPartyId"><default-field title="Set Assignee">
+                    <drop-down allow-empty="true"><dynamic-options transition="searchPartyList" server-search="true" min-length="2"/></drop-down>
+                </default-field></field>
+
+                <field name="requestName"><default-field title="Name"><text-line/></default-field></field>
+                <field name="description"><default-field><text-area rows="20"/></default-field></field>
+                <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+
+                <field-layout>
+                    <field-row><field-ref name="requestId"/><field-ref name="requestDate"/></field-row>
+                    <field-row><field-ref name="displayCustomerId"/><field-ref name="displayAssigneeId"/></field-row>
+                    <fields-not-referenced/>
+                </field-layout>
+            </form-single>
+
+            <section name="CommentsSection"><actions>
+                <entity-find entity-name="mantle.request.RequestCommEventDetail" list="commEventDetailList">
+                    <econdition field-name="requestId"/><order-by field-name="entryDate"/></entity-find>
+            </actions><widgets>
+                <container-box><box-header><label text="Comments" type="h5"/></box-header><box-toolbar>
+                    <container-dialog id="AddCommentDialog" button-text="Add Comment">
+                        <form-single name="AddCommentForm" transition="addComment">
+                            <field name="requestId"><default-field><hidden/></default-field></field>
+                            <field name="subject" from="request.requestName"><default-field><text-line/></default-field></field>
+                            <field name="body"><default-field title="Comment"><text-area rows="10"/></default-field></field>
+                            <field name="submitButton"><default-field title="Add"><submit/></default-field></field>
+                        </form-single>
+                    </container-dialog>
+                </box-toolbar><box-body>
+                    <section-iterate name="CommentList" list="commEventDetailList" entry="commEventDetail"><actions>
+                        <set field="uniqueExtension" from="commEventDetail_index"/>
+                        <entity-find-one entity-name="mantle.party.Person" value-field="fromPerson" cache="true">
+                            <field-map field-name="partyId" from="commEventDetail.fromPartyId"/>
+                        </entity-find-one>
+                        <entity-find entity-name="mantle.party.communication.CommunicationEvent" list="childCeList">
+                            <econdition field-name="rootCommEventId" from="commEventDetail.communicationEventId"/>
+                            <order-by field-name="entryDate"/>
+                        </entity-find>
+                    </actions><widgets>
+                        <container style="task-comment">
+                            <label text="${commEventDetail.subject}" type="strong"/>
+                            <label text="from ${fromPerson ? fromPerson.firstName + ' ' + fromPerson?.lastName : 'Unknown'}"/>
+                            <label text="at ${ec.l10n.format(commEventDetail.entryDate, 'yyyy-MM-dd HH:mm')}"/>
+                            <dynamic-dialog id="ReplyCommentContainer${uniqueExtension}" button-text="Reply" transition="RequestCommentReply">
+                                <parameter name="parentCommEventId" from="commEventDetail.communicationEventId"/></dynamic-dialog>
+                            <dynamic-dialog id="EditCommentContainer${uniqueExtension}" button-text="Edit" transition="RequestCommentUpdate"
+                                    condition="commEventDetail.fromPartyId == ec.user.userAccount.partyId || ec.user.isInGroup('ADMIN') || ec.user.isInGroup('HIVE_MIND_ADMIN')">
+                                <parameter name="communicationEventId" from="commEventDetail.communicationEventId"/></dynamic-dialog>
+                            <link text="Delete" url="deleteComment" parameter-map="[requestId:requestId, communicationEventId:commEventDetail.communicationEventId]"
+                                    condition="commEventDetail.fromPartyId == ec.user.userAccount.partyId || ec.user.isInGroup('ADMIN') || ec.user.isInGroup('HIVE_MIND_ADMIN')"
+                                    confirmation="Delete comment ${commEventDetail.subject}?"/>
+
+                            <label text="${commEventDetail.body}" type="pre" encode="false"/>
+
+                            <section name="ChildNestedComments">
+                                <condition><expression>childCeList</expression></condition>
+                                <actions><set field="currentCe" from="commEventDetail"/></actions>
+                                <widgets><include-screen location="component://SimpleScreens/screen/SimpleScreens/Request/EditRequest/RequestCommentNested.xml"/></widgets>
+                            </section>
+                        </container>
+                    </widgets></section-iterate>
+                </box-body></container-box>
+            </widgets></section>
+        </row-col><row-col md="5">
+            <section-include name="StatusChangeSection" location="component://SimpleScreens/template/basic/StatusWidgets.xml"/>
+            <section-include name="StatusHistorySection" location="component://SimpleScreens/template/basic/StatusWidgets.xml"/>
+
+            <container-box><box-header title="Parties"/><box-toolbar>
+                <container-dialog id="AddPartyDialog" button-text="Add Party">
+                    <form-single name="AddPartyForm" transition="addParty">
+                        <field name="requestId"><default-field><hidden/></default-field></field>
+
+                        <field name="partyId"><default-field title="Party">
+                            <drop-down allow-empty="true"><dynamic-options transition="searchPartyList" server-search="true" min-length="2"/></drop-down>
+                        </default-field></field>
+                        <field name="roleTypeId"><default-field title="Role">
+                            <drop-down><entity-options key="${roleTypeId}" text="${description}">
+                                <entity-find entity-name="mantle.party.RoleGroupMemberAndType" cache="true">
+                                    <econdition field-name="roleGroupEnumId" value="RgpRequest"/>
+                                    <order-by field-name="description"/></entity-find>
+                            </entity-options></drop-down>
+                        </default-field></field>
+
+                        <!-- <field name="receiveNotifications"><default-field>
+                            <drop-down no-current-selected-key="N"><option key="Y"/><option key="N"/></drop-down>
+                        </default-field></field> -->
+                        <field name="submitButton"><default-field title="Add Party"><submit/></default-field></field>
+                    </form-single>
+                </container-dialog>
+            </box-toolbar><box-body-nopad>
+                <form-list name="UpdatePartyForm" list="rpapList" transition="updateParty">
+                    <entity-find entity-name="mantle.request.RequestParty" list="rpapList">
+                        <date-filter/><econdition field-name="requestId"/><order-by field-name="roleTypeId"/></entity-find>
+
+                    <field name="requestId"><default-field><hidden/></default-field></field>
+                    <field name="fromDate"><default-field><hidden/></default-field></field>
+                    <field name="thruDate" from="ec.user.nowTimestamp"><default-field><hidden/></default-field></field>
+
+                    <field name="roleTypeId"><default-field title="Role">
+                        <display-entity entity-name="mantle.party.RoleType" text="${description}"/></default-field>
+                    </field>
+                    <field name="partyId"><default-field title="Name">
+                        <link url="editParty" text="PartyNameTemplate" entity-name="mantle.party.PartyDetail" link-type="anchor"/>
+                        <display text=""/>
+                    </default-field></field>
+                    <!-- <field name="username"><default-field><link url="editParty" text="${username}" link-type="anchor" condition="username"/></default-field></field> -->
+
+                    <!-- <field name="receiveNotifications"><default-field title="Notify"><display/></default-field></field> -->
+                    <field name="submitButton"><default-field title=""><submit icon="glyphicon glyphicon-trash"/></default-field></field>
+                </form-list>
+            </box-body-nopad></container-box>
+
+            <section name="NotesSection"><actions>
+                <entity-find entity-name="mantle.request.RequestNote" list="requestNoteList">
+                    <econdition field-name="requestId"/><order-by field-name="-noteDate"/></entity-find>
+            </actions><widgets>
+                <container-box><box-header title="Notes"/><box-toolbar>
+                    <container-dialog id="NewNoteDialog" button-text="Add Note">
+                        <form-single name="NewNoteForm" transition="createNote">
+                            <field name="requestId"><default-field><hidden/></default-field></field>
+                            <field name="noteText"><default-field title="Note"><text-area cols="60" rows="6"/></default-field></field>
+                            <field name="submitButton"><default-field title="Add Note"><submit/></default-field></field>
+                        </form-single>
+                    </container-dialog>
+                </box-toolbar><box-body>
+                    <section-iterate name="NoteIterateSection" list="requestNoteList" entry="note"><actions>
+                        <entity-find-one entity-name="mantle.party.PersonWithUserAccount" value-field="paua">
+                            <field-map field-name="userId" from="note.userId"/></entity-find-one>
+                    </actions><widgets>
+                        <label text="By ${paua?.firstName?:''} ${paua?.lastName?:''} (${paua?.username ?: note.userId}) at ${ec.l10n.format(note.noteDate, 'yyyy-MM-dd HH:mm')}" type="strong"/>
+                        <section name="UpdateNoteSection" condition="note.userId == ec.user.userId || ec.user.isInGroup('ADMIN') || ec.user.isInGroup('HIVE_MIND_ADMIN')"><widgets>
+                            <container-dialog id="UpdateNoteContainer" button-text="Edit Note">
+                                <form-single name="UpdateNoteForm" transition="updateNote" map="note">
+                                    <field name="requestId"><default-field><hidden/></default-field></field>
+                                    <field name="noteDate"><default-field><hidden/></default-field></field>
+                                    <field name="noteText"><default-field title="Note"><text-area cols="60" rows="6"/></default-field></field>
+                                    <field name="submitButton"><default-field title="Update"><submit/></default-field></field>
+                                </form-single>
+                            </container-dialog>
+                        </widgets></section>
+                        <label text="${note.noteText}" type="p"/>
+                    </widgets></section-iterate>
+                </box-body></container-box>
+            </widgets></section>
+        </row-col></container-row>
+    </widgets>
+</screen>

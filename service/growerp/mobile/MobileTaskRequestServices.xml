@@ -1,0 +1,409 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domaicrn Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+
+<!-- =================tasks ========================= -->
+    <service verb="get" noun="MyWorkEfforts">
+        <description> Get all tasks assigned or owned by the logged in user</description>
+        <out-parameters>
+            <parameter name="myTasks"/>
+            <parameter name="otherTasks"/>
+        </out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="relCompany"/>
+            <entity-find entity-name="growerp.mobile.workeffort.WorkEffortAndPartyAndCompany" list="myTaskList">
+                <econdition field-name="userPartyId" from="ec.user.userAccount.partyId"/>
+                <econdition field-name="orgPartyId" from="relCompany.ownerPartyId"/>
+                <econdition field-name="statusId" operator="not-in" value="WeCancelled,WeCompleted"/>
+            </entity-find>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="relCompany"/>
+            <entity-find entity-name="growerp.mobile.workeffort.WorkEffortAndPartyAndCompany" list="otherTaskList">
+                <econditions combine="and">
+                    <econdition field-name="ownerPartyId" from="ec.user.userAccount.partyId"/>
+                    <econdition field-name="userPartyId" operator="not-equals" from="ec.user.userAccount.partyId"/>
+                </econditions>
+                <econdition field-name="orgPartyId" from="relCompany.ownerPartyId"/>
+                <econdition field-name="statusId" operator="not-in" value="WeCancelled,WeCompleted"/>
+            </entity-find>
+            <set field="myTasks" from="[]"/>
+            <set field="otherTasks" from="[]"/>
+            <iterate entry="taskList" list="[myTaskList,otherTaskList]">
+                <iterate entry="task" list="taskList">
+                    <service-call name="growerp.mobile.MobileRestServices.download#Image"
+                        in-map="[size: 'small', type: 'task', id: task.workEffortId]" out-map="context"/>
+                    <set field="taskOut" from="[
+                        workEffortId: task.workEffortId,
+                        statusId: task.statusId,
+                        workEffortName: task.workEffortName,
+                        description: task.description?task.description:' ',
+                        priority: task.priority,
+                        ownerPartyId: task.ownerPartyId,
+                        ownerFullName: task.ownerLastName + ', ' + task.ownerFirstName,
+                        userPartyId: task.userPartyId,
+                        userFullName: task.lastName + ', ' + task.firstName,
+                        image: imageFile]"/>
+                    <script>if (taskList == myTaskList) myTasks.add(taskOut) else otherTasks.add(taskOut)</script>
+                </iterate>
+            </iterate>
+            <script>myTasks.sort{a, b -> (a.priority +a.workEffortName).compareToIgnoreCase(b.priority + b.workEffortName) }
+                    otherTasks.sort{a, b -> (a.priority +a.workEffortName).compareToIgnoreCase(b.priority + b.workEffortName) } </script>
+        <log message="======tasks send: ${myTasks.size()}/${otherTasks.size()}"/>
+        </actions></service>
+
+    <service verb="get" noun="WorkEffortList">
+        <description> Get all tasks assigned or owned by the logged in user</description>
+        <in-parameters><parameter name="my" type="Boolean" default="true"/></in-parameters><!-- true for my tasks, false for tasks i gave to others -->
+        <out-parameters><parameter name="workEfforts"/></out-parameters>
+        <actions>
+            <if condition="my">
+                <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="relCompany"/>
+                <entity-find entity-name="growerp.mobile.workeffort.WorkEffortAndPartyAndCompany" list="taskList">
+                    <econdition field-name="userPartyId" from="ec.user.userAccount.partyId"/>
+                    <econdition field-name="orgPartyId" from="relCompany.ownerPartyId"/>
+                    <econdition field-name="statusId" operator="not-in" value="WeCancelled,WeCompleted"/>
+                    <order-by field-name="priority"/><order-by field-name="workEffortName"/></entity-find>
+            <else><!-- tasks i gave to others -->
+                <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="relCompany"/>
+                    <entity-find entity-name="growerp.mobile.workeffort.WorkEffortAndPartyAndCompany" list="taskList">
+                    <econditions combine="and">
+                        <econdition field-name="ownerPartyId" from="ec.user.userAccount.partyId"/>
+                        <econdition field-name="userPartyId" operator="not-equals" from="ec.user.userAccount.partyId"/>
+                    </econditions>
+                    <econdition field-name="orgPartyId" from="relCompany.ownerPartyId"/>
+                    <econdition field-name="statusId" operator="not-in" value="WeCancelled,WeCompleted"/>
+                    <order-by field-name="priority"/><order-by field-name="workEffortName"/></entity-find>
+            </else></if>
+            <set field="workEfforts" from="[]"/>
+            <iterate entry="task" list="taskList">
+                <service-call name="growerp.mobile.MobileRestServices.download#Image"
+                    in-map="[size: 'small', type: 'task', id: task.workEffortId]" out-map="context"/>
+                <set field="taskOut" from="[
+                    workEffortId: task.workEffortId,
+                    statusId: task.statusId,
+                    workEffortName: task.workEffortName,
+                    description: task.description?task.description:' ',
+                    priority: task.priority,
+                    userPartyId: task.userPartyId,
+                    fullName: task.firstName + ' ' + task.lastName,
+                    image: imageFile]"/>
+                <script>workEfforts.add(taskOut)</script>
+            </iterate>
+        </actions></service>
+
+    <service verb="get" noun="WorkEffort">
+        <description> get a WorkEffort info </description>
+        <in-parameters><parameter name="workEffortId"/></in-parameters>
+        <out-parameters><parameter name="workEffort"/> </out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="relCompany"/>
+            <entity-find entity-name="growerp.mobile.workeffort.WorkEffortAndPartyAndCompany" list="effort">
+                <econdition field-name="workEffortId"/>
+                <econdition field-name="orgPartyId" from="relCompany.ownerPartyId"/></entity-find>
+                <if condition="effort">
+                    <set field="workEffort" from="[
+                        workEffortId: effort[0].workEffortId,
+                        workEffortName: effort[0].workEffortName,
+                        ownerId: effort[0].ownerPartyId,
+                        description: effort[0].description,
+                        partyId: effort[0].userPartyId]"/>
+                </if>
+        </actions></service>
+
+    <service verb="create" noun="WorkEffort">
+        <description> Create a task and assign optionally to a party, default is logged partyId</description>
+        <in-parameters><parameter name="workEffortName" required="true"/>
+                       <parameter name="description"/>
+                       <parameter name="partyId" default="ec.user.userAccount.partyId" />
+                       <parameter name="priority" default-value="5"/> </in-parameters>
+        <out-parameters><parameter name="workEffortId"/></out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="relCompany"/>
+            <service-call name="create#mantle.work.effort.WorkEffort" out-map="context"
+                in-map="[ownerPartyId: ec.user.userAccount.partyId,
+                         workEffortTypeId: 'WepTask',
+                         statusId: 'WeApproved',
+                         workEffortName: workEffortName,
+                         description: description,
+                         priority: priority]"/>
+            <service-call name="create#mantle.work.effort.WorkEffortParty"
+                in-map="[ workEffortId: workEffortId,
+                          partyId: partyId,
+                          fromDate: ec.user.nowTimestamp,
+                          roleTypeId: 'Assignee',
+                          statusId: 'WeptAssigned'
+                        ]"/>
+        </actions></service>
+
+    <service verb="update" noun="WorkEffort">
+        <description> Update a task and change assignment and/or ownership</description>
+        <in-parameters>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="workEffortName"/>
+            <parameter name="statusId" required="true"/>
+            <parameter name="priority"/>
+            <parameter name="description"/>
+            <parameter name="partyId"/>
+        </in-parameters>
+        <out-parameters><parameter name="workEffortId"/></out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="relCompany"/>
+            <entity-find-one value-field="exist" entity-name="growerp.mobile.workeffort.WorkEffortAndPartyAndCompany">
+                <field-map field-name="workEffortId"/>
+                <field-map field-name="orgPartyId" from="relCompany.ownerPartyId"/></entity-find-one>
+            <if condition="!exist">
+                <return error="true" message="Task ${workEffortId} not found......"/>
+            <else>
+                <entity-find-one value-field="workEffort" entity-name="mantle.work.effort.WorkEffort" for-update="true">
+                    <field-map field-name="workEffortId"/></entity-find-one>
+                <set field="workEffort.description" from="description"/>
+                <set field="workEffort.workEffortName" from="workEffortName"/>
+                <set field="workEffort.priority" from="priority"/>
+                <set field="workEffort.statusId" from="statusId"/>
+                <entity-update value-field="workEffort"/></else></if>
+                <!-- change assignment if required -->
+                <entity-find entity-name="mantle.work.effort.WorkEffortParty" list="assignments" for-update="true">
+                    <econdition field-name="workEffortId"/>
+                    <econdition field-name="roleTypeId" value="Assignee"/>
+                    <econdition field-name="statusId" value="WeptAssigned"/>
+                    <date-filter/>
+                </entity-find>
+                <if condition="assignments &amp;&amp; assignments[0].partyId != partyId">
+                    <set field="assignments[0].thruDate" from="ec.user.nowTimestamp"/>
+                    <entity-update value-field="assignments[0]"/>
+                    <service-call name="create#mantle.work.effort.WorkEffortParty"
+                        in-map="[ workEffortId: workEffortId,
+                          partyId: partyId,
+                          fromDate: ec.user.nowTimestamp,
+                          roleTypeId: 'Assignee',
+                          statusId: 'WeptAssigned'
+                        ]"/></if>
+        </actions></service>
+
+    <service verb="delete" noun="WorkEffort">
+        <description> delete a workeffort</description>
+        <in-parameters><parameter name="workEffortId"/></in-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context"/>
+            <entity-find-one value-field="exist" entity-name="growerp.mobile.workeffort.WorkEffortAndPartyAndCompany">
+                <field-map field-name="workEffortId"/>
+                <field-map field-name="orgPartyId" from="ownerPartyId"/>
+                <field-map field-name="ownerPartyId" from="ec.user.userAccount.partyId"/></entity-find-one>
+            <if condition="!exist">
+                <return error="true" message="Task not found, remember, only owner ${ec.user.userAccount.fullName} can delete the task"/>
+            <else>
+                <entity-find-one value-field="workEffort" entity-name="mantle.work.effort.WorkEffort" for-update="true">
+                    <field-map field-name="workEffortId"/></entity-find-one>
+                <set field="workEffort.statusId" value="WeCancelled"/>
+                <entity-update value-field="workEffort"/></else></if>
+        </actions></service>
+
+<!-- =================Requests ========================= -->
+    <service verb="get" noun="Requests">
+        <description> Get all requests of a particular user or faq</description>
+        <in-parameters><parameter name="my" type="Boolean" default="true"/></in-parameters><!-- true for my requests, false for FAQ -->
+        <out-parameters>
+            <parameter name="requests"/>
+            <parameter name="faqs"/>
+            <parameter name="notes"/>
+        </out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="relCompany"/>
+            <entity-find entity-name="growerp.mobile.request.RequestAndPartyAndCompany" list="requestList">
+                <econdition field-name="userPartyId" from="ec.user.userAccount.partyId"/>
+                <econdition field-name="requestTypeEnumId" value="RqtQUEST"/>
+                <econdition field-name="statusId" operator="in" from="['ReqInProgress','ReqCompleted']"/>
+                </entity-find>
+            <entity-find entity-name="mantle.request.Request" list="faqList">
+                <econdition field-name="requestTypeEnumId" value="RqtFAQ"/>
+                <order-by field-name="requestName"/></entity-find>
+            <set field="requests" from="[]"/>
+            <set field="faqs" from="[]"/>
+            <set field="notes" from="[]"/>
+            <iterate entry="currentList" list="[requestList,faqList]">
+                <iterate entry="request" list="currentList">
+                    <set field="noteOut" from="[
+                                requestId: request.requestId,
+                                timeStamp: request.requestDate.toString(),
+                                date: ec.l10n.format(request.requestDate,'dd-MM-yyyy'),
+                                text: request.description,
+                                partyId: ec.user.userAccount.partyId,
+                                fullname: ec.user.userAccount.userFullName
+                                ]"/>
+                    <script>notes.add(noteOut)</script>
+                    <entity-find entity-name="mantle.request.RequestNote" list="notesOut">
+                        <econdition field-name="requestId" from="request.requestId"/>
+                        <order-by field-name="noteDate"/></entity-find>
+                    <iterate entry="note" list="notesOut">
+                        <entity-find list="userAccounts" entity-name="moqui.security.UserAccount">
+                            <econdition field-name="userId" from="note.userId"/></entity-find>
+                        <set field="noteOut" from="[
+                                    requestId: request.requestId,
+                                    date: ec.l10n.format(note.noteDate,'dd-MM-yyyy'),
+                                    text: note.noteText,
+                                    partyId: userAccounts[0].partyId,
+                                    fullname: userAccounts[0].userFullName
+                                    ]"/>
+                         <script>notes.add(noteOut)</script>
+                    </iterate>
+                    <set field="requestOut" from="[
+                        requestId: request.requestId,
+                        requestName: request.requestName,
+                        ]"/>
+                    <if condition="currentList == requestList">
+                        <script>requests.add(requestOut)</script>
+                        <else>
+                            <script>faqs.add(requestOut)</script>
+                        </else>
+                    </if>
+                 </iterate>
+            </iterate>
+            <script>
+                if (requests.size()>1) requests.sort{a, b -> a.requestName.compareToIgnoreCase(b.requestName) }
+                if (faqs.size()>1) faqs.sort{a, b -> a.requestName.compareToIgnoreCase(b.requestName) }
+                if (notes.size()>1) notes.sort{a, b -> a.timeStamp &lt;=&gt; b.timeStamp}
+            </script>
+            <log message="====Get#Requests ended; requests: ${requests.size()} faqs: ${faqs.size()} notes: ${notes.size()}"/>
+        </actions></service>
+
+    <service verb="get" noun="RequestList"><!-- depreciated: replaced with  get#requests-->
+        <description> Get all requests of a particular user or faq</description>
+        <in-parameters><parameter name="my" type="Boolean" default="true"/></in-parameters><!-- true for my requests, false for FAQ -->
+        <out-parameters><parameter name="requests"/></out-parameters>
+        <actions>
+            <if condition="my">
+                <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="relCompany"/>
+                <entity-find entity-name="growerp.mobile.request.RequestAndPartyAndCompany" list="requestList">
+                    <econdition field-name="userPartyId" from="ec.user.userAccount.partyId"/>
+                    <econdition field-name="requestTypeEnumId" value="RqtQUEST"/>
+                    <order-by field-name="requestName"/></entity-find>
+            <else>
+                <entity-find entity-name="mantle.request.Request" list="requestList">
+                    <econdition field-name="requestTypeEnumId" value="RqtFAQ"/>
+                    <order-by field-name="requestName"/></entity-find></else></if>
+            <set field="requests" from="[]"/>
+            <iterate entry="request" list="requestList">
+                <set field="notes" from="[]"/>
+                <set field="noteOut" from="[
+                            requestId: request.requestId,
+                            date: ec.l10n.format(request.requestDate,'dd-MM-yyyy'),
+                            text: request.description,
+                            partyId: ec.user.userAccount.partyId,
+                            fullname: ec.user.userAccount.userFullName
+                            ]"/>
+                <script>notes.add(noteOut)</script>
+                <entity-find entity-name="mantle.request.RequestNote" list="notesOut">
+                    <econdition field-name="requestId" from="request.requestId"/>
+                    <order-by field-name="noteDate"/></entity-find>
+                <iterate entry="note" list="notesOut">
+                    <entity-find list="userAccounts" entity-name="moqui.security.UserAccount">
+                        <econdition field-name="userId" from="note.userId"/></entity-find>
+                    <set field="noteOut" from="[
+                                requestId: request.requestId,
+                                date: ec.l10n.format(note.noteDate,'dd-MM-yyyy'),
+                                text: note.noteText,
+                                partyId: userAccounts[0].partyId,
+                                fullname: userAccounts[0].userFullName
+                                ]"/>
+                     <script>notes.add(noteOut)</script>
+                </iterate>
+                <set field="requestOut" from="[
+                    requestId: request.requestId,
+                    requestName: request.requestName,
+                    notes: notes
+                    ]"/>
+                <script>requests.add(requestOut)</script>
+             </iterate>
+        </actions></service>
+
+    <service verb="create" noun="Request">
+        <description> Create a request for the logged in user </description>
+        <in-parameters><parameter name="requestName" required="true"/>
+                       <parameter name="description"/></in-parameters>
+        <out-parameters><parameter name="requestId"/></out-parameters>
+        <actions>
+            <service-call name="mantle.request.RequestServices.create#Request" out-map="context"
+                in-map="[context + [
+                        requestTypeId: 'RqtQUEST',
+                        statusId: 'ReqInProgress',
+                        requestTypeEnumId: 'RqtQUEST',
+                        filedByPartyId: ec.user.userAccount.partyId,
+                        description: description,
+                        fromDate: ec.user.nowTimestamp,
+                        roleTypeId: 'Customer',
+                        ]]" />
+        </actions></service>
+
+    <service verb="create" noun="RequestNote">
+        <description> Create a request for the logged in user </description>
+        <in-parameters><parameter name="requestId" required="true"/>
+                       <parameter name="text"/></in-parameters>
+        <out-parameters><parameter name="requestId"/><parameter name="noteDate"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.request.RequestNote" in-map="[requestId: requestId, noteText: text]"/>
+        </actions></service>
+
+    <service verb="get" noun="Request">
+        <description> get a Request info </description>
+        <in-parameters><parameter name="requestId"/></in-parameters>
+        <out-parameters><parameter name="request"/> </out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="relCompany"/>
+            <entity-find entity-name="growerp.mobile.request.RequestAndPartyAndCompany" list="effort">
+                <econdition field-name="requestId"/>
+                <econdition field-name="orgPartyId" from="relCompany.ownerPartyId"/></entity-find>
+                <if condition="effort">
+                    <set field="request" from="[
+                        requestId: effort[0].requestId,
+                        requestName: effort[0].requestName,
+                        ownerId: effort[0].ownerPartyId,
+                        description: effort[0].description,
+                        partyId: effort[0].userPartyId]"/>
+                </if>
+        </actions></service>
+
+    <service verb="update" noun="Request">
+        <description> Update a task and change assignment and/or ownership</description>
+        <in-parameters>
+            <parameter name="requestId" required="true"/>
+            <parameter name="requestName"/>
+            <parameter name="partyId"/>
+            <parameter name="ownerPartyId"/>
+        </in-parameters>
+        <out-parameters><parameter name="requestId"/></out-parameters>
+        <actions>
+            <!-- service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context"/>
+            <entity-find-one value-field="productCategory" entity-name="mantle.product.category.Request" for-update="true">
+                <field-map field-name="productCategoryId"/><field-map field-name="ownerPartyId"/></entity-find-one>
+            <set field="productCategory.categoryName" from="categoryName"/>
+            <entity-update value-field="productCategory"/-->
+        </actions></service>
+
+    <service verb="delete" noun="Request">
+        <description> delete a category to group products by drinks , salads, deserts etc</description>
+        <in-parameters><parameter name="requestId"/></in-parameters>
+        <actions>
+            <!-- check if request within company -->
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="relCompany"/>
+            <entity-find entity-name="growerp.mobile.request.RequestAndPartyAndCompany" list="found">
+                <econdition field-name="requestId"/>
+                <econdition field-name="orgPartyId" from="relCompany.ownerPartyId"/></entity-find>
+            <if condition="found">
+                <entity-find-one value-field="request" entity-name="mantle.request.Request" for-update="true">
+                    <field-map field-name="requestId"/></entity-find-one>
+                <set field="request.statusId" value="ReqCancelled"/>
+                <entity-update value-field="request"/>
+            </if>
+        </actions></service>
+</services>

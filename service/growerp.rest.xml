@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domaicrn Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<resource xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/rest-api-2.1.xsd"
+        name="growerp" displayName="GrowERP REST API" version="1.0.0" description="Services for GrowERP mobile apps">
+
+    <!-- flutter versioned REST interface synced with the model directory within the application -->
+    <resource name="100">
+        <!-- general -->
+        <resource name="CheckApiKey">
+            <method type="get"><service name="growerp.100.GeneralServices100.check#ApiKey"/></method></resource>
+        <resource name="CurrencyList" require-authentication="anonymous-all">
+            <method type="get"><service name="growerp.100.GeneralServices100.get#CurrencyList"/></method></resource>
+        <resource name="Login" require-authentication="anonymous-all">
+            <method type="post"><service name="growerp.100.GeneralServices100.login#User"/></method></resource>
+        <resource name="ResetPassword" require-authentication="anonymous-all">
+            <method type="post"><service name="growerp.100.GeneralServices100.reset#Password"/></method></resource>
+        <resource name="Password" require-authentication="anonymous-all">
+            <method type="put"><service name="growerp.100.GeneralServices100.update#Password"/></method></resource>
+        <!-- parties -->
+        <resource name="CheckCompany" require-authentication="anonymous-all">
+            <method type="get"><service name="growerp.100.PartyServices100.check#Company"/></method></resource>
+        <resource name="UserAndCompany" require-authentication="anonymous-all">
+            <method type="post"><service name="growerp.100.PartyServices100.register#UserAndCompany"/></method></resource>
+        <resource name="Companies" require-authentication="anonymous-all">
+            <method type="get"><service name="growerp.100.PartyServices100.get#Companies"/></method></resource>
+        <resource name="Company" require-authentication="anonymous-all">
+            <method type="post"><service name="growerp.100.PartyServices100.update#Company"/></method></resource>
+        <resource name="User">
+            <method type="get"><service name="growerp.100.PartyServices100.get#User"/></method>
+            <method type="put"><service name="growerp.100.PartyServices100.create#User"/></method>
+            <method type="patch"><service name="growerp.100.PartyServices100.update#User"/></method>
+            <method type="delete"><service name="growerp.100.PartyServices100.delete#User"/></method></resource>
+        <!--catalog (product and categories) -->
+        <resource name="CategoriesAndProducts" require-authentication="anonymous-all">
+            <method type="get"><service name="growerp.100.CatgProdServices100.get#CategoriesAndProducts"/></method></resource>
+        <!--order -->
+        <resource name="Order">
+            <method type="get"><service name="growerp.100.OrderServices100.get#Orders"/></method>
+            <method type="post"><service name="growerp.100.OrderServices100.create#Order"/></method></resource>
+    </resource>
+
+    <!-- nativescript REST interface -->
+    <!-- Login and Register, security -->
+    <resource name="Ping"  require-authentication="anonymous-all">
+        <method type="get"><service name="growerp.mobile.MobileRestServices.check#ApiKey"/></method></resource>
+    <resource name="CheckApiKey">
+        <method type="get"><service name="growerp.mobile.MobileRestServices.check#ApiKey"/></method></resource>
+    <resource name="LoginUser" require-authentication="anonymous-all">
+        <method type="post"><service name="growerp.mobile.MobileRestServices.login#User"/></method></resource>
+    <resource name="LogoutUser" require-authentication="anonymous-all">
+        <method type="post"><service name="growerp.mobile.MobileRestServices.logout#User"/></method></resource>
+    <resource name="RegisterUserAndCompany" require-authentication="anonymous-all">
+        <method type="post"><service name="growerp.mobile.MobileRestServices.register#UserAndCompany"/></method></resource>
+    <resource name="ResetPassword" require-authentication="anonymous-all">
+        <method type="post"><service name="growerp.mobile.MobileRestServices.reset#Password"/></method></resource>
+    <resource name="UpdatePassword" require-authentication="anonymous-all">
+        <method type="post"><service name="growerp.mobile.MobileRestServices.update#Password"/></method></resource>
+    <resource name="CurrencyList" require-authentication="anonymous-all">
+        <method type="get"><service name="growerp.mobile.MobileRestServices.get#CurrencyList"/></method></resource>
+
+    <!-- printing -->
+    <resource name="Print">
+        <method type="post"><service name="growerp.mobile.MobileRestServices.print#Item"/></method></resource>
+
+    <!-- export/import -->
+    <resource name="exportOrders">
+        <method type="get"><service name="growerp.mobile.MobileXportServices.export#Orders"/></method></resource>
+
+    <!-- up/download images -->
+    <resource name="UploadImage">
+        <method type="post"><service name="growerp.mobile.MobileRestServices.upload#Image"/></method></resource>
+    <resource name="DownloadImage">
+        <method type="post"><service name="growerp.mobile.MobileRestServices.download#Image"/></method></resource>
+
+    <!-- location services: preparation areas and table areas and spots -->
+    <resource name="GetAreasAndSpots">
+        <method type="get"><service name="growerp.mobile.MobileLocationServices.get#TableAreasAndSpots"/></method></resource>
+    <resource name="GetPrepAreasAndCategories">
+        <method type="post"><service name="growerp.mobile.MobileLocationServices.get#PrepAreasAndCategories"/></method></resource>
+
+    <!-- company -->
+    <resource name="GetCompany">
+        <method type="get"><service name="growerp.mobile.MobilePartyServices.get#Company"/></method></resource>
+    <resource name="UpdateCompany">
+        <method type="post"><service name="growerp.mobile.MobilePartyServices.update#Company"/></method></resource>
+    <resource name="GetUserAndCompany">
+        <method type="get"><service name="growerp.mobile.MobilePartyServices.get#UserAndCompany"/></method></resource>
+
+    <!-- parties (will replace the user services below) -->
+    <resource name="GetCurrentEmployeeUserGroupId"><!-- needed at the early startup of the mobile app -->
+        <method type="get"><service name="growerp.mobile.MobilePartyServices.get#CurrentEmployeeUserGroupId"/></method></resource>
+    <resource name="GetAllPartyInfo">
+        <method type="get"><service name="growerp.mobile.MobilePartyServices.get#AllPartyInfo"/></method></resource>
+    <resource name="GetUsers">
+        <method type="post"><service name="growerp.mobile.MobilePartyServices.get#Users"/></method></resource>
+    <resource name="CreateUser">
+        <method type="post"><service name="growerp.mobile.MobilePartyServices.create#User"/></method></resource>
+    <resource name="UpdateUser">
+        <method type="post"><service name="growerp.mobile.MobilePartyServices.update#User"/></method></resource>
+    <resource name="DeleteUser">
+        <method type="post"><service name="growerp.mobile.MobilePartyServices.delete#User"/></method></resource>
+    <resource name="GetUserGroups">
+        <method type="get"><service name="growerp.mobile.MobilePartyServices.get#UserGroups"/></method></resource>
+    <!-- depreciated -->
+    <resource name="GetUser">
+        <method type="post"><service name="growerp.mobile.MobilePartyServices.get#User"/></method></resource>
+    <resource name="GetUserList">
+        <method type="post"><service name="growerp.mobile.MobilePartyServices.get#UserList"/></method></resource>
+
+    <!--  various -->
+    <resource name="ReportSales">
+        <method type="post"><service name="growerp.mobile.MobileRestServices.report#Sales"/></method></resource>
+    <resource name="CheckEmail">
+        <method type="get"><service name="growerp.mobile.MobileRestServices.check#Email"/></method></resource>
+    <resource name="CheckUsername">
+        <method type="get"><service name="growerp.mobile.MobileRestServices.check#Username"/></method></resource>
+
+     <!--  AccommodationSpot -->
+    <resource name="GetAccommodationSpots">
+        <method type="get"><service name="growerp.mobile.MobileLocationServices.get#AccommodationSpots"/></method></resource>
+    <resource name="CreateAccommodationSpot">
+        <method type="post"><service name="growerp.mobile.MobileLocationServices.create#AccommodationSpot"/></method></resource>
+    <resource name="DeleteAccommodationSpot">
+        <method type="post"><service name="growerp.mobile.MobileLocationServices.delete#AccommodationSpot"/></method></resource>
+    <!--  depreciated -->
+    <resource name="GetAccommodationSpotList">
+        <method type="post"><service name="growerp.mobile.MobileLocationServices.get#AccommodationSpotList"/></method></resource>
+
+    <!--  AccommodationArea -->
+    <resource name="GetAccommodationAreas">
+        <method type="get"><service name="growerp.mobile.MobileLocationServices.get#AccommodationAreas"/></method></resource>
+    <resource name="CreateAccommodationArea">
+        <method type="post"><service name="growerp.mobile.MobileLocationServices.create#AccommodationArea"/></method></resource>
+    <resource name="UpdateAccommodationArea">
+        <method type="post"><service name="growerp.mobile.MobileLocationServices.update#AccommodationArea"/></method></resource>
+    <resource name="DeleteAccommodationArea">
+        <method type="post"><service name="growerp.mobile.MobileLocationServices.delete#AccommodationArea"/></method></resource>
+    <!-- depreciated -->
+    <resource name="GetAccommodationAreaList">
+        <method type="post"><service name="growerp.mobile.MobileRestServices.get#AccommodationAreaList"/></method></resource>
+    <resource name="GetAccommodationArea">
+        <method type="post"><service name="growerp.mobile.MobileRestServices.get#AccommodationArea"/></method></resource>
+
+    <!--  PreparationArea -->
+    <resource name="GetPreparationAreas">
+        <method type="get"><service name="growerp.mobile.MobileLocationServices.get#PreparationAreas"/></method></resource>
+    <resource name="CreatePreparationArea">
+        <method type="post"><service name="growerp.mobile.MobileLocationServices.create#PreparationArea"/></method></resource>
+    <resource name="UpdatePreparationArea">
+        <method type="post"><service name="growerp.mobile.MobileLocationServices.update#PreparationArea"/></method></resource>
+    <resource name="DeletePreparationArea">
+        <method type="post"><service name="growerp.mobile.MobileLocationServices.delete#PreparationArea"/></method></resource>
+    <!-- depreciated -->
+    <resource name="GetPreparationAreaList">
+        <method type="post"><service name="growerp.mobile.MobileRestServices.get#PreparationAreaList"/></method></resource>
+    <resource name="GetPreparationArea">
+        <method type="post"><service name="growerp.mobile.MobileRestServices.get#PreparationArea"/></method></resource>
+
+    <!-- Category/Product and Product store-->
+    <resource name="GetProductCategories">
+        <method type="get"><service name="growerp.mobile.MobileCatgProdServices.get#ProductCategories"/></method></resource>
+    <resource name="GetCategoriesAndProducts">
+        <method type="get"><service name="growerp.mobile.MobileCatgProdServices.get#CategoriesAndProducts"/></method></resource>
+    <resource name="CreateProductCategory">
+        <method type="post"><service name="growerp.mobile.MobileCatgProdServices.create#ProductCategory"/></method></resource>
+    <resource name="UpdateProductCategory">
+        <method type="post"><service name="growerp.mobile.MobileCatgProdServices.update#ProductCategory"/></method></resource>
+    <resource name="DeleteProductCategory">
+        <method type="post"><service name="growerp.mobile.MobileCatgProdServices.delete#ProductCategory"/></method></resource>
+    <resource name="GetProducts">
+        <method type="get"><service name="growerp.mobile.MobileCatgProdServices.get#Products"/></method></resource>
+    <resource name="CreateProduct">
+        <method type="post"><service name="growerp.mobile.MobileCatgProdServices.create#Product"/></method></resource>
+    <resource name="UpdateProduct">
+        <method type="post"><service name="growerp.mobile.MobileCatgProdServices.update#Product"/></method></resource>
+    <resource name="DeleteProduct">
+        <method type="post"><service name="growerp.mobile.MobileCatgProdServices.delete#Product"/></method></resource>
+
+    <resource name="GetProduct">
+        <method type="post"><service name="growerp.mobile.MobileRestServices.get#Product"/></method></resource>
+    <resource name="GetProductList">
+        <method type="post"><service name="growerp.mobile.MobileRestServices.get#ProductList"/></method></resource>
+    <resource name="GetProductCategoryList">
+        <method type="post"><service name="growerp.mobile.MobileRestServices.get#ProductCategoryList"/></method></resource>
+    <resource name="GetProductCategory">
+        <method type="post"><service name="growerp.mobile.MobileRestServices.get#ProductCategory"/></method></resource>
+
+    <!-- order -->
+    <resource name="GetOrders"><!-- depreciated -->
+        <method type="post"><service name="growerp.mobile.MobileOrderServices.get#Orders"/></method></resource>
+    <resource name="GetOrdersAndItemsByPrepAreas">
+        <method type="get"><service name="growerp.mobile.MobileOrderServices.get#OrdersAndItemsByPrepAreas"/></method></resource>
+    <resource name="CreateSalesOrder">
+        <method type="post"><service name="growerp.mobile.MobileOrderServices.create#SalesOrder"/></method></resource>
+    <resource name="ChangeOrderPartStatus">
+        <method type="post"><service name="growerp.mobile.MobileOrderServices.change#OrderPartStatus"/></method></resource>
+    <!-- depreciated -->
+    <resource name="GetOrdersAndItems">
+        <method type="post"><service name="growerp.mobile.MobileOrderServices.get#OrdersAndItems"/></method></resource>
+
+    <!--  tasks -->
+    <resource name="GetMyTasks">
+        <method type="get"><service name="growerp.mobile.MobileTaskRequestServices.get#MyWorkEfforts"/></method></resource>
+    <resource name="GetTaskList">
+        <method type="post"><service name="growerp.mobile.MobileTaskRequestServices.get#WorkEffortList"/></method></resource>
+    <resource name="GetTask">
+        <method type="post"><service name="growerp.mobile.MobileTaskRequestServices.get#WorkEffort"/></method></resource>
+    <resource name="CreateTask">
+        <method type="post"><service name="growerp.mobile.MobileTaskRequestServices.create#WorkEffort"/></method></resource>
+    <resource name="UpdateTask">
+        <method type="post"><service name="growerp.mobile.MobileTaskRequestServices.update#WorkEffort"/></method></resource>
+    <resource name="DeleteTask">
+        <method type="post"><service name="growerp.mobile.MobileTaskRequestServices.delete#WorkEffort"/></method></resource>
+    
+    <!--  requests -->
+    <resource name="GetRequests">
+        <method type="get"><service name="growerp.mobile.MobileTaskRequestServices.get#Requests"/></method></resource>
+    <resource name="GetRequestList"><!-- depreciated -->
+        <method type="post"><service name="growerp.mobile.MobileTaskRequestServices.get#RequestList"/></method></resource>
+    <resource name="GetRequest">
+        <method type="post"><service name="growerp.mobile.MobileTaskRequestServices.get#Request"/></method></resource>
+    <resource name="CreateRequest">
+        <method type="post"><service name="growerp.mobile.MobileTaskRequestServices.create#Request"/></method></resource>
+    <resource name="CreateRequestNote">
+        <method type="post"><service name="growerp.mobile.MobileTaskRequestServices.create#RequestNote"/></method></resource>
+    <resource name="UpdateRequest">
+        <method type="post"><service name="growerp.mobile.MobileTaskRequestServices.update#Request"/></method></resource>
+    <resource name="DeleteRequest">
+        <method type="post"><service name="growerp.mobile.MobileTaskRequestServices.delete#Request"/></method></resource>
+
+    <!-- subscriptions by company -->
+    <resource name="CreateSubscription">
+        <method type="post"><service name="growerp.mobile.MobileSubscriptions.create#Subscription"/></method></resource>
+    <resource name="GetActiveSubscriptions">
+        <method type="get"><service name="growerp.mobile.MobileSubscriptions.get#ActiveSubscriptions"/></method></resource>
+
+    <!-- export via email -->
+    <resource name="ExportOrders">
+        <method type="post"><service name="growerp.mobile.MobileXportServices.export#Orders"/></method></resource>
+    <resource name="ExportCustomers">
+        <method type="get"><service name="growerp.mobile.MobileXportServices.export#Customers"/></method></resource>
+    <resource name="ExportCatgsProducts">
+        <method type="get"><service name="growerp.mobile.MobileXportServices.export#CatgsProducts"/></method></resource>   
+
+    <!-- WikiContent Information for each store -->
+    <resource name="storecontents" require-authentication="anonymous-view">
+        <id name="productStoreId">
+            <resource name="info"><method type="get">
+                <service name="growerp.website.WebSiteRestServices.get#ProductStoreWikiContentInfo"/></method></resource>
+            <resource name="BlogInfo"><method type="get">
+                <service name="growerp.website.WebSiteRestServices.get#BlogInfo"/></method></resource>
+            <resource name="BlogPost"><method type="get">
+                <service name="growerp.website.WebSiteRestServices.get#PublishedBlogPost"/></method></resource>
+            <resource name="PublishedWikiPageText"><method type="get">
+                <service name="growerp.website.WebSiteRestServices.get#PublishedWikiPageText"/></method></resource>
+        </id>
+    </resource>
+</resource>

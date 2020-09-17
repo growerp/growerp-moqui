@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domaicrn Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+
+<!-- category related-->
+    <service verb="get" noun="ProductCategories">
+        <description>
+            Get table data for data entry product categories and products
+        </description>
+        <out-parameters>
+            <parameter name="productCategories" type="List"/>
+        </out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context" />
+            <entity-find entity-name="mantle.product.category.ProductCategory" list="rootList">
+                <econdition field-name="productCategoryTypeEnumId" value="PctRestaurant"/>
+                <econdition field-name="ownerPartyId"/></entity-find>
+            <if condition="rootList">
+                <set field="parentProductCategoryId" from="rootList[0].productCategoryId"/>
+            <else><return error="true" message="Category root not found for company: ${ownerCompanyId}"/></else></if>
+            <entity-find entity-name="growerp.mobile.party.category.ProductCategoryParentsAndChild" list="groups">
+                <date-filter/>
+                <econdition field-name="ownerPartyId"/>
+                <econdition field-name="parentProductCategoryId"/>
+                <econdition field-name="productCategoryId" ignore-if-empty="true"/></entity-find>
+            <set field="productCategories" from="[]"/>
+            <iterate entry="group" list="groups">
+                <service-call name="growerp.mobile.MobileRestServices.download#Image"
+                    in-map="[size: 'small', type: 'category', id: group.productCategoryId]" out-map="context"/>
+                <entity-find-count entity-name="growerp.mobile.product.ProductAndPriceAndProductCategory" count-field="nbrOfProducts">
+                    <econdition field-name="ownerPartyId"/>
+                    <econdition field-name="productCategoryId" from="group.productCategoryId"/></entity-find-count>
+                <set field="groupOut" from="[
+                    productCategoryId: group.productCategoryId,
+                    categoryName: group.categoryName,
+                    preparationAreaId: group.preparationAreaId,
+                    description: group.description,
+                    image: imageFile,
+                    nbrOfProducts: nbrOfProducts
+                    ]"/>
+                <script>productCategories.add(groupOut)</script>
+            </iterate>
+            <script>productCategories.sort{a, b -> a.categoryName.compareToIgnoreCase(b.categoryName) } </script>
+        <log message="=========categories retieved!(${productCategories.size()})"/>
+        </actions>
+    </service>
+    
+    <service verb="create" noun="ProductCategory">
+        <description> Create a category to group products by drinks , salads, deserts etc</description>
+        <in-parameters><parameter name="categoryName" required="true"/>
+            <parameter name="preparationAreaId"/></in-parameters>
+        <out-parameters><parameter name="productCategoryId"/></out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context"/>
+            <entity-find entity-name="mantle.product.category.ProductCategory" list="rootList">
+                <econdition field-name="productCategoryTypeEnumId" value="PctRestaurant"/>
+                <econdition field-name="ownerPartyId"/></entity-find>
+            <if condition="rootList">
+                <set field="rootProductCategoryId" from="rootList[0].productCategoryId"/>
+            <else>
+                <return error="true" message="Root category could not be found for compant: ${ownerPartyId}"/></else></if>
+            <service-call name="create#mantle.product.category.ProductCategory" in-map="context" out-map="context"/>
+            <service-call name="create#mantle.product.category.ProductCategoryRollup"
+                    in-map="[description: description, parentProductCategoryId: rootProductCategoryId,
+                    productCategoryId: productCategoryId]"/>
+        </actions></service>
+
+    <service verb="update" noun="ProductCategory">
+        <description> Update a category to group products by drinks , salads, deserts etc</description>
+        <in-parameters>
+            <parameter name="productCategoryId" required="true"/>
+            <parameter name="categoryName"/>
+            <parameter name="preparationAreaId"/>
+        </in-parameters>
+        <out-parameters><parameter name="productCategoryId"/></out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context"/>
+            <entity-find-one value-field="productCategory" entity-name="mantle.product.category.ProductCategory" for-update="true">
+                <field-map field-name="productCategoryId"/>
+                <field-map field-name="ownerPartyId"/></entity-find-one>
+            <if condition="categoryName">
+                <set field="productCategory.categoryName" from="categoryName"/></if>
+            <if condition="preparationAreaId">
+                <set field="productCategory.preparationAreaId" from="preparationAreaId"/></if>
+            <entity-update value-field="productCategory"/>
+        </actions>
+    </service>
+
+    <service verb="delete" noun="ProductCategory">
+        <description> delete a category to group products by drinks , salads, deserts etc</description>
+        <in-parameters><parameter name="productCategoryId"/></in-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context"/>
+            <entity-find-one value-field="productCategory" entity-name="mantle.product.category.ProductCategory">
+                <field-map field-name="productCategoryId"/><field-map field-name="ownerPartyId"/></entity-find-one>
+            <entity-find-count count-field="nbrOfProducts" entity-name="mantle.product.category.ProductCategoryMemberProduct">
+                <econdition field-name="productCategoryId"/>
+                    <econditions combine="or">
+                        <econdition field-name="salesDiscontinuationDate" from="null"/>
+                        <econdition field-name="salesDiscontinuationDate" operator="greater" from="ec.user.nowTimestamp"/>
+                </econditions><date-filter/></entity-find-count>
+            <if condition="nbrOfProducts">
+                <return error="true" message="Cannot delete category, ${nbrOfProducts} products still related to it....!"/></if>
+            <!-- disable category in categoryRollUp entity -->
+            <entity-find entity-name="mantle.product.category.ProductCategory" list="rootList">
+                <econdition field-name="productCategoryTypeEnumId" value="PctRestaurant"/>
+                <econdition field-name="ownerPartyId"/></entity-find>
+             <entity-find entity-name="mantle.product.category.ProductCategoryRollup" list="rollUpList" for-update="true">
+                <econdition field-name="productCategoryId"/>
+                <econdition field-name="parentProductCategoryId" from="rootList[0].productCategoryId"/>
+                <date-filter/>
+            </entity-find>
+            <if condition="rollUpList">
+                <set field="rollUpList[0].thruDate" from="ec.user.nowTimestamp"/>
+                <entity-update value-field="rollUpList[0]"/>
+            <else>
+                <return error="true" message="could not find rollup for category: ${productCategoryId}"/></else></if>
+        </actions></service>
+
+<!-- Product related -->
+    <service verb="get" noun="Products">
+        <description> Get all products within a company</description>
+        <out-parameters><parameter name="products"/></out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#Company" out-map="context"/>
+            <set field="ownerPartyId" from="company.partyId"/>
+            <entity-find entity-name="growerp.mobile.product.ProductAndPriceAndProductCategory" list="productList">
+                <econdition field-name="ownerPartyId"/><econdition field-name="productCategoryId" ignore-if-empty="true"/>
+                </entity-find>
+            <set field="products" from="[]"/>
+            <iterate entry="product" list="productList">
+                <service-call name="growerp.mobile.MobileRestServices.download#Image"
+                    in-map="[size: 'small', type: 'product', id: product.productId]" out-map="context"/>
+                <set field="productOut" from="[
+                    productId: product.productId,
+                    name: product.productName,
+                    price: product.price,
+                    productCategoryId: product.productCategoryId,
+                    categoryName: product.categoryName,
+                    image: imageFile? imageFile : '~/assets/images/addImage.png']"/>
+                <script>products.add(productOut)</script>
+            </iterate>
+            <script>products.sort{a, b -> a.name.compareToIgnoreCase(b.name) } </script>
+        </actions>
+    </service>
+
+    <service verb="create" noun="Product">
+        <description> Create a Product with a price in a category</description>
+        <in-parameters>
+            <parameter name="productName" required="true"/>
+            <parameter name="price" required="true" /><!-- currency from company -->
+            <parameter name="productCategoryId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="productId"/>
+        </out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#Company" out-map="context"/>
+            <set field="priceUomId" value="OTH_ea"/>
+            <set field="currencyUomId" from="company.currency"/>
+            <set field="ownerPartyId" from="company.partyId"/>
+            <set field="quantityUomId" value="OTH_ea"/>
+            <service-call name="create#mantle.product.Product" in-map="context" out-map="context"/>
+            <set field="priceTypeEnumId" value='PptList'/>
+            <set field="priceUomId" from="company.currency"/>
+            <set field="fromDate" from="ec.user.nowTimestamp"/>
+            <service-call name="create#mantle.product.ProductPrice" in-map="context"/>
+            <set field="priceTypeEnumId" value='PptCurrent'/>
+            <service-call name="create#mantle.product.ProductPrice" in-map="context"/>
+            <if condition="productCategoryId">
+                <service-call name="create#mantle.product.category.ProductCategoryMember" in-map="context"/></if>
+        </actions>
+    </service>
+
+    <service verb="update" noun="Product">
+        <description> Create a Product with a price in a category</description>
+        <in-parameters>
+            <parameter name="productId" required="true"/>
+            <parameter name="productName"/>
+            <parameter name="price" /><!-- currency from company -->
+            <parameter name="productCategoryId"></parameter>
+        </in-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#Company" out-map="context"/>
+            <set field="ownerPartyId" from="company.partyId"/>
+            <entity-find-one value-field="product" entity-name="mantle.product.Product" for-update="true">
+                <field-map field-name="productId"/><field-map field-name="ownerPartyId"/></entity-find-one>
+            <if condition="productName &amp;&amp; product.productName != productName">
+                <set field="product.productName" from="productName"/>
+                <entity-update value-field="product"/></if>
+            <entity-find entity-name="ProductAndPriceAndProductCategory" list="products">
+                <econdition field-name="productId"/><econdition field-name="ownerPartyId"/></entity-find>
+            <if condition="price &amp;&amp; products[0].price != price">
+                <entity-find-one value-field="productPrice" entity-name="mantle.product.ProductPrice" for-update="true">
+                    <field-map field-name="productPriceId" from="products[0].productPriceId"/></entity-find-one>
+                <set field="productPrice.thruDate" from="ec.user.nowTimestamp"/>
+                <entity-update value-field="productPrice"/>
+                <service-call name="create#mantle.product.ProductPrice"
+                    in-map="[productId: productId, priceTypeEnumId: 'PptCurrent', price: price, currencyUomId: company.currency,
+                     quantityUomId: 'OTH_ea', priceUomId: 'OTH_ea']"/></if>
+            <if condition="productCategoryId &amp;&amp; products[0].productCategoryId != productCategoryId">
+                <entity-find-one value-field="member" entity-name="mantle.product.category.ProductCategoryMember" for-update="true">
+                    <field-map field-name="productId"/><field-map field-name="productCategoryId" from="products[0].productCategoryId"/>
+                    <field-map field-name="fromDate" from="products[0].fromDate"/></entity-find-one>
+                <set field="member.thruDate" from="ec.user.nowTimestamp"/>
+                <entity-update value-field="member"/>
+                <service-call name="create#mantle.product.category.ProductCategoryMember"
+                    in-map="[productId: productId, productCategoryId: productCategoryId, fromDate: ec.user.nowTimestamp]"/></if>
+        </actions>
+    </service>
+
+    <service verb="delete" noun="Product">
+        <description> Delete a Product </description>
+        <in-parameters>
+            <parameter name="productId" required="true"/>
+        </in-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context"/>
+            <entity-find-one value-field="product" entity-name="mantle.product.Product" for-update="true">
+                <field-map field-name="productId"/><field-map field-name="ownerPartyId"/> </entity-find-one>
+            <set field="product.salesDiscontinuationDate" from="ec.user.nowTimestamp"/>
+            <entity-update value-field="product"/>
+        </actions>
+    </service>
+    
+    <!-- depreciated -->
+    <service verb="get" noun="CategoriesAndProducts">
+        <description>
+            Get table data for data entry product categories and products
+        </description>
+        <in-parameters><parameter name="productCategoryId"/></in-parameters>
+        <out-parameters>
+            <parameter name="categoriesAndProducts" type="List"><parameter name="productCategoryInfo" type="Map"/></parameter>
+        </out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context" />
+            <entity-find entity-name="mantle.product.category.ProductCategory" list="rootList">
+                <econdition field-name="productCategoryTypeEnumId" value="PctRestaurant"/>
+                <econdition field-name="ownerPartyId"/></entity-find>
+            <if condition="rootList">
+                <set field="parentProductCategoryId" from="rootList[0].productCategoryId"/>
+            <else><return error="true" message="Category root not found for company: ${ownerCompanyId}"/></else></if>
+            <entity-find entity-name="growerp.mobile.party.category.ProductCategoryParentsAndChild" list="groups">
+                <date-filter/>
+                <econdition field-name="ownerPartyId"/>
+                <econdition field-name="parentProductCategoryId"/>
+                <econdition field-name="productCategoryId" ignore-if-empty="true"/>
+                <order-by field-name="categoryName"/></entity-find>
+            <set field="categoriesAndProducts" from="[]"/>
+            <iterate entry="group" list="groups">
+                <entity-find entity-name="mantle.product.category.ProductCategoryMemberProduct" list="items">
+                    <date-filter/>
+                    <econdition field-name="ownerPartyId"/>
+                    <econdition field-name="productCategoryId" from="group.productCategoryId"/>
+                    <econditions combine="or">
+                        <econdition field-name="salesDiscontinuationDate" operator="is-null"/>
+                        <econdition field-name="salesDiscontinuationDate" operator="greater-equals" from="ec.user.nowTimestamp"/>
+                    </econditions>
+                    </entity-find>
+                <set field="itemsOut" from="[]"/>
+                <iterate entry="item" list="items">
+                    <set field="priceTypeEnumId" value='PptCurrent'/>
+                    <entity-find entity-name="mantle.product.ProductPrice" list="prices">
+                        <date-filter/>
+                        <econdition field-name="productId" from="item.productId"/>
+                        <econdition field-name="priceTypeEnumId" value="PptCurrent"/></entity-find>
+                    <service-call name="growerp.mobile.MobileRestServices.download#Image"
+                        in-map="[size: 'small', type: 'product', id: item.productId]" out-map="context"/>
+                    <set field="itemOut" from="[
+                        productId: item.productId,
+                        name: item.productName,
+                        price: prices[0].price,
+                        image: imageFile]"/>
+                    <script>itemsOut.add(itemOut)</script>
+                </iterate>
+                <service-call name="growerp.mobile.MobileRestServices.download#Image"
+                    in-map="[size: 'small', type: 'category', id: group.productCategoryId]" out-map="context"/>
+                <set field="groupOut" from="[
+                    productCategoryId: group.productCategoryId,
+                    name: group.categoryName,
+                    preparationAreaId: group.preparationAreaId,
+                    description: group.description,
+                    image: imageFile,
+                    products: itemsOut]"/>
+                <script>categoriesAndProducts.add(groupOut)</script>
+            </iterate>
+        </actions>
+    </service>
+
+</services>

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domaicrn Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+
+    <service verb="create" noun="Subscription">
+        <description>
+            record a successful payment of an in-app subscription
+        </description>
+        <in-parameters>
+            <parameter name="externalSubscriptionId" required="true"/>
+            <parameter name="description"/>
+        </in-parameters>
+        <actions>
+            <set field="nowZdt" from="java.time.ZonedDateTime.ofInstant(java.time.Instant.now(), java.time.ZoneId.systemDefault())"/>
+            <service-call name="create#mantle.product.subscription.Subscription"
+                in-map="[externalSubscriptionId: externalSubscriptionId,
+                         subscriberPartyId: ec.user.userAccount.partyId,
+                         fromDate: ec.user.nowTimestamp,
+                         thruDate: java.sql.Timestamp.from(nowZdt.minusMonths(-1).toInstant()),
+                         description: description
+                ]"/>
+        </actions>
+        </service>
+
+    <service verb="get" noun="ActiveSubscriptions">
+        <description>
+            list all subscriptions bought by the related company
+        </description>
+        <out-parameters>
+            <parameter name="subscriptions" type="List"><parameter name="subscriptionInfo" type="Map"/></parameter>
+        </out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="relCompany"/>
+            <entity-find entity-name="growerp.mobile.Subscription.SubscriptionAndPartyAndCompany" list="subs">
+                <econdition field-name="orgPartyId" from="relCompany.ownerPartyId"/><date-filter/>
+                <select-field field-name="externalSubscriptionId"/>
+            </entity-find>
+            <set field="subscriptions" from="[]"/>
+            <iterate entry="sub" list="subs">
+                <script>subscriptions.add(sub.externalSubscriptionId)</script>
+            </iterate>
+        </actions>
+        </service>
+</services>

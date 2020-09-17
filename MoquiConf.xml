@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-2.1.xsd">
+    <screen-facade>
+        <screen location="component://webroot/screen/webroot/apps.xml">
+            <subscreens-item name="Admin" menu-index="10"
+                 location="component://growerp-moqui/screen/Admin.xml"/>
+        </screen>
+        <screen location="component://webroot/screen/webroot.xml" default-subscreen="growerp">
+            <subscreens-item name="growerp" menu-include="false" no-sub-path="true"
+                location="component://growerp-moqui/screen/rest.xml"/>
+        </screen>
+    </screen-facade>
+</moqui-conf>

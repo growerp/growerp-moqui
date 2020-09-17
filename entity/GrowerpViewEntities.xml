@@ -1,0 +1,553 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-2.1.xsd">
+
+    <view-entity entity-name="CompanyPersonAndLoginGroup" package="growerp.mobile">
+        <description>get all people related to a certain companyId = PR => toPartyId</description>
+        <member-entity entity-alias="PR" entity-name="PartyRelationship">
+            <entity-condition>
+                <econdition field-name="toRoleTypeId" value="OrgInternal"/>
+                <date-filter/></entity-condition></member-entity>
+        <member-entity entity-alias="PTYPERSON" entity-name="Party" join-from-alias="PR">
+            <key-map field-name="fromPartyId" related="partyId"/>
+            <entity-condition>
+                <econdition field-name="personDisabled" operator="equals" value="N" or-null="true"/>
+            </entity-condition>
+        </member-entity>
+        <member-entity entity-alias="PTYORG" entity-name="Party" join-from-alias="PR">
+            <key-map field-name="toPartyId" related="partyId"/>
+            <entity-condition>
+                <econdition field-name="orgDisabled" operator="equals" value="N" or-null="true"/>
+            </entity-condition>
+        </member-entity>
+        <member-entity entity-alias="PERSON" entity-name="mantle.party.Person" join-from-alias="PR">
+            <key-map field-name="fromPartyId" related="partyId"/>
+        </member-entity>
+        <member-entity entity-alias="ACCT" entity-name="moqui.security.UserAccount" join-from-alias="PR">
+            <key-map field-name="fromPartyId" related="partyId"/>
+        </member-entity>
+        <member-entity entity-alias="UGMEM" entity-name="moqui.security.UserGroupMember" join-from-alias="ACCT">
+            <key-map field-name="userId" related="userId"/>
+            <entity-condition>
+                <date-filter from-field-name="ugFromDate" thru-field-name="ugThruDate"/>
+            </entity-condition>
+        </member-entity>
+        <member-entity entity-alias="UG" entity-name="moqui.security.UserGroup" join-from-alias="UGMEM">
+            <key-map field-name="userGroupId" related="userGroupId"/>
+        </member-entity>
+
+        <alias entity-alias="PR" name="companyPartyId" field="toPartyId"/>
+        <alias entity-alias="PR" name="companyRoleTypeId" field="toRoleTypeId"/>
+        <alias entity-alias="PR" name="userPartyId" field="fromPartyId"/>
+        <alias entity-alias="PR" name="fromDate"/><!-- date registered in the system -->
+        <alias entity-alias="PR" name="thruDate"/>
+        <alias entity-alias="PTYPERSON" name="personDisabled" field="disabled"/>
+        <alias entity-alias="PTYPERSON" name="externalId"/>
+        <alias entity-alias="PTYORG" name="orgDisabled" field="disabled"/>
+        <alias entity-alias="PERSON" name="firstName"/>
+        <alias entity-alias="PERSON" name="lastName"/>
+        <alias entity-alias="ACCT" name="userId"/>
+        <alias entity-alias="ACCT" name="username"/>
+        <alias entity-alias="ACCT" name="userFullName"/>
+        <alias entity-alias="ACCT" name="emailAddress"/>
+        <alias entity-alias="ACCT" name="locale"/>
+        <alias entity-alias="UG" name="userGroupId"/>
+        <alias entity-alias="UG" name="description"/>
+        <alias entity-alias="UGMEM" name="ugFromDate" field="fromDate"/>
+        <alias entity-alias="UGMEM" name="ugThruDate" field="thruDate"/>
+   </view-entity>
+
+   <view-entity entity-name="CompanyPersonAndLogin" package="growerp.mobile">
+        <description>get all people related to a certain companyId = PR => toPartyId</description>
+        <member-entity entity-alias="PR" entity-name="PartyRelationship">
+            <entity-condition>
+                <!-- econdition field-name="fromRoleTypeId" value="Employee"/ selects the type of person: Employee, Customer etc -->
+                <econdition field-name="toRoleTypeId" value="OrgInternal"/>
+                <date-filter/></entity-condition></member-entity>
+        <member-entity entity-alias="PTYPERSON" entity-name="Party" join-from-alias="PR">
+            <key-map field-name="fromPartyId" related="partyId"/>
+            <entity-condition>
+                <econdition field-name="personDisabled" operator="equals" value="N" or-null="true"/>
+            </entity-condition>
+        </member-entity>
+        <member-entity entity-alias="PTYORG" entity-name="Party" join-from-alias="PR">
+            <key-map field-name="toPartyId" related="partyId"/>
+            <entity-condition>
+                <econdition field-name="orgDisabled" operator="equals" value="N" or-null="true"/>
+            </entity-condition>
+        </member-entity>
+        <member-entity entity-alias="PERSON" entity-name="mantle.party.Person" join-from-alias="PR">
+            <key-map field-name="fromPartyId" related="partyId"/>
+        </member-entity>
+        <member-entity entity-alias="ACCT" entity-name="moqui.security.UserAccount" join-from-alias="PR" join-optional="true">
+            <key-map field-name="fromPartyId" related="partyId"/>
+        </member-entity>
+        <member-entity entity-alias="PCM" entity-name="mantle.party.contact.PartyContactMech" join-from-alias="PERSON" join-optional="true">
+            <key-map field-name="partyId"/>
+            <entity-condition>
+                <econdition field-name="contactMechPurposeId" operator="equals" value="EmailPrimary"/>
+            </entity-condition>
+        </member-entity>
+        <member-entity entity-alias="CM" entity-name="mantle.party.contact.ContactMech" join-from-alias="PCM" join-optional="true">
+            <key-map field-name="contactMechId"/>
+            <entity-condition>
+                <econdition field-name="contactMechTypeEnumId" operator="equals" value="CmtEmailAddress"/>
+            </entity-condition>
+        </member-entity>
+
+        <alias entity-alias="PR" name="toPartyId"/>
+        <alias entity-alias="PR" name="toRoleTypeId"/>
+        <alias entity-alias="PR" name="fromPartyId"/>
+        <alias entity-alias="PR" name="fromRoleTypeId"/>
+        <alias entity-alias="PR" name="fromDate"/><!-- date registered in the system -->
+        <alias entity-alias="PR" name="thruDate"/>
+        <alias entity-alias="PTYPERSON" name="personDisabled" field="disabled"/>
+        <alias entity-alias="PTYPERSON" name="externalId"/>
+        <alias entity-alias="PTYORG" name="orgDisabled" field="disabled"/>
+        <alias entity-alias="PERSON" name="firstName"/>
+        <alias entity-alias="PERSON" name="lastName"/>
+        <alias entity-alias="ACCT" name="userId"/>
+        <alias entity-alias="ACCT" name="username"/>
+        <alias entity-alias="ACCT" name="userFullName"/>
+        <alias entity-alias="ACCT" name="emailAddress"/>
+        <alias entity-alias="ACCT" name="locale"/>
+        <alias entity-alias="PCM" name="contactMechPurposeId"/>
+        <alias entity-alias="CM" name="contactMechTypeEnumId"/>
+        <alias entity-alias="CM" name="emailAddressAlt" field="infoString"/>
+   </view-entity>
+   
+    <view-entity entity-name="AccommodationAreaSpotAndParty" package="growerp.mobile.location">
+        <description>get all accommodation areas and spots for a certain companyId and area id</description>
+        <member-entity entity-name="growerp.mobile.location.AccommodationArea" entity-alias="AREA">
+            <entity-condition><date-filter/></entity-condition></member-entity>
+        <member-entity entity-name="growerp.mobile.location.AccommodationSpot" entity-alias="SPOT" join-from-alias="AREA">
+            <key-map field-name="accommodationAreaId"/>
+            <entity-condition><date-filter from-field-name="spotFromDate" thru-field-name="spotThruDate"/></entity-condition>
+        </member-entity>
+        <member-entity entity-name="growerp.mobile.location.AccommodationSpotParty" entity-alias="SPOTPARTY" join-from-alias="SPOT">
+            <key-map field-name="accommodationSpotId"/></member-entity>
+        <alias entity-alias="AREA" name="accommodationAreaId"/>
+        <alias entity-alias="AREA" name="ownerPartyId"/>
+        <alias entity-alias="AREA" name="description"/>
+        <alias entity-alias="AREA" name="fromDate"/>
+        <alias entity-alias="AREA" name="thruDate"/>
+        <alias entity-alias="SPOT" name="accommodationSpotId"/>
+        <alias entity-alias="SPOT" name="spotNumber"/>
+        <alias entity-alias="SPOT" name="spotFromDate" field="fromDate"/>
+        <alias entity-alias="SPOT" name="spotThruDate" field="thruDate"/>
+        <alias entity-alias="SPOTPARTY" name="partyId"/>
+        <alias entity-alias="SPOTPARTY" name="orderId"/>
+        <alias entity-alias="SPOTPARTY" name="nbrOfGuests"/>
+    </view-entity>
+    <view-entity entity-name="AccommodationAreasAndSpots" package="growerp.mobile.location">
+        <description>get all accommodation areas and spots for a certain companyId and area id</description>
+        <member-entity entity-name="growerp.mobile.location.AccommodationArea" entity-alias="AREA">
+            <entity-condition><date-filter/></entity-condition></member-entity>
+        <member-entity entity-name="growerp.mobile.location.AccommodationSpot" entity-alias="SPOT" join-from-alias="AREA">
+            <key-map field-name="accommodationAreaId"/>
+            <entity-condition><date-filter from-field-name="spotFromDate" thru-field-name="spotThruDate"/></entity-condition>
+        </member-entity>
+        <alias entity-alias="AREA" name="accommodationAreaId"/>
+        <alias entity-alias="AREA" name="ownerPartyId"/>
+        <alias entity-alias="AREA" name="description"/>
+        <alias entity-alias="AREA" name="fromDate"/>
+        <alias entity-alias="AREA" name="thruDate"/>
+        <alias entity-alias="SPOT" name="accommodationSpotId"/>
+        <alias entity-alias="SPOT" name="spotNumber"/>
+        <alias entity-alias="SPOT" name="nbrOfSeats"/>
+        <alias entity-alias="SPOT" name="spotFromDate" field="fromDate"/>
+        <alias entity-alias="SPOT" name="spotThruDate" field="thruDate"/>
+    </view-entity>
+    <view-entity entity-name="ProductAndPreparationArea" package="growerp.mobile.product" >
+        <member-entity entity-alias="PRODMEM" entity-name="mantle.product.category.ProductCategoryMember">
+            <entity-condition><date-filter/></entity-condition></member-entity>
+        <member-entity entity-alias="PRODCAT" entity-name="mantle.product.category.ProductCategory" join-from-alias="PRODMEM">
+            <key-map field-name="productCategoryId"/></member-entity>
+        <member-entity entity-name="growerp.mobile.location.PreparationArea" entity-alias="PA" join-from-alias="PRODCAT">
+            <key-map field-name="preparationAreaId"/>
+            <entity-condition><date-filter/></entity-condition></member-entity>
+         <alias name="productId" entity-alias="PRODMEM"/>
+         <alias name="fromDate" entity-alias="PRODMEM"/>
+         <alias name="thruDate" entity-alias="PRODMEM"/>
+         <alias name="productCategoryId" entity-alias="PRODCAT"/>
+         <alias name="categoryName" entity-alias="PRODCAT"/>
+         <alias name="ownerPartyId" entity-alias="PRODCAT"/>
+         <alias name="preparationAreaId" entity-alias="PA"/>
+         <alias name="description" entity-alias="PA"/>
+    </view-entity>
+    <view-entity entity-name="OrderHeaderItemAccommodationParty" package="growerp.mobile.order">
+        <member-entity entity-alias="ORHD" entity-name="mantle.order.OrderHeader"/>
+        <member-entity entity-alias="ORPART" entity-name="mantle.order.OrderPart" join-from-alias="ORHD">
+            <key-map field-name="orderId"/></member-entity>
+        <member-entity entity-alias="ORIT" entity-name="mantle.order.OrderItem" join-from-alias="ORPART">
+            <key-map field-name="orderId"/><key-map field-name="orderPartSeqId"/></member-entity>
+        <member-entity entity-alias="SPOTPARTY" entity-name="AccommodationSpotParty" join-from-alias="ORHD">
+            <key-map field-name="orderId"/></member-entity>
+        <member-entity entity-alias="PERSON" entity-name="mantle.party.Person" join-from-alias="SPOTPARTY">
+            <key-map field-name="partyId"/></member-entity>
+        <member-entity entity-alias="SPOT" entity-name="growerp.mobile.location.AccommodationSpot" join-from-alias="SPOTPARTY">
+            <key-map field-name="accommodationSpotId"/>
+            <entity-condition><date-filter from-field-name="spotFromDate" thru-field-name="spotThruDate"/></entity-condition></member-entity>
+        <member-entity entity-name="growerp.mobile.location.AccommodationArea" entity-alias="AREA" join-from-alias="SPOT">
+            <key-map field-name="accommodationAreaId"/>
+            <entity-condition><date-filter/></entity-condition></member-entity>
+        <alias entity-alias="ORHD" name="orderId"/>
+        <alias entity-alias="ORHD" name="placedDate"/>
+        <alias entity-alias="ORHD" name="grandTotal"/>
+        <alias entity-alias="ORHD" name="statusId"/>
+        <alias entity-alias="ORHD" name="currencyUomId"/>
+        <alias entity-alias="ORPART" name="vendorPartyId"/>
+        <alias entity-alias="ORIT" name="orderItemSeqId"/>
+        <alias entity-alias="ORIT" name="productId"/>
+        <alias entity-alias="ORIT" name="itemDescription"/>
+        <alias entity-alias="ORIT" name="quantity"/>
+        <alias entity-alias="ORIT" name="unitAmount"/>
+        <alias entity-alias="SPOTPARTY" name="partyId"/>
+        <alias entity-alias="SPOTPARTY" name="nbrOfGuests"/>
+        <alias entity-alias="AREA" name="accommodationAreaId"/>
+        <alias entity-alias="AREA" name="ownerPartyId"/>
+        <alias entity-alias="AREA" name="description"/>
+        <alias entity-alias="AREA" name="fromDate"/>
+        <alias entity-alias="AREA" name="thruDate"/>
+        <alias entity-alias="SPOT" name="accommodationSpotId"/>
+        <alias entity-alias="SPOT" name="spotNumber"/>
+        <alias entity-alias="SPOT" name="spotFromDate" field="fromDate"/>
+        <alias entity-alias="SPOT" name="spotThruDate" field="thruDate"/>
+        <alias entity-alias="PERSON" name="firstName"/>
+        <alias entity-alias="PERSON" name="lastName"/>
+    </view-entity>
+    <view-entity entity-name="OrderActivities" package="growerp.mobile.order">
+        <member-entity entity-alias="ORHD" entity-name="mantle.order.OrderHeader"/>
+        <member-entity entity-alias="PERSENTER" entity-name="mantle.party.Person" join-from-alias="ORHD" join-optional="true">
+            <key-map field-name="enteredByPartyId" related="partyId"/></member-entity>
+        <member-entity entity-alias="ORPART" entity-name="mantle.order.OrderPart" join-from-alias="ORHD">
+            <key-map field-name="orderId"/></member-entity>
+        <member-entity entity-alias="PREP" entity-name="growerp.mobile.location.PreparationArea" join-from-alias="ORPART">
+            <key-map field-name="preparationAreaId"/></member-entity>
+        <member-entity entity-alias="ORPARTPARTY" entity-name="mantle.order.OrderPartParty" join-from-alias="ORPART">
+            <key-map field-name="orderId"/><key-map field-name="orderPartSeqId"/></member-entity>
+        <member-entity entity-alias="PERSROLE" entity-name="mantle.party.Person" join-from-alias="ORPARTPARTY" join-optional="true">
+            <key-map field-name="partyId"/></member-entity>
+        <member-entity entity-alias="ORIT" entity-name="mantle.order.OrderItem" join-from-alias="ORPART">
+            <key-map field-name="orderId"/><key-map field-name="orderPartSeqId"/></member-entity>
+        <alias entity-alias="ORHD" name="orderId"/>
+        <alias entity-alias="ORHD" name="placedDate"/>
+        <alias entity-alias="ORHD" name="grandTotal"/>
+        <alias entity-alias="ORHD" name="statusId"/>
+        <alias entity-alias="PERSENTER" name="enterFirstName" field="firstName"/>
+        <alias entity-alias="PERSENTER" name="enterLastName" field="lastName"/>
+        <alias entity-alias="ORPART" name="vendorPartyId"/>
+        <alias entity-alias="PREP" name="preparationAreaId"/>
+        <alias entity-alias="PREP" name="prepDescription" field="description"/>
+        <alias entity-alias="ORPARTPARTY" name="doneDate" field="lastUpdatedStamp"/>
+        <alias entity-alias="ORPARTPARTY" name="roleTypeId"/>
+        <alias entity-alias="PERSROLE" name="firstName"/>
+        <alias entity-alias="PERSROLE" name="lastName"/>
+        <alias entity-alias="ORIT" name="orderItemSeqId"/>
+        <alias entity-alias="ORIT" name="itemDescription"/>
+        <alias entity-alias="ORIT" name="quantity"/>
+        <alias entity-alias="ORIT" name="unitAmount"/>
+    </view-entity>
+    <view-entity entity-name="OrderHeaderPartPrepAndItems" package="growerp.mobile.order">
+        <member-entity entity-alias="ORHD" entity-name="mantle.order.OrderHeader"/>
+        <member-entity entity-alias="ORDERSPOT" entity-name="AccommodationSpotParty" join-from-alias="ORHD">
+            <key-map field-name="orderId"/></member-entity>
+        <member-entity entity-alias="PART" entity-name="mantle.order.OrderPart" join-from-alias="ORHD">
+            <key-map field-name="orderId"/></member-entity>
+        <member-entity entity-alias="PERSON" entity-name="mantle.party.Person" join-from-alias="PART">
+            <key-map field-name="customerPartyId" related="partyId"/></member-entity>
+        <member-entity entity-alias="PREP" entity-name="growerp.mobile.location.PreparationArea" join-from-alias="PART">
+            <key-map field-name="preparationAreaId"/></member-entity>
+        <member-entity entity-alias="ITEM" entity-name="mantle.order.OrderItem" join-from-alias="PART">
+            <key-map field-name="orderId"/><key-map field-name="orderPartSeqId"/></member-entity>
+        <alias name="orderId" entity-alias="ORHD"/>
+        <alias name="placedDate" entity-alias="ORHD"/>
+        <alias name="enteredByPartyId" entity-alias="ORHD"/>
+        <alias name="grandTotal" entity-alias="ORHD"/>
+        <alias name="currencyUomId" entity-alias="ORHD"/>
+        <alias name="orderStatusId" entity-alias="ORHD" field="statusId"/>
+        <alias name="accommodationSpotId" entity-alias="ORDERSPOT"></alias>
+        <alias name="partStatusId" entity-alias="PART" field="statusId"/>
+        <alias name="orderPartSeqId" entity-alias="PART"/>
+        <alias name="vendorPartyId" entity-alias="PART"/>
+        <alias name="customerPartyId" entity-alias="PART"/>
+        <alias name="firstName" entity-alias="PERSON"/>
+        <alias name="lastName" entity-alias="PERSON"/>
+        <alias name="preparationAreaId" entity-alias="PREP"/>
+        <alias name="prepDescription" entity-alias="PREP" field="description"/>
+        <alias name="orderItemSeqId" entity-alias="ITEM"/>
+        <alias name="productId" entity-alias="ITEM"/>
+        <alias name="itemDescription" entity-alias="ITEM"/>
+        <alias name="quantity" entity-alias="ITEM"/>
+        <alias name="unitAmount" entity-alias="ITEM"/>
+    </view-entity>
+    <view-entity entity-name="ProductAndPriceAndProductCategory" package="growerp.mobile.product">
+        <member-entity entity-alias="CATG" entity-name="mantle.product.category.ProductCategory"/>
+        <member-entity entity-alias="MEM" entity-name="mantle.product.category.ProductCategoryMember"
+                join-from-alias="CATG" join-optional="true">
+            <key-map field-name="productCategoryId"/>
+            <entity-condition><date-filter/></entity-condition></member-entity>
+        <member-entity entity-alias="PROD" entity-name="mantle.product.Product"
+                join-from-alias="MEM" join-optional="true">
+            <key-map field-name="productId"/><entity-condition>
+            <date-filter from-field-name="productFromDate" thru-field-name="productThruDate"/>
+            </entity-condition></member-entity>
+        <member-entity entity-alias="PRICE" entity-name="mantle.product.ProductPrice"
+                join-from-alias="PROD" join-optional="true">
+            <key-map field-name="productId"/>
+            <entity-condition><date-filter from-field-name="priceFromDate" thru-field-name="priceThruDate"/>
+            <econdition field-name="priceTypeEnumId" value="PptCurrent"/></entity-condition></member-entity>
+        <alias name="productCategoryId" entity-alias="CATG"/>
+        <alias name="categoryName" entity-alias="CATG"/>
+        <alias name="fromDate" entity-alias="MEM"/>
+        <alias name="thruDate" entity-alias="MEM"/>
+        <alias name="productId" entity-alias="PROD"/>
+        <alias name="productName" entity-alias="PROD"/>
+        <alias name="description" entity-alias="PROD"/>
+        <alias name="ownerPartyId" entity-alias="PROD"/>
+        <alias name="productFromDate" field="salesIntroductionDate" entity-alias="PROD"/>
+        <alias name="productThruDate" field="salesDiscontinuationDate" entity-alias="PROD"/>
+        <alias name="productPriceId" entity-alias="PRICE"/>
+        <alias name="price" entity-alias="PRICE"/>
+        <alias name="priceUomId" entity-alias="PRICE"/>
+        <alias name="priceTypeEnumId" entity-alias="PRICE"/>
+        <alias name="priceFromDate" entity-alias="PRICE" field="fromDate"/>
+        <alias name="priceThruDate" entity-alias="PRICE" field="thruDate"/>
+    </view-entity>
+
+    <view-entity entity-name="WorkEffortAndPartyAndCompany" package="growerp.mobile.workeffort" >
+        <description>get all task from or to a particular person</description>
+        <member-entity entity-alias="WEF" entity-name="mantle.work.effort.WorkEffort"/>
+        <member-entity entity-alias="OWNERPERSON" entity-name="mantle.party.Person" join-from-alias="WEF">
+            <key-map field-name="ownerPartyId" related="partyId"/></member-entity>
+        <member-entity entity-alias="WEFPARTY" entity-name="mantle.work.effort.WorkEffortParty" join-from-alias="WEF">
+            <key-map field-name="workEffortId"/>
+            <entity-condition><date-filter/></entity-condition></member-entity>
+        <member-entity entity-alias="PTYPERSON" entity-name="mantle.party.Party" join-from-alias="WEFPARTY">
+            <key-map field-name="partyId"/>
+            <entity-condition>
+                <econdition field-name="personDisabled" operator="equals" value="N" or-null="true"/>
+            </entity-condition>
+        </member-entity>
+        <member-entity entity-alias="PERSON" entity-name="mantle.party.Person" join-from-alias="WEFPARTY">
+            <key-map field-name="partyId"/></member-entity>
+        <member-entity entity-alias="PR" entity-name="mantle.party.PartyRelationship" join-from-alias="PTYPERSON">
+            <key-map field-name="partyId" related="fromPartyId"/>
+            <entity-condition>
+                <econdition field-name="fromRoleTypeId" value="Employee"/>
+                <econdition field-name="toRoleTypeId" value="OrgInternal"/>
+                <date-filter/></entity-condition></member-entity>
+        <member-entity entity-alias="PTYORG" entity-name="mantle.party.Party" join-from-alias="PR">
+            <key-map field-name="toPartyId" related="partyId"/>
+            <entity-condition>
+                <econdition field-name="orgDisabled" operator="equals" value="N" or-null="true"/>
+            </entity-condition></member-entity>
+        <alias entity-alias="WEF" name="workEffortId"/>
+        <alias entity-alias="WEF" name="workEffortName"/>
+        <alias entity-alias="WEF" name="description"/>
+        <alias entity-alias="WEF" name="priority"/>
+        <alias entity-alias="WEF" name="ownerPartyId"/>
+        <alias entity-alias="WEF" name="statusId"/>
+        <alias entity-alias="WEF" name="actualStartDate"/>
+        <alias entity-alias="WEF" name="actualCompletionDate"/>
+        <alias entity-alias="OWNERPERSON" name="ownerFirstName" field="firstName"/>
+        <alias entity-alias="OWNERPERSON" name="ownerLastName" field="lastName"/>
+        <alias entity-alias="WEFPARTY" name="roleTypeId"/>
+        <alias entity-alias="WEFPARTY" name="fromDate"/>
+        <alias entity-alias="WEFPARTY" name="thruDate"/>
+        <alias entity-alias="WEFPARTY" name="partyStatusId" field="statusId"/>
+        <alias entity-alias="PTYPERSON" name="userPartyId" field="partyId"/>
+        <alias entity-alias="PTYPERSON" name="personDisabled" field="disabled"/>
+        <alias entity-alias="PERSON" name="firstName"/>
+        <alias entity-alias="PERSON" name="lastName"/>
+        <alias entity-alias="PR" name="toPartyId"/>
+        <alias entity-alias="PR" name="toRoleTypeId"/>
+        <alias entity-alias="PR" name="fromPartyId"/>
+        <alias entity-alias="PR" name="fromRoleTypeId"/>
+        <alias entity-alias="PTYORG" name="orgDisabled" field="disabled"/>
+        <alias entity-alias="PTYORG" name="orgPartyId" field="partyId"/>
+    </view-entity>
+
+    <view-entity entity-name="RequestAndPartyAndCompany" package="growerp.mobile.request" >
+        <description>get all requests for system support</description>
+        <member-entity entity-alias="REQ" entity-name="mantle.request.Request"/>
+        <member-entity entity-alias="REQPARTY" entity-name="mantle.request.RequestParty" join-from-alias="REQ">
+            <key-map field-name="requestId"/>
+            <entity-condition><date-filter/></entity-condition></member-entity>
+        <member-entity entity-alias="PTYPERSON" entity-name="mantle.party.Party" join-from-alias="REQPARTY">
+            <key-map field-name="partyId"/><entity-condition>
+                <econdition field-name="personDisabled" operator="equals" value="N" or-null="true"/>
+            </entity-condition>
+        </member-entity>
+        <member-entity entity-alias="PERSON" entity-name="mantle.party.Person" join-from-alias="REQPARTY">
+            <key-map field-name="partyId"/></member-entity>
+        <member-entity entity-alias="PR" entity-name="mantle.party.PartyRelationship" join-from-alias="PTYPERSON">
+            <key-map field-name="partyId" related="fromPartyId"/>
+            <entity-condition>
+                <econdition field-name="fromRoleTypeId" value="Employee"/>
+                <econdition field-name="toRoleTypeId" value="OrgInternal"/>
+                <date-filter/></entity-condition></member-entity>
+        <member-entity entity-alias="PTYORG" entity-name="mantle.party.Party" join-from-alias="PR">
+            <key-map field-name="toPartyId" related="partyId"/>
+            <entity-condition>
+                <econdition field-name="orgDisabled" operator="equals" value="N" or-null="true"/>
+            </entity-condition>
+        </member-entity>
+        <alias entity-alias="REQ" name="requestId"/>
+        <alias entity-alias="REQ" name="requestTypeEnumId"/>
+        <alias entity-alias="REQ" name="requestName"/>
+        <alias entity-alias="REQ" name="description"/>
+        <alias entity-alias="REQ" name="priority"/>
+        <alias entity-alias="REQ" name="statusId"/>
+        <alias entity-alias="REQ" name="requestDate"/>
+        <alias entity-alias="REQ" name="requestResolutionEnumId"/>
+        <alias entity-alias="REQPARTY" name="roleTypeId"/>
+        <alias entity-alias="REQPARTY" name="fromDate"/>
+        <alias entity-alias="REQPARTY" name="thruDate"/>
+        <alias entity-alias="PTYPERSON" name="userPartyId" field="partyId"/>
+        <alias entity-alias="PTYPERSON" name="personDisabled" field="disabled"/>
+        <alias entity-alias="PERSON" name="firstName"/>
+        <alias entity-alias="PERSON" name="lastName"/>
+        <alias entity-alias="PR" name="toPartyId"/>
+        <alias entity-alias="PR" name="toRoleTypeId"/>
+        <alias entity-alias="PR" name="fromPartyId"/>
+        <alias entity-alias="PR" name="fromRoleTypeId"/>
+        <alias entity-alias="PTYORG" name="orgDisabled" field="disabled"/>
+        <alias entity-alias="PTYORG" name="orgPartyId" field="partyId"/>
+    </view-entity>
+
+    <view-entity entity-name="CompanyPreferenceAndClassification" package="growerp.mobile.party">
+        <member-entity entity-alias="PARTY" entity-name="mantle.party.Party"/>
+        <member-entity entity-alias="ORG" entity-name="mantle.party.Organization" join-from-alias="PARTY">
+            <key-map field-name="partyId"/></member-entity>
+        <member-entity entity-alias="PP" entity-name="mantle.ledger.config.PartyAcctgPreference" join-from-alias="PARTY">
+            <key-map field-name="partyId"/></member-entity>
+        <member-entity entity-alias="CLASSAPPL" entity-name="mantle.party.PartyClassificationAppl" join-from-alias="PARTY">
+            <key-map field-name="partyId"/></member-entity>
+        <member-entity entity-alias="CLASS" entity-name="mantle.party.PartyClassification" join-from-alias="CLASSAPPL">
+            <key-map field-name="partyClassificationId"/></member-entity>
+        <alias name="partyId" entity-alias="PARTY"/>
+        <alias name="disabled" entity-alias="PARTY"/>
+        <alias name="organizationName" entity-alias="ORG"/>
+        <alias name="baseCurrencyUomId" entity-alias="PP"/>
+        <alias name="partyClassificationId" entity-alias="CLASS"/>
+        <alias name="description" entity-alias="CLASS"/>
+    </view-entity>
+    <view-entity entity-name="ProductCategoryParentsAndChild" package="growerp.mobile.party.category">
+        <member-entity entity-alias="PARENT" entity-name="mantle.product.category.ProductCategory">
+            <entity-condition>
+                <econditions combine="or">
+                    <econdition field-name="productCategoryTypeEnumId" value="PctRestaurant"/><!-- used in nativescript -->
+                    <econdition field-name="productCategoryTypeEnumId" value="PctRoot"/>
+                </econditions>
+            </entity-condition>
+        </member-entity>
+        <member-entity entity-alias="ROLLUP" entity-name="mantle.product.category.ProductCategoryRollup" join-from-alias="PARENT">
+            <key-map field-name="productCategoryId" related="parentProductCategoryId"/>
+            <entity-condition><date-filter/></entity-condition></member-entity>
+        <member-entity entity-alias="CHILD" entity-name="mantle.product.category.ProductCategory" join-from-alias="ROLLUP">
+            <key-map field-name="productCategoryId"/></member-entity>
+        <member-entity entity-alias="PREP" entity-name="growerp.mobile.location.PreparationArea" join-from-alias="CHILD" join-optional="true">
+            <key-map field-name="preparationAreaId"/>
+            <entity-condition><date-filter/></entity-condition></member-entity>
+        <alias name="parentProductCategoryId" entity-alias="ROLLUP"/>
+        <alias name="ownerPartyId" entity-alias="PARENT"/>
+        <alias name="fromDate" entity-alias="ROLLUP"/>
+        <alias name="thruDate" entity-alias="ROLLUP"/>
+        <alias name="sequenceNum" entity-alias="ROLLUP"/>
+        <alias name="productCategoryId" entity-alias="ROLLUP"/>
+        <alias name="categoryName" entity-alias="CHILD"/>
+        <alias name="preparationAreaId" entity-alias="CHILD"/>
+        <alias name="description" entity-alias="PREP"/>
+    </view-entity>
+
+    <view-entity entity-name="ProductCategoryAndProducts" package="growerp.mobile.party.category">
+        <member-entity entity-alias="PARENT" entity-name="mantle.product.category.ProductCategory">
+            <entity-condition>
+            <econdition field-name="productCategoryTypeEnumId" value="PctRestaurant"/>
+            </entity-condition>
+        </member-entity>
+        <member-entity entity-alias="ROLLUP" entity-name="mantle.product.category.ProductCategoryRollup" join-from-alias="PARENT">
+            <key-map field-name="productCategoryId" related="parentProductCategoryId"/>
+            <entity-condition><date-filter/></entity-condition></member-entity>
+        <member-entity entity-alias="CHILD" entity-name="mantle.product.category.ProductCategory" join-from-alias="ROLLUP">
+            <key-map field-name="productCategoryId"/></member-entity>
+        <member-entity entity-alias="CATGMEMBER" entity-name="mantle.product.category.ProductCategoryMember" join-from-alias="CHILD">
+            <key-map field-name="productCategoryId"/>
+            <entity-condition><date-filter from-field-name="memberFromDate" thru-field-name="memberThruDate"/></entity-condition></member-entity>
+        <member-entity entity-alias="PRODUCT" entity-name="mantle.product.Product" join-from-alias="CATGMEMBER">
+            <key-map field-name="productId"/></member-entity>
+        <member-entity entity-alias="PRICE" entity-name="mantle.product.ProductPrice" join-from-alias="PRODUCT">
+            <key-map field-name="productId"/>
+            <entity-condition><econdition field-name="priceTypeEnumId" value="PptCurrent"/>
+            <date-filter from-field-name="priceFromDate" thru-field-name="priceThruDate"/></entity-condition></member-entity>
+        <alias name="parentProductCategoryId" entity-alias="ROLLUP"/>
+        <alias name="ownerPartyId" entity-alias="PARENT"/>
+        <alias name="fromDate" entity-alias="ROLLUP"/>
+        <alias name="thruDate" entity-alias="ROLLUP"/>
+        <alias name="memberFromDate" field="fromDate" entity-alias="ROLLUP"/>
+        <alias name="memberThruDate" field="thruDate" entity-alias="ROLLUP"/>
+        <alias name="sequenceNum" entity-alias="ROLLUP"/>
+        <alias name="productCategoryId" entity-alias="ROLLUP"/>
+        <alias name="categoryName" entity-alias="CHILD"/>
+        <alias name="productId" entity-alias="PRODUCT"/>
+        <alias name="productName" entity-alias="PRODUCT"/>
+        <alias name="priceFromDate" field="fromDate" entity-alias="PRICE"/>
+        <alias name="priceThruDate" field="thruDate" entity-alias="PRICE"/>
+        <alias name="priceTypeEnumId" entity-alias="PRICE"/>
+        <alias name="price" entity-alias="PRICE"/>
+    </view-entity>
+
+    <view-entity entity-name="SubscriptionAndPartyAndCompany" package="growerp.mobile.Subscription" >
+        <description>get all subscriptions from a particular person/company</description>
+        <member-entity entity-alias="SUB" entity-name="mantle.product.subscription.Subscription">
+        <entity-condition><date-filter/></entity-condition></member-entity>
+        <member-entity entity-alias="PTYPERSON" entity-name="mantle.party.Party" join-from-alias="SUB">
+            <key-map field-name="subscriberPartyId" related="partyId"/>
+            <entity-condition>
+                <econdition field-name="personDisabled" operator="equals" value="N" or-null="true"/>
+            </entity-condition>
+        </member-entity>
+        <member-entity entity-alias="PERSON" entity-name="mantle.party.Person" join-from-alias="SUB">
+            <key-map field-name="subscriberPartyId" related="partyId"/></member-entity>
+        <member-entity entity-alias="PR" entity-name="mantle.party.PartyRelationship" join-from-alias="PTYPERSON">
+            <key-map field-name="partyId" related="fromPartyId"/>
+            <entity-condition>
+                <econdition field-name="fromRoleTypeId" value="Employee"/>
+                <econdition field-name="toRoleTypeId" value="OrgInternal"/>
+                <date-filter/></entity-condition></member-entity>
+        <member-entity entity-alias="PTYORG" entity-name="mantle.party.Party" join-from-alias="PR">
+            <key-map field-name="toPartyId" related="partyId"/>
+            <entity-condition>
+                <econdition field-name="orgDisabled" operator="equals" value="N" or-null="true"/>
+            </entity-condition>
+        </member-entity>
+        <alias entity-alias="SUB" name="subscriptionId"/>
+        <alias entity-alias="SUB" name="externalSubscriptionId"><description>ID from the playstore</description></alias>
+        <alias entity-alias="SUB" name="description"/>
+        <alias entity-alias="SUB" name="fromDate"/>
+        <alias entity-alias="SUB" name="thruDate"/>
+        <alias entity-alias="PTYPERSON" name="userPartyId" field="partyId"/>
+        <alias entity-alias="PTYPERSON" name="personDisabled" field="disabled"/>
+        <alias entity-alias="PERSON" name="firstName"/>
+        <alias entity-alias="PERSON" name="lastName"/>
+        <alias entity-alias="PR" name="toPartyId"/>
+        <alias entity-alias="PR" name="toRoleTypeId"/>
+        <alias entity-alias="PR" name="fromPartyId"/>
+        <alias entity-alias="PR" name="fromRoleTypeId"/>
+        <alias entity-alias="PTYORG" name="orgDisabled" field="disabled"/>
+        <alias entity-alias="PTYORG" name="orgPartyId" field="partyId"/>
+    </view-entity>
+</entities>

@@ -1,0 +1,609 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domaicrn Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+
+    <service verb="check" noun="Company">
+        <in-parameters><parameter name="partyId" required="true"/></in-parameters>
+        <out-parameters><parameter name="ok"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.party.Party" value-field="party" >
+                <field-map field-name="partyId"/>
+            </entity-find-one>
+            <if condition="party &amp;&amp; party.disabled == null &amp;&amp; party.disabled != 'Y'">
+                <set field="ok" value="ok"/></if>
+        </actions>
+    </service>
+
+    <service verb="get" noun="Companies">
+        <in-parameters>
+            <parameter name="partyClassificationId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="companies"/>
+        </out-parameters>
+        <actions>
+            <entity-find entity-name="growerp.mobile.party.CompanyPreferenceAndClassification" list="parties">
+                <econdition field-name="partyClassificationId" ignore-if-empty="true"/>
+                <econditions combine="or">
+                    <econdition field-name="disabled" operator="not-equals" value="Y"/>
+                    <econdition field-name="disabled" operator="is-null"/>
+                </econditions>
+            </entity-find>
+            <set field="companies" from="[]" />
+            <iterate list="parties" entry="party">
+                <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"
+                    in-map="[companyPartyId: party.partyId]"/>
+                <script>companies.add(company)</script>
+            </iterate>
+        </actions>
+    </service>
+
+    <service verb="get" noun="Company">
+        <in-parameters>
+            <parameter name="companyPartyId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="company" type="Map"/>
+        </out-parameters>
+        <actions>
+            <if condition="!companyPartyId &amp;&amp; ec.user &amp;&amp; ec.user.userAccount?.partyId">
+                <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
+                <set field="companyPartyId" from="ownerPartyId"/>
+            </if>
+            <if condition="!companyPartyId"><return error="true" message="Company partyId not supplied"/></if>
+            <entity-find-one entity-name="growerp.mobile.party.CompanyPreferenceAndClassification" value-field="org">
+                <field-map field-name="partyId" from="companyPartyId"/></entity-find-one>
+            <if condition="!org"><return error="true" message="Company ${companyPartyId} not found!"/></if>
+            <service-call name="mantle.party.ContactServices.get#PrimaryEmailAddress"
+                in-map="[partyId: companyPartyId]" out-map="context"/>
+            <entity-find entity-name="mantle.party.PartyContent" list="contents">
+                <econdition field-name="partyId" from="companyPartyId"/>
+                <econdition field-name="partyContentTypeEnumId" value="PcntImageMedium" />
+            </entity-find>
+            <if condition="contents">
+                <service-call name="growerp.100.ImageServices100.download#Image"
+                    in-map="[contentLocation: contents[0].contentLocation]" out-map="context"/></if>
+            <entity-find entity-name="CompanyPersonAndLoginGroup" list="compEmployees">
+                <econdition field-name="companyPartyId" />
+            </entity-find>
+            <!-- provide users when logged in and admin-->
+            <if condition="ec.getUser().getUsername() &amp;&amp; ec.user.hasPermission('GROWERP_M_COMPANY')">
+                <set field="employees" from="[]"/>
+                <iterate list="compEmployees" entry="employee">
+                    <service-call name="growerp.100.PartyServices100.get#User" out-map="context"
+                        in-map="[partyId: employee.userPartyId]"></service-call>
+                    <script>employees.add(user)</script>
+                </iterate>
+            </if>
+            <set field="company" from="[
+                partyId: companyPartyId,
+                name: org.organizationName,
+                classificationId: org.partyClassificationId,
+                classificationDescr: org.description,
+                email: emailAddress,
+                currencyId: org.baseCurrencyUomId,
+                image: imageFile,
+                employees: employees]"/>
+        </actions>
+    </service>
+
+    <service verb="update" noun="Company">
+        <description>
+            update company information
+        </description>
+        <in-parameters>
+            <parameter name="company"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="company" type="Map"/>
+        </out-parameters>
+        <actions>
+            <script> // convert JSON data
+                import groovy.json.JsonSlurper
+                JsonSlurper slurper = new JsonSlurper()
+                Object compIn = new JsonSlurper().parseText(company).company
+            </script>
+            <!-- check access user belongs to this company override companyPartyId-->
+            <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
+                out-map="context"/>
+            <set field="compIn.partyId" from="ownerPartyId"/>
+            <!-- get old values -->
+            <service-call name="growerp.100.PartyServices100.get#Company" out-map="oldValue"/>
+            <!-- update name -->
+            <if condition="compIn.name &amp;&amp; oldValue.company.name !=  compIn.name">
+                <service-call name="update#mantle.party.Organization"
+                    in-map="[partyId: oldValue.company.partyId, organizationName: compIn.name]"/>
+            </if>
+            <!-- update email -->
+            <if condition="compIn.email &amp;&amp; compIn.email != oldValue.company.emailAddress">
+                <entity-find entity-name="mantle.party.contact.PartyContactMech" for-update="true" list="partyContactMechs" >
+                    <econdition field-name="partyId" from="oldValue.company.partyId"/>
+                    <econdition field-name="contactMechPurposeId" value="EmailPrimary"/><date-filter/></entity-find>
+                <if condition="partyContactMechs">
+                    <set field="partyContactMechs[0].thruDate" from="ec.user.nowTimestamp"/>
+                    <entity-update value-field="partyContactMechs[0]"/> </if>
+                <service-call name="mantle.party.ContactServices.create#EmailAddress"
+                    in-map="[partyId: oldValue.company.partyId, contactMechPurposeId: 'EmailPrimary', emailAddress: compIn.email]"/>
+            </if>
+            <!-- update currency -->
+            <entity-find-one entity-name="mantle.ledger.config.PartyAcctgPreference" value-field="pref" for-update="true">
+                <field-map field-name="organizationPartyId" from="compIn.partyId"/>
+            </entity-find-one>
+            <if condition="pref.baseCurrencyUomId != compIn.currencyId">
+                <set field="pref.baseCurrencyUomId" from="compIn.currencyId"/>
+                <entity-update value-field="pref" />
+            </if>
+            <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"/>
+        </actions>
+    </service>
+
+    <service verb="get" noun="User">
+        <description>
+            Get all users of the company or usergroup they belong to(with partyId just a single party with PartyId)
+        </description>
+        <in-parameters>
+            <parameter name="partyId"/><!-- if present select a single user, else a list -->
+            <parameter name="userGroupId"/><!-- if present only select users with this group -->
+        </in-parameters>
+        <out-parameters>
+            <parameter name="users" type="List"/>
+            <parameter name="user" type="Map"/>
+        </out-parameters>
+        <actions>
+            <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="company"/>
+            <entity-find entity-name="CompanyPersonAndLoginGroup"  list="userInfos">
+                <econdition field-name="userPartyId" from="partyId" ignore-if-empty="true"/>
+                <econdition field-name="userGroupId" from="userGroupId" ignore-if-empty="true"/>
+                <econdition field-name="companyPartyId" from="company.partyId"/>
+                <date-filter/><date-filter from-field-name="ugFromDate" thru-field-name="ugThruDate"/>
+                <order-by field-name="lastName"/><order-by field-name="firstName"/>
+            </entity-find>
+            <if condition="!partyId"><set field="users" from="[]"/></if>
+            <iterate entry="userInfo" list="userInfos">
+                <entity-find entity-name="mantle.party.PartyContent" list="contents">
+                    <econdition field-name="partyId" from="userInfo.userPartyId"/>
+                    <econdition field-name="partyContentTypeEnumId" value="partyId? PcntImageMedium : PcntImageSmall" />
+                </entity-find>
+                <if condition="contents">    
+                    <service-call name="growerp.100.ImageServices100.download#Image"
+                        in-map="[contentLocation: contents[0].contentLocation]" out-map="context"/></if>
+                <if condition="contents">  
+                    <service-call name="growerp.100.ImageServices100.download#Image" 
+                        in-map="[companyPartyId: company.partyId, size: partyId? 'medium':'small', type: 'user', 
+                            id: userInfo.fromPartyId]" out-map="context"/></if>
+                <set field="userOut" from="[
+                    partyId: userInfo?.userPartyId,
+                    email: userInfo?.emailAddress,
+                    name: userInfo?.username,
+                    firstName: userInfo?.firstName,
+                    lastName: userInfo?.lastName,
+                    groupDescription: userInfo?.description,
+                    language: userInfo?.locale.toString(),
+                    image: imageFile]"/>
+
+                <if condition="!partyId">
+                    <script>users.add(userOut)</script>
+                    <else>
+                        <set field="user1" from="[
+                            userId: userInfo?.userId,
+                            userGroupId: userInfo?.userGroupId,
+                            locale: userInfo?.locale,
+                            externalId: userInfo?.externalId]"/>
+                        <set field="user" from="userOut"/>
+                        <script>user.putAll(user1)</script>
+                    </else>
+                </if>
+            </iterate>
+        </actions>
+    </service>
+
+    <service verb="create" noun="User">
+        <description>
+            add a new user on the same company as the logged in user
+        </description>
+        <in-parameters>
+            <parameter name="user"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="user"/>
+        </out-parameters>
+        <actions>
+            <script> // convert JSON data
+                import groovy.json.JsonSlurper
+                JsonSlurper slurper = new JsonSlurper()
+                Object userIn = new JsonSlurper().parseText(user).user
+            </script>
+            <service-call name="growerp.100.PartyServices100.get#Company" out-map="compOut"/>
+            <service-call name="growerp.100.PartyServices100.register#UserAndCompany"
+            in-map="[
+                firstName: userIn.firstName,
+                lastName: userIn.lastName,
+                emailAddress: userIn.email,
+                locale: userIn.locale,
+                externalId: userIn.externalid,
+                userGroupId: userIn.userGroupId,
+                companyPartyId: compOut.company.partyId]" out-map="userOut"/>
+            <set field="user" from="userOut.user"/>
+        </actions>
+    </service>
+
+    <service verb="update" noun="User">
+        <description>
+            update user information if partyId present, else create
+        </description>
+        <in-parameters>
+            <parameter name="user"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="user"/>
+        </out-parameters>
+        <actions>
+            <script> // convert JSON data
+                import groovy.json.JsonSlurper
+                JsonSlurper slurper = new JsonSlurper()
+                Object userIn = new JsonSlurper().parseText(user).user
+            </script>
+            <service-call name="growerp.100.PartyServices100.get#User"
+                in-map="[partyId: userIn.partyId]" out-map="oldValue"/>
+            <service-call name="update#mantle.party.Person" 
+                in-map="[   partyId: userIn.partyId, 
+                            firstName: userIn.firstName ? userIn.firstName : oldValue.user.firstName, 
+                            lastName: userIn.lastName ? userIn.lastName : oldValue.user.lastName]"/>
+            <service-call name="mantle.party.PartyServices.update#PartyUserAccount"
+                in-map="[   partyId: userIn.partyId, 
+                            emailAddress: userIn.email ? userIn.email : oldValue.user.email,
+                            username: userIn.name? userIn.name : oldValue.user.name,
+                            locale: language
+                        ]"/>
+            <!--update user group -->
+            <if condition="!userIn.userGroupId">
+                <return error="true" message="userGroupId not supplied to update user"/></if>
+            <if condition="userIn.userGroupId != oldValue.user.userGroupId">
+                <if condition="oldValue.user.userGroupid == 'GROWERP_M_ADMIN'">
+                    <!-- check if only a single admin: cannot change -->
+                    <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" 
+                        in-map="[userPartyId: userIn.partyId]" out-map="company"/>
+                    <entity-find entity-name="growerp.mobile.CompanyPersonAndLoginGroup" list="admins">
+                        <econdition field-name="userGroupId" value="GROWERP_M_ADMIN"/>
+                        <econdition field-name="companyPartyId" from="company.partyId" />
+                        <date-filter/></entity-find>
+                    <if condition="admins.size() == 1">
+                        <return error="true" message="You need at least a single Admin in your company: cannot remove this one!"/></if>
+                </if>
+                <entity-find entity-name="moqui.security.UserGroupMember" list="groupMembers" for-update="true">
+                    <econdition field-name="userGroupId" from="oldValue.user.userGroupId"/>
+                    <econdition field-name="userId" from="oldValue.user.userId"/>
+                </entity-find>
+                <set field="groupMembers[0].thruDate" from="ec.user.nowTimestamp"/>
+                <entity-update value-field="groupMembers[0]"/>
+                <service-call name="create#moqui.security.UserGroupMember"
+                    in-map="[userGroupId: userIn.userGroupId, userId: oldValue.user.userId, fromDate: ec.user.nowTimestamp]"/>
+            </if>    
+            <!-- update external id for customer indentification -->
+            <entity-find-one value-field="party" entity-name="mantle.party.Party" for-update="true">
+                <field-map field-name="partyId" from="userIn.partyId"/></entity-find-one>
+            <if condition="userIn.externalId != party.externalId">
+                <set field="party.externalId" from="userIn.externalId"/>
+                <entity-update value-field="party"/></if>
+            <!-- update imag test to see if we can use base64-->
+            <!--if condition="userIn.image">
+                <set field="pagePath" value="/user/${userIn.partyId}/"/>
+                <set field="contentLocation" value="dbresource://C${ownerPartyId}/images${pagePath}"/>
+                <set field="attachmentReferenceMedium" from="ec.resource.getLocationReference(contentLocation + 'medium')"/>
+
+                <service-call name="create#mantle.party.PartyContent" in-map="[
+                    partyId: id, partyContentTypeEnumId: 'PcntImageMedium',
+                    contentLocation: contentLocationMedium]" />
+            </if-->
+        <!-- return updated user -->
+            <service-call name="growerp.100.PartyServices100.get#User" in-map="[partyId: userIn.partyId]" out-map="context"/>
+        </actions>
+    </service>
+
+    <service verb="delete" noun="User">
+        <in-parameters>
+            <parameter name="partyId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="partyId"/>
+        </out-parameters>
+        <actions>
+            <!-- check if this user has an admin account -->
+            <service-call name="growerp.100.PartyServices100.get#User"
+                in-map="[partyId: partyId]" out-map="oldValue"/>
+            <if condition="oldValue.user.userGroupid == 'GROWERP_M_ADMIN'">
+                <!-- check if only a single admin: cannot change -->
+                <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" 
+                    in-map="[userPartyId: userIn.partyId]" out-map="company"/>
+                <entity-find entity-name="growerp.mobile.CompanyPersonAndLoginGroup" list="admins">
+                    <econdition field-name="userGroupId" value="GROWERP_M_ADMIN"/>
+                    <econdition field-name="companyPartyId" from="company.partyId" />
+                    <date-filter/></entity-find>
+                <if condition="admins.size() == 1">
+                    <return error="true" message="You need at least a single Admin in your company: cannot delete this one!"/></if>
+            </if>
+            <service-call name="update#mantle.party.Party" in-map="[partyId: partyId, disabled: 'Y']"/>
+        </actions>
+    </service>
+
+    <service verb="register" noun="UserAndCompany" authenticate="anonymous-all">
+        <description>
+            registers with a minimal setup for a user with a given group to an existing company or when not provided
+            will create an accounting organization with the provided name and currency
+        </description>
+        <in-parameters>
+            <!-- user information -->
+            <parameter name="firstName" required="true" />
+            <parameter name="middleName" />
+            <parameter name="lastName" required="true" />
+            <parameter name="emailAddress" required="true">
+                <text-email />
+            </parameter>
+            <parameter name="username" default="emailAddress" />
+            <parameter name="newPassword" default="org.moqui.util.StringUtilities.getRandomString(6) + '9!'" />
+            <parameter name="newPasswordVerify" default="newPassword" />
+            <parameter name="userGroupId"/> <!--securitygroup required for non admin users-->
+            <parameter name="locale" />
+            <!-- company information -->
+            <parameter name="companyPartyId" /> <!-- add users for existing company -->
+            <parameter name="companyName" />
+            <parameter name="companyEmailAddress" default="emailAddress" />
+            <parameter name="currencyUomId" />
+            <parameter name="partyClassificationId"/> <!-- allocate party to mobile application -->
+            <!-- default setup -->
+            <parameter name="environment" />
+            <parameter name="transData" type="List" /> <!-- [ 'kitchen','food','macaroni','bar','inside','garden','drinks','cola' -->
+        </in-parameters>
+        <out-parameters>
+            <parameter name="user" />
+            <parameter name="company" />
+            <parameter name="partyId" />
+        </out-parameters>
+        <actions>
+            <service-call name="mantle.party.PartyServices.create#Account" 
+                in-map="context + [roleTypeId: 'Employee', loginAfterCreate: false]"
+                out-map="userAccount" />
+            <if condition="userAccount.partyId != null">
+                <if condition="companyPartyId == null">
+                    <service-call name="mantle.party.PartyServices.create#Organization"
+                        in-map="context + [roleTypeId: 'OrgInternal',organizationName: companyName]"
+                        out-map="company" />
+                    <set field="companyPartyId" from="company.partyId" />
+                    <service-call name="mantle.party.ContactServices.create#EmailAddress" 
+                        out-map="emailOut"
+                        in-map="[emailAddress:companyEmailAddress, partyId:companyPartyId,
+                            contactMechPurposeId:'EmailPrimary']" />
+                    <service-call name="create#mantle.ledger.config.PartyAcctgPreference"
+                        in-map="[organizationPartyId: companyPartyId, baseCurrencyUomId: currencyUomId]" />
+                    <if condition="!partyClassificationId">
+                        <return error="true" message="When creating a new company partyClassificationId is required" /></if>
+                    <service-call name="create#mantle.party.PartyClassificationAppl"
+                        in-map="[partyId: companyPartyId, partyClassificationId: partyClassificationId]" />
+                    <!-- create productStore -->
+                    <service-call name="create#mantle.product.store.ProductStore"
+                        out-map="context" in-map="[organizationPartyId: companyPartyId,
+                            requireInventory: 'N',
+                            reservationOrderEnumId:'AsResAutoNone',
+                            defaultCurrencyUomId: currencyUomId]" />
+                    <!-- create root category -->
+                    <set field="fromDate" from="ec.user.nowTimestamp"/>
+                    <entity-find-one entity-name="mantle.party.PartyClassification"
+                            value-field="partyClassification">
+                        <field-map field-name="partyClassificationId"/>
+                    </entity-find-one>
+                    <service-call name="create#mantle.product.category.ProductCategory" out-map="rootCat" 
+                        in-map="[ownerPartyId: companyPartyId, productCategoryTypeEnumId: 'PctRoot',
+                            categoryName: 'Root category for: ' + partyClassification.description]" />
+                    <service-call name="create#mantle.product.store.ProductStoreCategory" 
+                        in-map="[productCategoryId: rootCat.productCategoryId,
+                            storeCategoryTypeEnumId: 'PsctBrowseRoot',
+                            productStoreId: context.productStoreId, fromDate: fromDate]" />
+                    <else>
+                        <service-call name="growerp.100.PartyServices100.get#Company" out-map="compOut"/>
+                        <if condition="companyPartyId != compOut.company.partyId ||
+                                !ec.user.hasPermission('GROWERP_M_COMPANY')">
+                            <return error="true"
+                                message="User partyId: ${ec.user.userAccount.partyId} has no company admin access(GROWERP_M_COMPANY) to company ${companyPartyId}"/>
+                        </if>
+                    </else>
+                </if>
+                <!-- attach the user as an employee to the organization. -->
+                <service-call name="create#mantle.party.PartyRelationship"
+                    in-map="[fromPartyId: userAccount.partyId, fromRoleTypeId: 'Employee',
+                        relationshipTypeEnumId: 'PrtEmployee', fromDate: fromDate,
+                        toPartyId: companyPartyId, toRoleTypeId: 'OrgInternal']" />
+                <!-- set company in as ACTIVE_ORGANIZATION UserPreference to be sure only this company can be looked at-->
+                <service-call name="create#moqui.security.UserPreference"
+                    in-map="[userId: userAccount.userId, preferenceKey: 'ACTIVE_ORGANIZATION',
+                     preferenceValue: companyPartyId]" />
+                <!-- setup the organization -->
+                <!--service-call name="mantle.party.PartyServices.setup#UserOrganizationInfo" /-->
+                <entity-find-one entity-name="mantle.party.PartyClassificationAppl"
+                         value-field="partyClassificationAppl">
+                    <field-map field-name="partyId" from="companyPartyId" />
+                </entity-find-one>
+                <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
+                    <field-map field-name="emailTemplateId" value="WELCOME" />
+                    <field-map field-name="toAddresses" from="emailAddress" />
+                    <field-map field-name="bodyParameters" 
+                        from="[classification: partyClassificationAppl.partyClassificationId.substring(3),
+                            newPassword:newPassword]" />
+                </service-call>
+                <if condition="company">
+                    <!-- initial company/user needs login for loading default data (create#user calls this service)-->
+                    <!-- add the user as admin -->
+                    <script>ec.user.loginUser(username, newPassword)</script>
+                    <service-call name="create#moqui.security.UserGroupMember"
+                        in-map="[userGroupId: 'GROWERP_M_ADMIN', userId: userAccount.userId]" />
+                    <service-call name="growerp.100.PartyServices100.load#DefaultData" in-map="context" />
+                    <else><!-- non admin user, company already exist -->
+                        <if condition="!userGroupId">
+                            <return error="true" message="UsergroupId required for non admin users!"/></if>
+                        <service-call name="create#moqui.security.UserGroupMember"
+                            in-map="[userGroupId: userGroupId, userId: userAccount.userId]" />
+                    </else>
+                </if>
+                <service-call name="growerp.100.PartyServices100.get#User" in-map="[partyId: userAccount.partyId]" out-map="context"/>
+                <service-call name="growerp.100.PartyServices100.get#Company" in-map="[companyPartyId: companyPartyId]" out-map="context"/>
+            </if>
+        </actions>
+    </service>
+    <!--internal service used in register -->
+    <service verb="load" noun="DefaultData" authenticate="anonymous-all">
+        <!-- not reachable outside -->
+        <in-parameters>
+            <parameter name="currencyUomId"/>
+            <parameter name="partyClassificationId" required="true" />
+            <parameter name="environment" />
+            <parameter name="transData" type="List" default="['kitchen','food','macaroni','bar','inside','garden','drinks','cola']"/>
+        </in-parameters>
+        <actions>
+            <if condition="partyClassificationId == 'AppEcommerceShop'">
+                <service-call name="growerp.100.CatgProdServices100.create#ProductCategory" in-map="[
+                    categoryName: transData[1], preparationAreaId: preparationAreaId]" out-map="context" /> <!-- food -->
+                <service-call name="create#ProductCategoryContent" in-map="[
+                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageThumbNail',
+                    contentLocation: 'dbresource://GrowERP/images/foodSmall.png']" />
+                <service-call name="create#ProductCategoryContent" in-map="[
+                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/foodMedium.png']" />
+                <service-call name="growerp.mobile.MobileCatgProdServices.create#Product" in-map="[
+                    productName: transData[2], productCategoryId: productCategoryId, price: '10.00',
+                    currencyId: currencyUomId]" out-map="context" /> <!-- macaroni-->
+                <service-call name="create#ProductContent" in-map="[
+                    productId: productId, productContentTypeEnumId: 'PcntImageSmall',
+                    contentLocation: 'dbresource://GrowERP/images/macaroniSmall.png']" />
+                <service-call name="create#ProductContent" in-map="[
+                    productId: productId, productContentTypeEnumId: 'PcntImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/macaroniMedium.png']" />
+                <service-call name="growerp.100.CatgProdServices100.create#ProductCategory" in-map="[
+                    categoryName: transData[6]]" out-map="context" /> <!-- drinks -->
+                <service-call name="create#ProductCategoryContent" in-map="[
+                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageThumbNail',
+                    contentLocation: 'dbresource://GrowERP/images/drinksSmall.png']" />
+                <service-call name="create#ProductCategoryContent" in-map="[
+                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/drinksMedium.png']" />
+                <service-call name="growerp.mobile.MobileCatgProdServices.create#Product" in-map="[
+                    productName: transData[7], productCategoryId: productCategoryId, price: '15.00', 
+                    currencyId: currencyUomId]" out-map="context" /> <!-- macaroni-->
+                <service-call name="create#ProductContent" in-map="[
+                    productId: productId, productContentTypeEnumId: 'PcntImageSmall',
+                    contentLocation: 'dbresource://GrowERP/images/colaSmall.png']" />
+                <service-call name="create#ProductContent" in-map="[
+                    productId: productId, productContentTypeEnumId: 'PcntImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/colaMedium.png']" />
+            </if>
+            <if condition="partyClassificationId == 'AppRestaurant'">
+                <!-- billing -->
+                <service-call name="growerp.mobile.MobileLocationServices.create#PreparationArea" in-map="[description: transData[8]]" out-map="context" />
+                <service-call name="create#PreparationAreaContent" in-map="[
+                    preparationAreaId: preparationAreaId, preparationAreaContentTypeEnumId: 'PactImageThumbNail',
+                    contentLocation: 'dbresource://GrowERP/images/billingSmall.png']" />
+                <service-call name="create#PreparationAreaContent" in-map="[
+                    preparationAreaId: preparationAreaId, preparationAreaContentTypeEnumId: 'PactImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/billingMedium.png']" />
+                <!-- kitchen -->
+                <service-call name="growerp.mobile.MobileLocationServices.create#PreparationArea" in-map="[description: transData[0]]" out-map="context" />
+                <service-call name="create#PreparationAreaContent" in-map="[
+                    preparationAreaId: preparationAreaId, preparationAreaContentTypeEnumId: 'PactImageThumbNail',
+                    contentLocation: 'dbresource://GrowERP/images/kitchenSmall.png']" />
+                <service-call name="create#PreparationAreaContent" in-map="[
+                    preparationAreaId: preparationAreaId, preparationAreaContentTypeEnumId: 'PactImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/kitchenMedium.png']" />
+                <service-call name="growerp.100.MobileCatgProdServices100.create#ProductCategory" in-map="[
+                    categoryName: transData[1], preparationAreaId: preparationAreaId]" out-map="context" /> <!-- food -->
+                <service-call name="create#ProductCategoryContent" in-map="[
+                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageThumbNail',
+                    contentLocation: 'dbresource://GrowERP/images/foodSmall.png']" />
+                <service-call name="create#ProductCategoryContent" in-map="[
+                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/foodMedium.png']" />
+                <service-call name="growerp.mobile.MobileCatgProdServices.create#Product" in-map="[
+                    productName: transData[2], productCategoryId: productCategoryId, price: '10.00',
+                    currencyId: currencyUomId]" out-map="context" /> <!-- macaroni-->
+                <service-call name="create#ProductContent" in-map="[
+                    productId: productId, productContentTypeEnumId: 'PcntImageSmall',
+                    contentLocation: 'dbresource://GrowERP/images/macaroniSmall.png']" />
+                <service-call name="create#ProductContent" in-map="[
+                    productId: productId, productContentTypeEnumId: 'PcntImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/macaroniMedium.png']" />
+                <!-- bar -->
+                <service-call name="growerp.mobile.MobileLocationServices.create#PreparationArea" in-map="[description: transData[3]]" out-map="context" />
+                <service-call name="create#PreparationAreaContent" in-map="[
+                    preparationAreaId: preparationAreaId, preparationAreaContentTypeEnumId: 'PactImageThumbNail',
+                    contentLocation: 'dbresource://GrowERP/images/barSmall.png']" />
+                <service-call name="create#PreparationAreaContent" in-map="[
+                    preparationAreaId: preparationAreaId, preparationAreaContentTypeEnumId: 'PactImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/barMedium.png']" />
+                <service-call name="growerp.100.CatgProdServices100.create#ProductCategory" in-map="[
+                    categoryName: transData[6], preparationAreaId: preparationAreaId]" out-map="context" /> <!-- drinks -->
+                <service-call name="create#ProductCategoryContent" in-map="[
+                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageThumbNail',
+                    contentLocation: 'dbresource://GrowERP/images/drinksSmall.png']" />
+                <service-call name="create#ProductCategoryContent" in-map="[
+                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/drinksMedium.png']" />
+                <service-call name="growerp.mobile.MobileCatgProdServices.create#Product" in-map="[
+                    productName: transData[7], productCategoryId: productCategoryId, price: '15.00', 
+                    currencyId: currencyUomId]" out-map="context" /> <!-- macaroni-->
+                <service-call name="create#ProductContent" in-map="[
+                    productId: productId, productContentTypeEnumId: 'PcntImageSmall',
+                    contentLocation: 'dbresource://GrowERP/images/colaSmall.png']" />
+                <service-call name="create#ProductContent" in-map="[
+                    productId: productId, productContentTypeEnumId: 'PcntImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/colaMedium.png']" />
+
+                <service-call name="growerp.mobile.MobileLocationServices.create#AccommodationArea" in-map="[description: transData[4], nbrOfSpots: 10]" out-map="context" />
+                <service-call name="create#AccommodationAreaContent" in-map="[
+                    accommodationAreaId: accommodationAreaId, accommodationAreaContentTypeEnumId: 'AactImageThumbNail',
+                    contentLocation: 'dbresource://GrowERP/images/insideSmall.png']" />
+                <service-call name="create#AccommodationAreaContent" in-map="[
+                    accommodationAreaId: accommodationAreaId, accommodationAreaContentTypeEnumId: 'AactImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/insideMedium.png']" />
+
+                <service-call name="growerp.mobile.MobileLocationServices.create#AccommodationArea" in-map="[description: transData[5], nbrOfSpots: 15]" out-map="context" />
+                <service-call name="create#AccommodationAreaContent" in-map="[
+                    accommodationAreaId: accommodationAreaId, accommodationAreaContentTypeEnumId: 'AactImageThumbNail',
+                    contentLocation: 'dbresource://GrowERP/images/gardenSmall.png']" />
+                <service-call name="create#AccommodationAreaContent" in-map="[
+                    accommodationAreaId: accommodationAreaId, accommodationAreaContentTypeEnumId: 'AactImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/gardenMedium.png']" />
+
+                <if condition="environment != 'production'">
+                    <service-call name="growerp.100.MobilePartyServices100.get#Company" out-map="context" />
+                    <set field="random" value="${org.moqui.util.StringUtilities.getRandomString(8)}" />
+                    <service-call name="growerp.mobile.MobilePartyServices.create#User" in-map="[
+                        firstName: 'Peter', lastName: 'Coster', companyPartyId: company.partyId,
+                        emailAddress: random.toLowerCase() + '@example.com',
+                        roleTypeId: 'Employee', groupDescription: 'Employee']" out-map="context" />
+                    <service-call name="growerp.mobile.MobileTaskRequestServices.create#WorkEffort" in-map="[workEffortName:'This a first task for Peter',
+                        partyId: partyId, priority: '5']" />
+                    <service-call name="growerp.mobile.MobileTaskRequestServices.create#WorkEffort" in-map="[workEffortName:'This a first task for me',
+                        priority: '5']" />
+                    <entity-find entity-name="PreparationArea" list="prepAreas">
+                        <econdition field-name="ownerPartyId" from="company.partyId" />
+                    </entity-find>
+                    <set field="index" value="0" type="Integer" />
+                    <iterate list="prepAreas" entry="prepArea">
+                        <!-- setup up ports for virtual escpos printers -->
+                        <service-call name="growerp.mobile.MobileLocationServices.update#PreparationArea" in-map="[preparationAreaId: prepArea.preparationAreaId, description: prepArea.description, printerIp: ':' + (9100 + index++)]" />
+                    </iterate>
+                </if>
+            </if>
+        </actions>
+    </service>
+
+</services>

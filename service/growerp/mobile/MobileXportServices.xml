@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domaicrn Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+
+    <service verb="export" noun="Orders">
+        <description>
+            send order csv file
+        </description>
+        <in-parameters>
+            <parameter name="startDate"><description>Format should be YYYY-MM-DD</description></parameter>
+        </in-parameters>
+        <actions>
+            <set field="emailAddress" from="ec.user.userAccount.emailAddress"/>
+            <set field="userAccount" from="ec.user.userAccount"/>
+            <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
+                <field-map field-name="emailTemplateId" value="GrowerpExportOrders"/>
+                <field-map field-name="toAddresses" from="emailAddress"/>
+                <field-map field-name="bodyParameters" from="[userAccount: userAccount, resetPassword: 'qqqqqq!9']"/>
+            </service-call>
+            <message public="true" type="success">A CSV file was sent by email to ${userAccount.emailAddress}.</message>
+
+            <!--service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" out-map="sendOut" out-map-add-to-existing="false"
+                    in-map="[emailTemplateId: 'GrowerpExport', toAddresses: ec.user.userAccount.emailAddress,
+                    bodyScreenLocation: 'component://growerp-moqui/screen/Admin/exportBody.xml' ]"/>
+            <if condition="sendOut.emailMessageId">
+                 <message>Email sent to ${toAddressesCur}${sendOut.emailMessageId ? ', message ID ' + sendOut.emailMessageId : ''}</message></if-->
+        </actions></service>
+
+    <service verb="get" noun="ExportOrders">
+        <description>
+            Get order information by order, item, spot and party
+        </description>
+        <in-parameters>
+            <parameter name="startDate"><description>Format should be YYYY-MM-DD</description></parameter>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="fileText"/>
+        </out-parameters>
+        <actions>
+            <if condition="startDate">
+                <set field="tsDate" from="ec.l10n.parseTimestamp(ec.l10n.format(startDate, 'yyyy-MM-dd') + ' 23:59:59.999', 'yyyy-MM-dd HH:mm:ss.SSS')"/>
+            </if>
+            <set field="statusList" from="['OrderOpen','OrderPlaced','OrderApproved']"/>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context" />
+            <entity-find entity-name="OrderHeaderItemAccommodationParty" list="orderList">
+                <econdition field-name="vendorPartyId" from="ownerPartyId"/>
+                <econdition field-name="placedDate" operator="less-equals" from="tsDate" ignore-if-empty="true"/>
+                <order-by field-name="placedDate"/></entity-find>
+            <log message="==== CSV orders found: ${orderList.size()}"/>
+            <set field="fileText" value=""/>
+            <script><![CDATA[
+                import org.apache.commons.csv.CSVPrinter
+                import org.apache.commons.csv.CSVFormat
+                import org.apache.commons.csv.CSVRecord
+                import org.apache.commons.csv.QuoteMode
+                StringBuilder outSb = new StringBuilder()
+                CSVPrinter printer = CSVFormat.DEFAULT.withHeader(
+                    "orderID", "Grand Total", "Placed Date", "CustomerNr", "Last Name", "First Name", "Table", "NbrOfGuests",
+                    "itemNr", "ProductName", "Quantity", "Price", "Total").print(outSb)
+                for (Map order in orderList) {
+                    String amountStr = ec.l10n.format(order.grandTotal, '0.00')
+                    String totalStr = ec.l10n.format(order.unitAmount * order.quantity, '0.00')
+                    String price = ec.l10n.format(order.unitAmount, '0.00')
+                    String dateStr = ec.l10n.format(order.placedDate, 'dd/MM/yyyy')
+                    String table = order.description + '-' + order.spotNumber
+                    printer.printRecord(order.orderId, amountStr, dateStr, order.partyId, order.lastName, order.firstName,
+                    table, order.nbrOfGuests, order.orderItemSeqId, order.itemDescription, order.quantity, price, totalStr)
+                }
+                fileText = outSb.toString()
+            ]]></script>
+            <log message="output in CSV: ${fileText}"/>
+        </actions></service>
+    <service verb="export" noun="Customers">
+        <description>
+            send order csv file
+        </description>
+        <in-parameters>
+            <parameter name="startDate"><description>Format should be YYYY-MM-DD</description></parameter>
+        </in-parameters>
+        <actions>
+            <set field="emailAddress" from="ec.user.userAccount.emailAddress"/>
+            <set field="userAccount" from="ec.user.userAccount"/>
+            <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
+                <field-map field-name="emailTemplateId" value="GrowerpExportCustomers"/>
+                <field-map field-name="toAddresses" from="emailAddress"/>
+                <field-map field-name="bodyParameters" from="[userAccount: userAccount, resetPassword: 'qqqqqq!9']"/>
+            </service-call>
+            <message public="true" type="success">A CSV file was sent by email to ${userAccount.emailAddress}.</message>
+
+            <!--service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" out-map="sendOut" out-map-add-to-existing="false"
+                    in-map="[emailTemplateId: 'GrowerpExport', toAddresses: ec.user.userAccount.emailAddress,
+                    bodyScreenLocation: 'component://growerp-moqui/screen/Admin/exportBody.xml' ]"/>
+            <if condition="sendOut.emailMessageId">
+                 <message>Email sent to ${toAddressesCur}${sendOut.emailMessageId ? ', message ID ' + sendOut.emailMessageId : ''}</message></if-->
+        </actions></service>
+
+    <service verb="get" noun="ExportCustomers">
+        <description>
+            Get catories and products
+        </description>
+        <out-parameters>
+            <parameter name="fileText"/>
+        </out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context" />
+            <entity-find entity-name="CompanyPersonAndLogin"  list="customers">
+                <econdition field-name="toPartyId" from="ownerPartyId"/>
+                <econdition field-name="toRoleTypeId" value="OrgInternal"/>
+                <econdition field-name="fromRoleTypeId" value="Customer"/>
+                <order-by field-name="lastName"/><order-by field-name="firstName"/>
+            </entity-find>
+           <log message="==== CSV customers found: ${customers.size()}"/>
+            <set field="fileText" value=""/>
+            <script><![CDATA[
+                import org.apache.commons.csv.CSVPrinter
+                import org.apache.commons.csv.CSVFormat
+                import org.apache.commons.csv.CSVRecord
+                import org.apache.commons.csv.QuoteMode
+                StringBuilder outSb = new StringBuilder()
+                CSVPrinter printer = CSVFormat.DEFAULT.withHeader(
+                    "Cusomer Id", "LastName", "firstName", "emailAddress").print(outSb)
+                for (Map customer in customers) {
+                    printer.printRecord(customer.externalId, customer.lastName, customer.firstName,
+                        customer.emailAddressAlt)}
+                fileText = outSb.toString()
+            ]]></script>
+            <log message="output in customer CSV: ${fileText}"/>
+        </actions></service>
+
+    <service verb="export" noun="CatgsProducts">
+        <description>
+            send order csv file
+        </description>
+        <actions>
+            <set field="emailAddress" from="ec.user.userAccount.emailAddress"/>
+            <set field="userAccount" from="ec.user.userAccount"/>
+            <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
+                <field-map field-name="emailTemplateId" value="GrowerpExportCatgsProducts"/>
+                <field-map field-name="toAddresses" from="emailAddress"/>
+                <field-map field-name="bodyParameters" from="[userAccount: userAccount, resetPassword: 'qqqqqq!9']"/>
+            </service-call>
+            <message public="true" type="success">A Categories and products CSV file was sent by email to ${userAccount.emailAddress}.</message>
+
+            <!--service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" out-map="sendOut" out-map-add-to-existing="false"
+                    in-map="[emailTemplateId: 'GrowerpExport', toAddresses: ec.user.userAccount.emailAddress,
+                    bodyScreenLocation: 'component://growerp-moqui/screen/Admin/exportBody.xml' ]"/>
+            <if condition="sendOut.emailMessageId">
+                 <message>Email sent to ${toAddressesCur}${sendOut.emailMessageId ? ', message ID ' + sendOut.emailMessageId : ''}</message></if-->
+        </actions></service>
+
+    <service verb="get" noun="ExportCatgsProducts">
+        <description>
+            Get Categories and products information
+        </description>
+        <out-parameters>
+            <parameter name="fileText"/>
+        </out-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context" />
+            <entity-find entity-name="growerp.mobile.party.category.ProductCategoryAndProducts"  list="catgsProducts">
+                <econdition field-name="ownerPartyId" from="ownerPartyId"/>
+            </entity-find>
+           <log message="==== CSV catgs/products found: ${catgsProducts.size()}"/>
+            <set field="fileText" value=""/>
+            <script><![CDATA[
+                import org.apache.commons.csv.CSVPrinter
+                import org.apache.commons.csv.CSVFormat
+                import org.apache.commons.csv.CSVRecord
+                import org.apache.commons.csv.QuoteMode
+                StringBuilder outSb = new StringBuilder()
+                CSVPrinter printer = CSVFormat.DEFAULT.withHeader(
+                    "Product CategoryId", "categoryName", "productId", "productName", "Price").print(outSb)
+                for (Map item in catgsProducts) {
+                    printer.printRecord(item.productCategoryId, item.categoryName, item.productId,
+                        item.productName, item.price)}
+                fileText = outSb.toString()
+            ]]></script>
+            <log message="output in catgsProducts CSV: ${fileText}"/>
+        </actions></service>
+
+</services>

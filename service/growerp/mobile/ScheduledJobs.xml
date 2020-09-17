@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domaicrn Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+    <!-- definition in data/GrowerpMobileAaSeedData.xml -->
+    <service verb="sendRegular" noun="Email" authenticate="anonymous-all"><!-- dayly -->
+        <description>
+            send regular email to existing users
+        </description>
+        <actions>
+            <set field="count" value="0" type="Long"/>
+            <set field="nowZdt" from="java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault())"/>
+            <entity-find entity-name="mantle.party.Party" list="companies">
+                <econdition field-name="partyTypeEnumId" value="PtyOrganization"/>
+                <econdition field-name="disabled" operator="not-equals" value="Y"/>
+            </entity-find>
+            <iterate list="companies" entry="company">
+                <entity-find entity-name="growerp.mobile.CompanyPersonAndLogin" list="users">
+                    <econdition field-name="fromPartyId" from="company.partyId"/>
+                </entity-find>
+                <iterate list="users" entry="user">
+                    <!-- user.fromDate is date is registration -->
+                </iterate>
+            </iterate>
+
+        </actions>
+    </service>
+
+    <service verb="deActivate" noun="InactiveUsers" authenticate="anonymous-all"><!-- dayly -->
+        <description>
+            scan active users for not using the system
+        </description>
+        <actions>
+
+        </actions>
+    </service>
+
+    
+
+
+</services>

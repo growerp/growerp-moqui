@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domaicrn Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+
+    <service verb="get" noun="RelatedCompanyPartyId">
+        <in-parameters>
+            <parameter name="userPartyId" />
+        </in-parameters>
+        <out-parameters>
+            <parameter name="ownerPartyId" />
+            <parameter name="partyId" />
+        </out-parameters>
+        <actions>
+            <if condition="!userPartyId">
+                <if condition="ec.user &amp;&amp; ec.user?.userAccount?.partyId">
+                    <set field="userPartyId" from="ec.user.userAccount.partyId" />
+                    <else>
+                        <return message="User ${userPartyId} not found or not logged in" error="true" />
+                    </else>
+                </if>
+            </if>
+            <entity-find entity-name="mantle.party.PartyRelationship" list="relList">
+                <date-filter />
+                <econdition field-name="fromPartyId" from="userPartyId" />
+                <econdition field-name="toRoleTypeId" value="OrgInternal" />
+                <select-field field-name="toPartyId" />
+            </entity-find>
+            <if condition="relList">
+                <set field="ownerPartyId" from="relList[0].toPartyId" />
+                <set field="partyId" from="ownerPartyId" />
+                <else>
+                    <return message="User ${userPartyId} has no related company!!"/>
+                </else>
+            </if>
+        </actions>
+    </service>
+</services>
