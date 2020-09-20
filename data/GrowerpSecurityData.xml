@@ -27,9 +27,9 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.security.ArtifactGroupMember artifactGroupId="GROWERP_API" artifactTypeEnumId="AT_REST_PATH"
         inheritAuthz="Y" artifactName="/growerp"/>
     <moqui.security.ArtifactGroupMember artifactGroupId="GROWERP_API" artifactTypeEnumId="AT_XML_SCREEN"
-        inheritAuthz="Y" artifactName="component://growerp-moqui/screen/Admin.xml"/>
+        inheritAuthz="Y" artifactName="component://growerp/screen/Admin.xml"/>
     <moqui.security.ArtifactGroupMember artifactGroupId="GROWERP_API" artifactTypeEnumId="AT_XML_SCREEN"
-        inheritAuthz="Y" artifactName="component://growerp-moqui/screen/rest.xml"/>
+        inheritAuthz="Y" artifactName="component://growerp/screen/rest.xml"/>
     <!-- Full company permissions for the ADMIN and system user group -->
     <moqui.security.ArtifactAuthz artifactAuthzId="GROWERPAPI_AUTHZ_ADMIN_SYS" userGroupId="GROWERP_M_SYSTEM" 
         artifactGroupId="GROWERP_API" authzTypeEnumId="AUTHZT_ALLOW" authzActionEnumId="AUTHZA_ALL"/>

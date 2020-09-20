@@ -3,11 +3,11 @@
     <screen-facade>
         <screen location="component://webroot/screen/webroot/apps.xml">
             <subscreens-item name="Admin" menu-index="10"
-                 location="component://growerp-moqui/screen/Admin.xml"/>
+                 location="component://growerp/screen/Admin.xml"/>
         </screen>
         <screen location="component://webroot/screen/webroot.xml" default-subscreen="growerp">
             <subscreens-item name="growerp" menu-include="false" no-sub-path="true"
-                location="component://growerp-moqui/screen/rest.xml"/>
+                location="component://growerp/screen/rest.xml"/>
         </screen>
     </screen-facade>
 </moqui-conf>

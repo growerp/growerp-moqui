@@ -1,10 +1,10 @@
-growerp-moqui:
-    image: growerpsupport/growerp-moqui
-    container_name: growerp-moqui
+growerp:
+    image: growerpsupport/growerp
+    container_name: growerp
 #    command: conf=conf/MoquiProductionConf.xml
     restart: unless-stopped
     volumes:
-     - /home/jenkins/growerp-moqui/mobile:/opt/moqui/runtime/mobile
+     - /home/jenkins/growerp/mobile:/opt/moqui/runtime/mobile
     environment:
      - instance_purpose=production
      - entity_ds_db_conf=postgres

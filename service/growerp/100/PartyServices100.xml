@@ -44,7 +44,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="companies" from="[]" />
             <iterate list="parties" entry="party">
                 <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"
-                    in-map="[companyPartyId: party.partyId]"/>
+                    in-map="[companyPartyId: party.partyId, contentTypeId: 'PcntImageSmall']"/>
                 <script>companies.add(company)</script>
             </iterate>
         </actions>
@@ -53,11 +53,13 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="get" noun="Company">
         <in-parameters>
             <parameter name="companyPartyId"/>
+            <parameter name="contentTypeId" default-value="PcntImageMedium"/>
         </in-parameters>
         <out-parameters>
             <parameter name="company" type="Map"/>
         </out-parameters>
         <actions>
+            <log message="====comp: ${companyPartyId} conttype: ${contentTypeId}" />    
             <if condition="!companyPartyId &amp;&amp; ec.user &amp;&amp; ec.user.userAccount?.partyId">
                 <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
                 <set field="companyPartyId" from="ownerPartyId"/>
@@ -68,11 +70,14 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!org"><return error="true" message="Company ${companyPartyId} not found!"/></if>
             <service-call name="mantle.party.ContactServices.get#PrimaryEmailAddress"
                 in-map="[partyId: companyPartyId]" out-map="context"/>
+            <log message="====comp: ${companyPartyId} conttype: ${contentTypeId}" />    
             <entity-find entity-name="mantle.party.PartyContent" list="contents">
                 <econdition field-name="partyId" from="companyPartyId"/>
-                <econdition field-name="partyContentTypeEnumId" value="PcntImageMedium" />
+                <econdition field-name="partyContentTypeEnumId" from="contentTypeId"/>
             </entity-find>
+            <log message="===contents: ${contents}"/>
             <if condition="contents">
+                <log message="===co==location: ${contents[0].contentLocation}"/>
                 <service-call name="growerp.100.ImageServices100.download#Image"
                     in-map="[contentLocation: contents[0].contentLocation]" out-map="context"/></if>
             <entity-find entity-name="CompanyPersonAndLoginGroup" list="compEmployees">
@@ -172,17 +177,15 @@ along with this software (see the LICENSE.md file). If not, see
             </entity-find>
             <if condition="!partyId"><set field="users" from="[]"/></if>
             <iterate entry="userInfo" list="userInfos">
+                <log message="=======party: ${userInfo.userPartyId}"/>
                 <entity-find entity-name="mantle.party.PartyContent" list="contents">
                     <econdition field-name="partyId" from="userInfo.userPartyId"/>
-                    <econdition field-name="partyContentTypeEnumId" value="partyId? PcntImageMedium : PcntImageSmall" />
+                    <econdition field-name="partyContentTypeEnumId" from="partyId? 'PcntImageMedium' : 'PcntImageSmall'" />
                 </entity-find>
                 <if condition="contents">    
                     <service-call name="growerp.100.ImageServices100.download#Image"
                         in-map="[contentLocation: contents[0].contentLocation]" out-map="context"/></if>
-                <if condition="contents">  
-                    <service-call name="growerp.100.ImageServices100.download#Image" 
-                        in-map="[companyPartyId: company.partyId, size: partyId? 'medium':'small', type: 'user', 
-                            id: userInfo.fromPartyId]" out-map="context"/></if>
+                <log message="======imagefile length: ${imageFile? imageFile.length() : 0}"/>
                 <set field="userOut" from="[
                     partyId: userInfo?.userPartyId,
                     email: userInfo?.emailAddress,

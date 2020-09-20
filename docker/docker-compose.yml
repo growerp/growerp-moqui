@@ -48,7 +48,7 @@ services:
       - DEFAULT_EMAIL=support@antwebsystems.com
 
   moqui-server:
-    image: growerpsupport/growerp-moqui
+    image: growerpsupport/growerp
     mem_limit: 2000m
     container_name: moqui
     command: conf=conf/MoquiProductionConf.xml

@@ -75,38 +75,38 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- EmailTemplate for password reset email -->
     <moqui.basic.email.EmailTemplate emailTemplateId="PASSWORD_RESET" description="Default Password Reset" 
         emailServerId="SYSTEM" emailTypeEnumId="EMT_PWD_RESET" 
-        bodyScreenLocation="component://growerp-moqui/screen/email/PasswordReset.xml"
+        bodyScreenLocation="component://growerp/screen/email/PasswordReset.xml"
         fromAddress="mobile@growerp.com" ccAddresses="" bccAddresses="" subject="Password Reset" sendPartial="Y"/>
     <moqui.basic.email.EmailTemplate emailTemplateId="WELCOME" description="Welcome email with Password" 
         emailServerId="SYSTEM" emailTypeEnumId="EMT_SYSTEM" 
-        bodyScreenLocation="component://growerp-moqui/screen/email/Welcome.xml"
+        bodyScreenLocation="component://growerp/screen/email/Welcome.xml"
         fromAddress="mobile@growerp.com" fromName="GrowERP system" ccAddresses="" bccAddresses="support@growerp.com" subject="Welcome and Password!" sendPartial="Y"/>
     <!-- export -->
     <moqui.basic.email.EmailTemplate emailTemplateId="GrowerpExportOrders" description="GrowERP orders export Order"
             emailServerId="SYSTEM" webappName="webroot"
             fromAddress="noreply@growerp.com" fromName="Support GrowERP" sendPartial="Y"
             subject="Export Orders CSV file"
-            bodyScreenLocation="component://growerp-moqui/screen/email/OrdersExportBody.xml">
+            bodyScreenLocation="component://growerp/screen/email/OrdersExportBody.xml">
         <attachments fileName="order.csv"
-                attachmentLocation="component://growerp-moqui/screen/email/OrdersExport.xml"
+                attachmentLocation="component://growerp/screen/email/OrdersExport.xml"
                 screenRenderMode="text"/>
     </moqui.basic.email.EmailTemplate>
     <moqui.basic.email.EmailTemplate emailTemplateId="GrowerpExportCustomers" description="GrowERP export Customers"
             emailServerId="SYSTEM" webappName="webroot"
             fromAddress="noreply@growerp.com" fromName="Support GrowERP" sendPartial="Y"
             subject="Export Customers CSV file"
-            bodyScreenLocation="component://growerp-moqui/screen/email/CustomersExportBody.xml">
+            bodyScreenLocation="component://growerp/screen/email/CustomersExportBody.xml">
         <attachments fileName="customer.csv"
-                attachmentLocation="component://growerp-moqui/screen/email/CustomersExport.xml"
+                attachmentLocation="component://growerp/screen/email/CustomersExport.xml"
                 screenRenderMode="text"/>
     </moqui.basic.email.EmailTemplate>
     <moqui.basic.email.EmailTemplate emailTemplateId="GrowerpExportCatgsProducts" description="GrowERP export Categories and Products"
             emailServerId="SYSTEM" webappName="webroot"
             fromAddress="noreply@growerp.com" fromName="Support GrowERP" sendPartial="Y"
             subject="Export Categories and products file"
-            bodyScreenLocation="component://growerp-moqui/screen/email/CatgsProductsExportBody.xml">
+            bodyScreenLocation="component://growerp/screen/email/CatgsProductsExportBody.xml">
         <attachments fileName="CatgsProducts.csv"
-                attachmentLocation="component://growerp-moqui/screen/email/CatgsProductsExport.xml"
+                attachmentLocation="component://growerp/screen/email/CatgsProductsExport.xml"
                 screenRenderMode="text"/>
     </moqui.basic.email.EmailTemplate>
 

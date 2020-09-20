@@ -32,14 +32,14 @@ along with this software (see the LICENSE.md file). If not, see
                 import java.awt.image.BufferedImage
                 import javax.imageio.ImageIO
 
-                // store uploaded image to large
+                // store uploaded image to large format
                 org.moqui.context.ExecutionContext ec = context.ec
                 org.apache.commons.fileupload.FileItem attachmentFile = context.file
                 InputStream fileStream = attachmentFile.getInputStream()
                 attachmentReferenceLarge.putStream(fileStream)
                 fileStream.close()
 
-                //convert large image to medium
+                //convert large image to medium format
                 fileStreamLarge = attachmentReferenceLarge.openStream()
                 BufferedImage img = ImageIO.read(fileStreamLarge);
                 def scale = 0.5
@@ -59,7 +59,7 @@ along with this software (see the LICENSE.md file). If not, see
                 is.close()
                 fileStreamLarge.close()
                 
-                //convert large image to small
+                //convert large image to small format
                 fileStreamLarge = attachmentReferenceLarge.openStream()
                 img = ImageIO.read(fileStreamLarge);
                 scale = 0.1
@@ -79,49 +79,61 @@ along with this software (see the LICENSE.md file). If not, see
                 is.close()
                 fileStreamLarge.close()
                 ]]></script>
-                <if condition="type == 'user'  || type == 'company">
+                <if condition="type == 'user'  || type == 'company'">
+                    <entity-delete-by-condition entity-name="mantle.party.PartyContent">
+                        <econdition field-name="partyId" from="id"/>
+                    </entity-delete-by-condition>
                     <service-call name="create#mantle.party.PartyContent" in-map="[
                         partyId: id, partyContentTypeEnumId: 'PcntImageSmall',
-                        contentLocation: contentLocationSmall]" />
+                        contentLocation: contentLocation + 'small']" />
                     <service-call name="create#mantle.party.PartyContent" in-map="[
                         partyId: id, partyContentTypeEnumId: 'PcntImageMedium',
-                        contentLocation: contentLocationMedium]" />
+                        contentLocation: contentLocation + 'medium']" />
                     <service-call name="create#mantle.party.PartyContent" in-map="[
                         partyId: id, partyContentTypeEnumId: 'PcntImageLarge',
-                        contentLocation: contentLocationLarge]" />
+                        contentLocation: contentLocation + 'large']" />
                 </if>
                 <if condition="type == 'product'">
+                    <entity-delete-by-condition entity-name="mantle.product.ProductContent">
+                        <econdition field-name="productId" from="id"/>
+                    </entity-delete-by-condition>
                     <service-call name="create#mantle.product.ProductContent" in-map="[
                         productId: id, productContentTypeEnumId: 'PcntImageSmall',
-                        contentLocation: contentLocationSmall]" />
+                        contentLocation: contentLocation + 'small']" />
                     <service-call name="create#mantle.product.ProductContent" in-map="[
                         productId: id, productContentTypeEnumId: 'PcntImageMedium',
-                        contentLocation: contentLocationMedium]" />
+                        contentLocation: contentLocation + 'medium']" />
                     <service-call name="create#mantle.product.ProductContent" in-map="[
                         productId: id, productContentTypeEnumId: 'PcntImageLarge',
-                        contentLocation: contentLocationLarge]" />
+                        contentLocation: contentLocation + 'large']" />
                 </if>
-                <if condition="type == category">
+                <if condition="type == 'category'">
+                    <entity-delete-by-condition entity-name="mantle.product.category.ProductCategoryContent">
+                        <econdition field-name="productCategoryId" from="id"/>
+                    </entity-delete-by-condition>
                     <service-call name="create#mantle.product.category.ProductCategoryContent" in-map="[
                         productCategoryId: id, categoryContentTypeEnumId: 'PcctImageThumbNail',
-                        contentLocation: contentLocationSmall]" />
+                        contentLocation: contentLocation + 'small']" />
                     <service-call name="create#mantle.product.category.ProductCategoryContent" in-map="[
                         productCategoryId: id, categoryContentTypeEnumId: 'PcctImageMedium',
-                        contentLocation: contentLocationMedium]" />
+                        contentLocation: contentLocation + 'medium']" />
                     <service-call name="create#mantle.product.category.ProductCategoryContent" in-map="[
                         productCategoryId: id, categoryContentTypeEnumId: 'PcctImageLarge',
-                        contentLocation: contentLocationLarge]" />
+                        contentLocation: contentLocation + 'large']" />
                 </if>
-                <if condition="type == area">
+                <if condition="type == 'area'">
+                    <entity-delete-by-condition entity-name="mantle.product.category.ProductCategoryContent">
+                        <econdition field-name="accommodationAreaId" from="id"/>
+                    </entity-delete-by-condition>
                     <service-call name="create#growerp.mobile.location.AccommodationAreaContent" in-map="[
                         accommodationAreaId: id, accommodationAreaContentTypeEnumId: 'AactImageThumbNail',
-                        contentLocation: contentLocationSmall]" />
+                        contentLocation: contentLocation + 'small']" />
                     <service-call name="create#growerp.mobile.location.AccommodationAreaContent" in-map="[
                         accommodationAreaId: id, accommodationAreaContentTypeEnumId: 'AactImageMedium',
-                        contentLocation: contentLocationMedium]" />
+                        contentLocation: contentLocation + 'medium']" />
                     <service-call name="create#growerp.mobile.location.AccommodationAreaContent" in-map="[
                         accommodationAreaId: id, accommodationAreaContentTypeEnumId: 'AactImageLarge',
-                        contentLocation: contentLocationLarge]" />
+                        contentLocation: contentLocation + 'large']" />
                     </if>
                 <log message="Uploaded ${contentLocation}"/>
             </actions>
@@ -138,6 +150,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="imageFile" default-value=""/>
         </out-parameters>
         <actions>
+            <log message="====location: ${contentLocation}"/>
             <set field="resourceReference" from="ec.resource.getLocationReference(contentLocation)"/>
             <if condition="!resourceReference || !resourceReference.getExists()">
                 <log level="info" message="Could not find resource at [${contentLocation}]"/>
@@ -145,7 +158,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="inputStream" from="resourceReference.openStream()"/>
                 <set field="docBytes" from="org.apache.commons.io.IOUtils.toByteArray(inputStream)"/>
                 <set field="imageFile" from="org.apache.commons.codec.binary.Base64.encodeBase64String(docBytes)"/>
-                <log message="Downloaded ${contentLocation} size: ${imageFile?.length()}"/>
+                <log message="======Downloaded ${contentLocation} size: ${imageFile?.length()}"/>
                 </else>
             </if>
         </actions>

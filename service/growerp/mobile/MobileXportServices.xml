@@ -33,7 +33,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!--service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" out-map="sendOut" out-map-add-to-existing="false"
                     in-map="[emailTemplateId: 'GrowerpExport', toAddresses: ec.user.userAccount.emailAddress,
-                    bodyScreenLocation: 'component://growerp-moqui/screen/Admin/exportBody.xml' ]"/>
+                    bodyScreenLocation: 'component://growerp/screen/Admin/exportBody.xml' ]"/>
             <if condition="sendOut.emailMessageId">
                  <message>Email sent to ${toAddressesCur}${sendOut.emailMessageId ? ', message ID ' + sendOut.emailMessageId : ''}</message></if-->
         </actions></service>
@@ -101,7 +101,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!--service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" out-map="sendOut" out-map-add-to-existing="false"
                     in-map="[emailTemplateId: 'GrowerpExport', toAddresses: ec.user.userAccount.emailAddress,
-                    bodyScreenLocation: 'component://growerp-moqui/screen/Admin/exportBody.xml' ]"/>
+                    bodyScreenLocation: 'component://growerp/screen/Admin/exportBody.xml' ]"/>
             <if condition="sendOut.emailMessageId">
                  <message>Email sent to ${toAddressesCur}${sendOut.emailMessageId ? ', message ID ' + sendOut.emailMessageId : ''}</message></if-->
         </actions></service>
@@ -155,7 +155,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!--service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" out-map="sendOut" out-map-add-to-existing="false"
                     in-map="[emailTemplateId: 'GrowerpExport', toAddresses: ec.user.userAccount.emailAddress,
-                    bodyScreenLocation: 'component://growerp-moqui/screen/Admin/exportBody.xml' ]"/>
+                    bodyScreenLocation: 'component://growerp/screen/Admin/exportBody.xml' ]"/>
             <if condition="sendOut.emailMessageId">
                  <message>Email sent to ${toAddressesCur}${sendOut.emailMessageId ? ', message ID ' + sendOut.emailMessageId : ''}</message></if-->
         </actions></service>
