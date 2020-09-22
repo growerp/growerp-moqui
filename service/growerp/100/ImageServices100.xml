@@ -38,11 +38,10 @@ along with this software (see the LICENSE.md file). If not, see
                 InputStream fileStream = attachmentFile.getInputStream()
                 attachmentReferenceLarge.putStream(fileStream)
                 fileStream.close()
-
                 //convert large image to medium format
                 fileStreamLarge = attachmentReferenceLarge.openStream()
                 BufferedImage img = ImageIO.read(fileStreamLarge);
-                def scale = 0.5
+                def scale = 5000 / file.getSize()
                 int newWidth = img.width * scale
                 int newHeight = img.height * scale
                 ByteArrayOutputStream os = new ByteArrayOutputStream();
@@ -62,7 +61,7 @@ along with this software (see the LICENSE.md file). If not, see
                 //convert large image to small format
                 fileStreamLarge = attachmentReferenceLarge.openStream()
                 img = ImageIO.read(fileStreamLarge);
-                scale = 0.1
+                scale =2000 / file.getSize()
                 newWidth = img.width * scale
                 newHeight = img.height * scale
                 os = new ByteArrayOutputStream();
@@ -150,7 +149,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="imageFile" default-value=""/>
         </out-parameters>
         <actions>
-            <log message="====location: ${contentLocation}"/>
             <set field="resourceReference" from="ec.resource.getLocationReference(contentLocation)"/>
             <if condition="!resourceReference || !resourceReference.getExists()">
                 <log level="info" message="Could not find resource at [${contentLocation}]"/>
@@ -158,7 +156,6 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="inputStream" from="resourceReference.openStream()"/>
                 <set field="docBytes" from="org.apache.commons.io.IOUtils.toByteArray(inputStream)"/>
                 <set field="imageFile" from="org.apache.commons.codec.binary.Base64.encodeBase64String(docBytes)"/>
-                <log message="======Downloaded ${contentLocation} size: ${imageFile?.length()}"/>
                 </else>
             </if>
         </actions>

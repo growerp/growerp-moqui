@@ -177,7 +177,6 @@ along with this software (see the LICENSE.md file). If not, see
             </entity-find>
             <if condition="!partyId"><set field="users" from="[]"/></if>
             <iterate entry="userInfo" list="userInfos">
-                <log message="=======party: ${userInfo.userPartyId}"/>
                 <entity-find entity-name="mantle.party.PartyContent" list="contents">
                     <econdition field-name="partyId" from="userInfo.userPartyId"/>
                     <econdition field-name="partyContentTypeEnumId" from="partyId? 'PcntImageMedium' : 'PcntImageSmall'" />
@@ -185,7 +184,6 @@ along with this software (see the LICENSE.md file). If not, see
                 <if condition="contents">    
                     <service-call name="growerp.100.ImageServices100.download#Image"
                         in-map="[contentLocation: contents[0].contentLocation]" out-map="context"/></if>
-                <log message="======imagefile length: ${imageFile? imageFile.length() : 0}"/>
                 <set field="userOut" from="[
                     partyId: userInfo?.userPartyId,
                     email: userInfo?.emailAddress,
