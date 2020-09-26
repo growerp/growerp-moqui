@@ -59,25 +59,21 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="company" type="Map"/>
         </out-parameters>
         <actions>
-            <log message="====comp: ${companyPartyId} conttype: ${contentTypeId}" />    
             <if condition="!companyPartyId &amp;&amp; ec.user &amp;&amp; ec.user.userAccount?.partyId">
                 <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
                 <set field="companyPartyId" from="ownerPartyId"/>
             </if>
-            <if condition="!companyPartyId"><return error="true" message="Company partyId not supplied"/></if>
+            <if condition="!companyPartyId"><return/></if><!-- return null if no company found -->
             <entity-find-one entity-name="growerp.mobile.party.CompanyPreferenceAndClassification" value-field="org">
                 <field-map field-name="partyId" from="companyPartyId"/></entity-find-one>
             <if condition="!org"><return error="true" message="Company ${companyPartyId} not found!"/></if>
             <service-call name="mantle.party.ContactServices.get#PrimaryEmailAddress"
                 in-map="[partyId: companyPartyId]" out-map="context"/>
-            <log message="====comp: ${companyPartyId} conttype: ${contentTypeId}" />    
             <entity-find entity-name="mantle.party.PartyContent" list="contents">
                 <econdition field-name="partyId" from="companyPartyId"/>
                 <econdition field-name="partyContentTypeEnumId" from="contentTypeId"/>
             </entity-find>
-            <log message="===contents: ${contents}"/>
             <if condition="contents">
-                <log message="===co==location: ${contents[0].contentLocation}"/>
                 <service-call name="growerp.100.ImageServices100.download#Image"
                     in-map="[contentLocation: contents[0].contentLocation]" out-map="context"/></if>
             <entity-find entity-name="CompanyPersonAndLoginGroup" list="compEmployees">
@@ -167,12 +163,9 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="user" type="Map"/>
         </out-parameters>
         <actions>
-            <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="company"/>
-            <entity-find entity-name="CompanyPersonAndLoginGroup"  list="userInfos">
+            <entity-find entity-name="growerp.mobile.PersonAndLoginGroup"  list="userInfos">
                 <econdition field-name="userPartyId" from="partyId" ignore-if-empty="true"/>
                 <econdition field-name="userGroupId" from="userGroupId" ignore-if-empty="true"/>
-                <econdition field-name="companyPartyId" from="company.partyId"/>
-                <date-filter/><date-filter from-field-name="ugFromDate" thru-field-name="ugThruDate"/>
                 <order-by field-name="lastName"/><order-by field-name="firstName"/>
             </entity-find>
             <if condition="!partyId"><set field="users" from="[]"/></if>
@@ -355,7 +348,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="username" default="emailAddress" />
             <parameter name="newPassword" default="org.moqui.util.StringUtilities.getRandomString(6) + '9!'" />
             <parameter name="newPasswordVerify" default="newPassword" />
-            <parameter name="userGroupId"/> <!--securitygroup required for non admin users-->
+            <parameter name="userGroupId" default-value="GROWERP_M_CUSTOMER"/> <!--securitygroup required for non admin users-->
             <parameter name="locale" />
             <!-- company information -->
             <parameter name="companyPartyId" /> <!-- add users for existing company -->
@@ -411,20 +404,7 @@ along with this software (see the LICENSE.md file). If not, see
                         in-map="[productCategoryId: rootCat.productCategoryId,
                             storeCategoryTypeEnumId: 'PsctBrowseRoot',
                             productStoreId: context.productStoreId, fromDate: fromDate]" />
-                    <else>
-                        <service-call name="growerp.100.PartyServices100.get#Company" out-map="compOut"/>
-                        <if condition="companyPartyId != compOut.company.partyId ||
-                                !ec.user.hasPermission('GROWERP_M_COMPANY')">
-                            <return error="true"
-                                message="User partyId: ${ec.user.userAccount.partyId} has no company admin access(GROWERP_M_COMPANY) to company ${companyPartyId}"/>
-                        </if>
-                    </else>
                 </if>
-                <!-- attach the user as an employee to the organization. -->
-                <service-call name="create#mantle.party.PartyRelationship"
-                    in-map="[fromPartyId: userAccount.partyId, fromRoleTypeId: 'Employee',
-                        relationshipTypeEnumId: 'PrtEmployee', fromDate: fromDate,
-                        toPartyId: companyPartyId, toRoleTypeId: 'OrgInternal']" />
                 <!-- set company in as ACTIVE_ORGANIZATION UserPreference to be sure only this company can be looked at-->
                 <service-call name="create#moqui.security.UserPreference"
                     in-map="[userId: userAccount.userId, preferenceKey: 'ACTIVE_ORGANIZATION',
@@ -448,10 +428,13 @@ along with this software (see the LICENSE.md file). If not, see
                     <script>ec.user.loginUser(username, newPassword)</script>
                     <service-call name="create#moqui.security.UserGroupMember"
                         in-map="[userGroupId: 'GROWERP_M_ADMIN', userId: userAccount.userId]" />
+                    <!-- attach the user as an employee to the organization. only when new company-->
+                    <service-call name="create#mantle.party.PartyRelationship"
+                        in-map="[fromPartyId: userAccount.partyId, fromRoleTypeId: 'Employee',
+                            relationshipTypeEnumId: 'PrtEmployee', fromDate: fromDate,
+                            toPartyId: companyPartyId, toRoleTypeId: 'OrgInternal']" />
                     <service-call name="growerp.100.PartyServices100.load#DefaultData" in-map="context" />
                     <else><!-- non admin user, company already exist -->
-                        <if condition="!userGroupId">
-                            <return error="true" message="UsergroupId required for non admin users!"/></if>
                         <service-call name="create#moqui.security.UserGroupMember"
                             in-map="[userGroupId: userGroupId, userId: userAccount.userId]" />
                     </else>

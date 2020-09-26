@@ -27,7 +27,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <if condition="ec.user &amp;&amp; ec.user?.userAccount?.partyId">
                     <set field="userPartyId" from="ec.user.userAccount.partyId" />
                     <else>
-                        <return message="User ${userPartyId} not found or not logged in" error="true" />
+                        <return/><!-- just return null if no related comany found -->
                     </else>
                 </if>
             </if>
