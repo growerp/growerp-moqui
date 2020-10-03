@@ -14,34 +14,59 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
 
+
     <service verb="upload" noun="Image">
         <in-parameters>
             <parameter name="type" required="true"/>
             <parameter name="id" required="true"/>
             <parameter name="file" type="org.apache.commons.fileupload.FileItem"/>
+            <parameter name="base64"/>
         </in-parameters>
         <actions>
             <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
             <set field="pagePath" value="/${type}/${id}/"/>
             <set field="contentLocation" value="dbresource://C${ownerPartyId}/images${pagePath}"/>
-            <set field="attachmentReferenceLarge" from="ec.resource.getLocationReference(contentLocation + 'large')"/>
-            <set field="attachmentReferenceMedium" from="ec.resource.getLocationReference(contentLocation + 'medium')"/>
-            <set field="attachmentReferenceSmall" from="ec.resource.getLocationReference(contentLocation + 'small')"/>
+            <log message="===uploading file of size ${base64.size()} to location: ${contentLocation}"/>
+            <set field="ec" from="context.ec"/>
+            <set field="attachmentReferenceLarge"
+                from="ec.resource.getLocationReference(contentLocation + 'large')"/>
+            <set field="attachmentReferenceMedium"
+                from="ec.resource.getLocationReference(contentLocation + 'medium')"/>
+            <set field="attachmentReferenceSmall"
+                from="ec.resource.getLocationReference(contentLocation + 'small')"/>
             <script><![CDATA[
                 import static java.awt.RenderingHints.*
                 import java.awt.image.BufferedImage
                 import javax.imageio.ImageIO
+                import java.io.*
 
+                int fileSize
                 // store uploaded image to large format
-                org.moqui.context.ExecutionContext ec = context.ec
-                org.apache.commons.fileupload.FileItem attachmentFile = context.file
-                InputStream fileStream = attachmentFile.getInputStream()
-                attachmentReferenceLarge.putStream(fileStream)
-                fileStream.close()
+                if (file) {
+                    fileSize = file.getSize()
+                    org.apache.commons.fileupload.FileItem attachmentFile = context.file
+                    InputStream fileStream = attachmentFile.getInputStream()
+                    attachmentReferenceLarge.putStream(fileStream)
+                    fileStream.close()
+                }
+                if (base64) {
+                    byte[] base64Decoded = Base64.getMimeDecoder().decode(base64)
+                    if (base64Decoded == null || base64Decoded.size() == 0) {
+                        logger.error("Could not read uploaded base64 file")
+                        return
+                    } else {
+                        fileSize = base64Decoded.size()
+                        fileStream = new ByteArrayInputStream(base64Decoded);
+                        attachmentReferenceLarge.putStream(fileStream)
+                        fileStream.close()
+                    }
+                } 
                 //convert large image to medium format
+                attachmentReferenceLarge = 
+                    ec.resource.getLocationReference(contentLocation + 'large')
                 fileStreamLarge = attachmentReferenceLarge.openStream()
                 BufferedImage img = ImageIO.read(fileStreamLarge);
-                def scale = 5000 / file.getSize()
+                def scale = 5000 / fileSize
                 int newWidth = img.width * scale
                 int newHeight = img.height * scale
                 ByteArrayOutputStream os = new ByteArrayOutputStream();
@@ -61,7 +86,7 @@ along with this software (see the LICENSE.md file). If not, see
                 //convert large image to small format
                 fileStreamLarge = attachmentReferenceLarge.openStream()
                 img = ImageIO.read(fileStreamLarge);
-                scale =2000 / file.getSize()
+                scale =2000 / fileSize
                 newWidth = img.width * scale
                 newHeight = img.height * scale
                 os = new ByteArrayOutputStream();

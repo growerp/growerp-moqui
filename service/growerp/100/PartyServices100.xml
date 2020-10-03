@@ -353,9 +353,9 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- company information -->
             <parameter name="companyPartyId" /> <!-- add users for existing company -->
             <parameter name="companyName" />
-            <parameter name="companyEmailAddress" default="emailAddress" />
-            <parameter name="currencyUomId" />
-            <parameter name="partyClassificationId"/> <!-- allocate party to mobile application -->
+            <parameter name="companyEmailAddress"/>
+            <parameter name="currencyId" />
+            <parameter name="classificationId"/> <!-- allocate company to application name -->
             <!-- default setup -->
             <parameter name="environment" />
             <parameter name="transData" type="List" /> <!-- [ 'kitchen','food','macaroni','bar','inside','garden','drinks','cola' -->
@@ -363,7 +363,6 @@ along with this software (see the LICENSE.md file). If not, see
         <out-parameters>
             <parameter name="user" />
             <parameter name="company" />
-            <parameter name="partyId" />
         </out-parameters>
         <actions>
             <service-call name="mantle.party.PartyServices.create#Account" 
@@ -380,22 +379,22 @@ along with this software (see the LICENSE.md file). If not, see
                         in-map="[emailAddress:companyEmailAddress, partyId:companyPartyId,
                             contactMechPurposeId:'EmailPrimary']" />
                     <service-call name="create#mantle.ledger.config.PartyAcctgPreference"
-                        in-map="[organizationPartyId: companyPartyId, baseCurrencyUomId: currencyUomId]" />
-                    <if condition="!partyClassificationId">
-                        <return error="true" message="When creating a new company partyClassificationId is required" /></if>
+                        in-map="[organizationPartyId: companyPartyId, baseCurrencyUomId: currencyId]" />
+                    <if condition="!classificationId">
+                        <return error="true" message="When creating a new company classificationId is required" /></if>
                     <service-call name="create#mantle.party.PartyClassificationAppl"
-                        in-map="[partyId: companyPartyId, partyClassificationId: partyClassificationId]" />
+                        in-map="[partyId: companyPartyId, partyClassificationId: classificationId]" />
                     <!-- create productStore -->
                     <service-call name="create#mantle.product.store.ProductStore"
                         out-map="context" in-map="[organizationPartyId: companyPartyId,
                             requireInventory: 'N',
                             reservationOrderEnumId:'AsResAutoNone',
-                            defaultCurrencyUomId: currencyUomId]" />
+                            defaultCurrencyUomId: currencyId]" />
                     <!-- create root category -->
                     <set field="fromDate" from="ec.user.nowTimestamp"/>
                     <entity-find-one entity-name="mantle.party.PartyClassification"
                             value-field="partyClassification">
-                        <field-map field-name="partyClassificationId"/>
+                        <field-map field-name="partyClassificationId" from="classificationId"/>
                     </entity-find-one>
                     <service-call name="create#mantle.product.category.ProductCategory" out-map="rootCat" 
                         in-map="[ownerPartyId: companyPartyId, productCategoryTypeEnumId: 'PctRoot',
@@ -448,13 +447,13 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="load" noun="DefaultData" authenticate="anonymous-all">
         <!-- not reachable outside -->
         <in-parameters>
-            <parameter name="currencyUomId"/>
-            <parameter name="partyClassificationId" required="true" />
+            <parameter name="currencyId"/>
+            <parameter name="classificationId" required="true" />
             <parameter name="environment" />
             <parameter name="transData" type="List" default="['kitchen','food','macaroni','bar','inside','garden','drinks','cola']"/>
         </in-parameters>
         <actions>
-            <if condition="partyClassificationId == 'AppEcommerceShop'">
+            <if condition="classificationId == 'AppEcommerceShop'">
                 <service-call name="growerp.100.CatgProdServices100.create#ProductCategory" in-map="[
                     categoryName: transData[1], preparationAreaId: preparationAreaId]" out-map="context" /> <!-- food -->
                 <service-call name="create#ProductCategoryContent" in-map="[
@@ -465,7 +464,7 @@ along with this software (see the LICENSE.md file). If not, see
                     contentLocation: 'dbresource://GrowERP/images/foodMedium.png']" />
                 <service-call name="growerp.mobile.MobileCatgProdServices.create#Product" in-map="[
                     productName: transData[2], productCategoryId: productCategoryId, price: '10.00',
-                    currencyId: currencyUomId]" out-map="context" /> <!-- macaroni-->
+                    currencyId: currencyId]" out-map="context" /> <!-- macaroni-->
                 <service-call name="create#ProductContent" in-map="[
                     productId: productId, productContentTypeEnumId: 'PcntImageSmall',
                     contentLocation: 'dbresource://GrowERP/images/macaroniSmall.png']" />
@@ -482,7 +481,7 @@ along with this software (see the LICENSE.md file). If not, see
                     contentLocation: 'dbresource://GrowERP/images/drinksMedium.png']" />
                 <service-call name="growerp.mobile.MobileCatgProdServices.create#Product" in-map="[
                     productName: transData[7], productCategoryId: productCategoryId, price: '15.00', 
-                    currencyId: currencyUomId]" out-map="context" /> <!-- macaroni-->
+                    currencyId: currencyId]" out-map="context" /> <!-- macaroni-->
                 <service-call name="create#ProductContent" in-map="[
                     productId: productId, productContentTypeEnumId: 'PcntImageSmall',
                     contentLocation: 'dbresource://GrowERP/images/colaSmall.png']" />
@@ -517,7 +516,7 @@ along with this software (see the LICENSE.md file). If not, see
                     contentLocation: 'dbresource://GrowERP/images/foodMedium.png']" />
                 <service-call name="growerp.mobile.MobileCatgProdServices.create#Product" in-map="[
                     productName: transData[2], productCategoryId: productCategoryId, price: '10.00',
-                    currencyId: currencyUomId]" out-map="context" /> <!-- macaroni-->
+                    currencyId: currencyId]" out-map="context" /> <!-- macaroni-->
                 <service-call name="create#ProductContent" in-map="[
                     productId: productId, productContentTypeEnumId: 'PcntImageSmall',
                     contentLocation: 'dbresource://GrowERP/images/macaroniSmall.png']" />
@@ -542,7 +541,7 @@ along with this software (see the LICENSE.md file). If not, see
                     contentLocation: 'dbresource://GrowERP/images/drinksMedium.png']" />
                 <service-call name="growerp.mobile.MobileCatgProdServices.create#Product" in-map="[
                     productName: transData[7], productCategoryId: productCategoryId, price: '15.00', 
-                    currencyId: currencyUomId]" out-map="context" /> <!-- macaroni-->
+                    currencyId: currencyId]" out-map="context" /> <!-- macaroni-->
                 <service-call name="create#ProductContent" in-map="[
                     productId: productId, productContentTypeEnumId: 'PcntImageSmall',
                     contentLocation: 'dbresource://GrowERP/images/colaSmall.png']" />

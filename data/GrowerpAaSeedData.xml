@@ -20,9 +20,9 @@ along with this software (see the LICENSE.md file). If not, see
             storeHost="imap.gmail.com" storePort="993" storeProtocol="imaps" storeFolder=""
             storeDelete="N" storeMarkSeen="Y" storeSkipSeen="Y" mailUsername="mobile@growerp.com" mailPassword="s#m7XyP?"/>
 
-     <!-- allocate parties to mobile application -->
+     <!-- allocate companies to application -->
     <moqui.basic.Enumeration description="Mobile App user" enumId="PcltMobileApp" enumTypeId="PartyClassificationType"/>
-    <mantle.party.PartyClassification partyClassificationId="AppMaster" classificationTypeEnumId="PcltMobileApp" description="Master with just the basic required functions"/>
+    <mantle.party.PartyClassification partyClassificationId="AppAdmin" classificationTypeEnumId="PcltMobileApp" description="Admin app to maintain backoffice data, products, categories, orders"/>
     <mantle.party.PartyClassification partyClassificationId="AppRestaurant" classificationTypeEnumId="PcltMobileApp" description="App for restaurant,cafe,bar"/>
     <mantle.party.PartyClassification partyClassificationId="AppEcommerceShop" classificationTypeEnumId="PcltMobileApp" description="App for Ecommerce and shop"/>
     <mantle.party.PartyClassification partyClassificationId="AppHospital" classificationTypeEnumId="PcltMobileApp" description="App for Hospital/Clinic/Dentist/Doctor/Beauty Shop"/>
