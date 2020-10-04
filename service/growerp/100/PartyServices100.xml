@@ -75,7 +75,9 @@ along with this software (see the LICENSE.md file). If not, see
             </entity-find>
             <if condition="contents">
                 <service-call name="growerp.100.ImageServices100.download#Image"
-                    in-map="[contentLocation: contents[0].contentLocation]" out-map="context"/></if>
+                    in-map="[contentLocation: contents[0].contentLocation]" out-map="context"/>
+                    <log message="==!!==download company== image ${imageFile?.size()} from location: ${contents[0].contentLocation}"/>
+            </if>
             <entity-find entity-name="CompanyPersonAndLoginGroup" list="compEmployees">
                 <econdition field-name="companyPartyId" />
             </entity-find>
@@ -128,7 +130,7 @@ along with this software (see the LICENSE.md file). If not, see
                     in-map="[partyId: oldValue.company.partyId, organizationName: compIn.name]"/>
             </if>
             <!-- update email -->
-            <if condition="compIn.email &amp;&amp; compIn.email != oldValue.company.emailAddress">
+            <if condition="compIn.email &amp;&amp; compIn.email != oldValue.company.email">
                 <entity-find entity-name="mantle.party.contact.PartyContactMech" for-update="true" list="partyContactMechs" >
                     <econdition field-name="partyId" from="oldValue.company.partyId"/>
                     <econdition field-name="contactMechPurposeId" value="EmailPrimary"/><date-filter/></entity-find>
@@ -291,17 +293,7 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="userIn.externalId != party.externalId">
                 <set field="party.externalId" from="userIn.externalId"/>
                 <entity-update value-field="party"/></if>
-            <!-- update imag test to see if we can use base64-->
-            <!--if condition="userIn.image">
-                <set field="pagePath" value="/user/${userIn.partyId}/"/>
-                <set field="contentLocation" value="dbresource://C${ownerPartyId}/images${pagePath}"/>
-                <set field="attachmentReferenceMedium" from="ec.resource.getLocationReference(contentLocation + 'medium')"/>
-
-                <service-call name="create#mantle.party.PartyContent" in-map="[
-                    partyId: id, partyContentTypeEnumId: 'PcntImageMedium',
-                    contentLocation: contentLocationMedium]" />
-            </if-->
-        <!-- return updated user -->
+            <!-- return updated user -->
             <service-call name="growerp.100.PartyServices100.get#User" in-map="[partyId: userIn.partyId]" out-map="context"/>
         </actions>
     </service>
@@ -345,7 +337,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="emailAddress" required="true">
                 <text-email />
             </parameter>
-            <parameter name="username" default="emailAddress" />
+            <parameter name="username" required="true"/>
             <parameter name="newPassword" default="org.moqui.util.StringUtilities.getRandomString(6) + '9!'" />
             <parameter name="newPasswordVerify" default="newPassword" />
             <parameter name="userGroupId" default-value="GROWERP_M_CUSTOMER"/> <!--securitygroup required for non admin users-->
@@ -365,6 +357,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="company" />
         </out-parameters>
         <actions>
+            <log message="====${username} ${emailAddress} ${companyEmailAddress}"/>
             <service-call name="mantle.party.PartyServices.create#Account" 
                 in-map="context + [roleTypeId: 'Employee', loginAfterCreate: false]"
                 out-map="userAccount" />
@@ -375,9 +368,8 @@ along with this software (see the LICENSE.md file). If not, see
                         out-map="company" />
                     <set field="companyPartyId" from="company.partyId" />
                     <service-call name="mantle.party.ContactServices.create#EmailAddress" 
-                        out-map="emailOut"
-                        in-map="[emailAddress:companyEmailAddress, partyId:companyPartyId,
-                            contactMechPurposeId:'EmailPrimary']" />
+                        in-map="[emailAddress: companyEmailAddress, partyId: companyPartyId,
+                            contactMechPurposeId:'EmailPrimary']" out-map="emailOut"/>
                     <service-call name="create#mantle.ledger.config.PartyAcctgPreference"
                         in-map="[organizationPartyId: companyPartyId, baseCurrencyUomId: currencyId]" />
                     <if condition="!classificationId">
