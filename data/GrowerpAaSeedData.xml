@@ -41,6 +41,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- added images for category -->
     <moqui.basic.Enumeration description="Category Image Thumb Nail" enumId="PcctImageThumbNail" enumTypeId="ProductCategoryContentType"/>
     <moqui.basic.Enumeration description="Category Image Medium Size" enumId="PcctImageMedium" enumTypeId="ProductCategoryContentType"/>
+    <moqui.basic.Enumeration description="Category Image Medium Size" enumId="PcctImageLarge" enumTypeId="ProductCategoryContentType"/>
 
     <!-- preparation area images -->
     <moqui.basic.EnumerationType description="Preparation Area Content Type" enumTypeId="PreparationAreaContentType"/>

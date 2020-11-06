@@ -48,6 +48,12 @@ along with this software (see the LICENSE.md file). If not, see
         <!--catalog (product and categories) -->
         <resource name="CategoriesAndProducts" require-authentication="anonymous-all">
             <method type="get"><service name="growerp.100.CatgProdServices100.get#CategoriesAndProducts"/></method></resource>
+        <resource name="Categories">
+            <method type="get"><service name="growerp.100.CatgProdServices100.get#ProductCategories"/></method></resource>
+        <resource name="Category">
+            <method type="put"><service name="growerp.100.CatgProdServices100.create#ProductCategory"/></method>
+            <method type="patch"><service name="growerp.100.CatgProdServices100.update#ProductCategory"/></method>
+            <method type="delete"><service name="growerp.100.CatgProdServices100.delete#ProductCategory"/></method></resource>
         <!--order -->
         <resource name="Order">
             <method type="get"><service name="growerp.100.OrderServices100.get#Orders"/></method>

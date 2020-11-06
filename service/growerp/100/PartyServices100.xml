@@ -18,10 +18,11 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters><parameter name="partyId" required="true"/></in-parameters>
         <out-parameters><parameter name="ok"/></out-parameters>
         <actions>
-            <entity-find-one entity-name="mantle.party.Party" value-field="party" >
-                <field-map field-name="partyId"/>
-            </entity-find-one>
-            <if condition="party &amp;&amp; party.disabled == null &amp;&amp; party.disabled != 'Y'">
+            <entity-find entity-name="growerp.mobile.CompanyPersonAndLoginGroup"
+                    list="parties">
+                <econdition field-name="companyPartyId" from="partyId"/>
+            </entity-find>
+            <if condition="parties">
                 <set field="ok" value="ok"/></if>
         </actions>
     </service>
@@ -163,16 +164,15 @@ along with this software (see the LICENSE.md file). If not, see
         </description>
         <in-parameters>
             <parameter name="partyId"/><!-- if present select a single user, else a list -->
-            <parameter name="userGroupId"/><!-- if present only select users with this group -->
         </in-parameters>
         <out-parameters>
             <parameter name="users" type="List"/>
             <parameter name="user" type="Map"/>
         </out-parameters>
         <actions>
+            <!-- TODO: add security so admin can only see other users in his company: see getUsers in ofbiz -->
             <entity-find entity-name="growerp.mobile.PersonAndLoginGroup"  list="userInfos">
                 <econdition field-name="userPartyId" from="partyId" ignore-if-empty="true"/>
-                <econdition field-name="userGroupId" from="userGroupId" ignore-if-empty="true"/>
                 <order-by field-name="lastName"/><order-by field-name="firstName"/>
             </entity-find>
             <if condition="!partyId"><set field="users" from="[]"/></if>
@@ -375,7 +375,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="company" />
         </out-parameters>
         <actions>
-            <log message="====${username} ${emailAddress} ${companyEmailAddress}"/>
             <service-call name="mantle.party.PartyServices.create#Account" 
                 in-map="context + [roleTypeId: 'Employee', loginAfterCreate: false]"
                 out-map="userAccount" />
@@ -469,6 +468,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="transData" type="List" default="['kitchen','food','macaroni','bar','inside','garden','drinks','cola']"/>
         </in-parameters>
         <actions>
+            <log message="===2==classid: ${classificationId}========"/>
             <if condition="classificationId == 'AppEcommerceShop'">
                 <service-call name="growerp.100.CatgProdServices100.create#ProductCategory" in-map="[
                     categoryName: transData[1], preparationAreaId: preparationAreaId]" out-map="context" /> <!-- food -->

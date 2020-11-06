@@ -68,8 +68,10 @@ along with this software (see the LICENSE.md file). If not, see
                 //convert large image to medium format
                 attachmentReferenceLarge = 
                     ec.resource.getLocationReference(contentLocation + 'large')
+                // byte[] -> BufferedImage 
                 fileStreamLarge = attachmentReferenceLarge.openStream()
                 BufferedImage img = ImageIO.read(fileStreamLarge);
+                // resize
                 def scale = 5000 / fileSize
                 int newWidth = img.width * scale
                 int newHeight = img.height * scale
@@ -90,7 +92,7 @@ along with this software (see the LICENSE.md file). If not, see
                 //convert large image to small format
                 fileStreamLarge = attachmentReferenceLarge.openStream()
                 img = ImageIO.read(fileStreamLarge);
-                scale =2000 / fileSize
+                scale = 2000 / fileSize
                 newWidth = img.width * scale
                 newHeight = img.height * scale
                 os = new ByteArrayOutputStream();
@@ -150,7 +152,7 @@ along with this software (see the LICENSE.md file). If not, see
                         contentLocation: contentLocation + 'large']" />
                 </if>
                 <if condition="type == 'area'">
-                    <entity-delete-by-condition entity-name="mantle.product.category.ProductCategoryContent">
+                    <entity-delete-by-condition entity-name="growerp.mobile.location.AccommodationAreaContent">
                         <econdition field-name="accommodationAreaId" from="id"/>
                     </entity-delete-by-condition>
                     <service-call name="create#growerp.mobile.location.AccommodationAreaContent" in-map="[
