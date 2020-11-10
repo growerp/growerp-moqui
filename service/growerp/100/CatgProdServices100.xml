@@ -27,14 +27,28 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="products" type="List"/>
         </out-parameters>
         <actions>
-            <set field="ownerPartyId" from="companyPartyId"/>
-            <!-- categories -->
             <service-call name="growerp.100.CatgProdServices100.get#ProductCategories" out-map="context"/>
-            <!-- products -->
+            <service-call name="growerp.100.CatgProdServices100.get#Products" out-map="context"/>
+        </actions>
+    </service>
+
+    <service verb="get" noun="Products">
+        <description> get a single, or all products (will page lateron</description>
+        <in-parameters>
+            <parameter name="productId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="product" type="Map"/>
+            <parameter name="products" type="List"/>
+        </out-parameters>
+        <actions>
+            <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
             <entity-find entity-name="growerp.mobile.product.ProductAndPriceAndProductCategory" list="productList">
-                <econdition field-name="ownerPartyId"/><econdition field-name="productCategoryId" ignore-if-empty="true"/>
+                <econdition field-name="ownerPartyId"/>
+                <econdition field-name="productId" ignore-if-empty="true"/>
             </entity-find>
-            <set field="products" from="[]"/>
+            <if condition="!productId">
+                <set field="products" from="[]"/></if>
             <iterate entry="product" list="productList">
                 <entity-find entity-name="mantle.product.ProductContent" list="contents">
                     <econdition field-name="productId" from="product.productId"/>
@@ -53,9 +67,111 @@ along with this software (see the LICENSE.md file). If not, see
                     categoryId: product.productCategoryId,
                     categoryName: product.categoryName,
                     image: imageFile? imageFile : null]"/>
-                <script>products.add(productOut)</script>
+                <if condition="productId">
+                    <set field="product" from="productOut"/>
+                    <else>
+                        <script>products.add(productOut)</script>
+                    </else>
+                </if>
             </iterate>
-            <script>products.sort{a, b -> a.name.compareToIgnoreCase(b.name) } </script>
+            <if condition="products &amp;&amp; !productId">
+                <script>products.sort{a, b -> 
+                    a.name.compareToIgnoreCase(b.name) } </script></if>
+        </actions>
+    </service>
+
+    <service verb="create" noun="Product">
+        <description> Create a Product with a price in a category</description>
+        <in-parameters>
+            <parameter name="product" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="product"/>
+        </out-parameters>
+        <actions>
+            <script> // convert JSON data
+                import groovy.json.JsonSlurper
+                JsonSlurper slurper = new JsonSlurper()
+                Object productIn = new JsonSlurper().parseText(product).product</script>
+            <log message="=====incoming product: $productIn"/>
+            <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"/>
+            <set field="productName" from="productIn.name"/>
+            <set field="description" from="productIn.description"/>
+            <set field="priceUomId" value="OTH_ea"/>
+            <set field="currencyUomId" from="company.currency"/>
+            <set field="ownerPartyId" from="company.partyId"/>
+            <set field="quantityUomId" value="OTH_ea"/>
+            <service-call name="create#mantle.product.Product" in-map="context" out-map="context"/>
+            <set field="price" from="productIn.price"/>
+            <set field="priceTypeEnumId" value='PptList'/>
+            <set field="priceUomId" from="company.currency"/>
+            <set field="fromDate" from="ec.user.nowTimestamp"/>
+            <service-call name="create#mantle.product.ProductPrice" in-map="context"/>
+            <set field="priceTypeEnumId" value='PptCurrent'/>
+            <service-call name="create#mantle.product.ProductPrice" in-map="context"/>
+            <set field="productCategoryId" from="productIn.categoryId"/>
+            <service-call name="create#mantle.product.category.ProductCategoryMember" in-map="context"/>
+            <service-call name="growerp.100.CatgProdServices100.get#Products"
+                in-map="[productId: productId]" out-map="context"/>
+        </actions>
+    </service>
+
+    <service verb="update" noun="Product">
+        <description> Update an existing Product</description>
+        <in-parameters>
+            <parameter name="product" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="product"/>
+        </out-parameters>
+        <actions>
+            <script> // convert JSON data
+                import groovy.json.JsonSlurper
+                JsonSlurper slurper = new JsonSlurper()
+                Object productIn = new JsonSlurper().parseText(product).product</script>
+            <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
+                out-map="context"/>
+            <entity-find-one value-field="product" entity-name="mantle.product.Product" for-update="true">
+                <field-map field-name="productId" from="productIn.productId"/>
+                <field-map field-name="ownerPartyId"/></entity-find-one>
+            <if condition="!product"><return error="true" message="product ${productIn.prouctId} not found!}"/></if>
+            <if condition="productName &amp;&amp; product.productName != productName">
+                <set field="product.productName" from="productName"/>
+                <entity-update value-field="product"/></if>
+            <entity-find entity-name="ProductAndPriceAndProductCategory" list="products">
+                <econdition field-name="productId" from="productIn.productId"/>
+                <econdition field-name="ownerPartyId"/></entity-find>
+            <if condition="price &amp;&amp; products[0].price != price">
+                <entity-find-one value-field="productPrice" entity-name="mantle.product.ProductPrice" for-update="true">
+                    <field-map field-name="productPriceId" from="products[0].productPriceId"/></entity-find-one>
+                <set field="productPrice.thruDate" from="ec.user.nowTimestamp"/>
+                <entity-update value-field="productPrice"/>
+                <service-call name="create#mantle.product.ProductPrice"
+                    in-map="[productId: productIn.productId, priceTypeEnumId: 'PptCurrent', price: price, currencyUomId: company.currency,
+                     quantityUomId: 'OTH_ea', priceUomId: 'OTH_ea']"/></if>
+            <if condition="productCategoryId &amp;&amp; products[0].productCategoryId != productCategoryId">
+                <entity-find-one value-field="member" entity-name="mantle.product.category.ProductCategoryMember" for-update="true">
+                    <field-map field-name="productId" from="productIn.productId"/>
+                    <field-map field-name="productCategoryId" from="products[0].productCategoryId"/>
+                    <field-map field-name="fromDate" from="products[0].fromDate"/></entity-find-one>
+                <set field="member.thruDate" from="ec.user.nowTimestamp"/>
+                <entity-update value-field="member"/>
+                <service-call name="create#mantle.product.category.ProductCategoryMember"
+                    in-map="[productId: productIn.productId, productCategoryId: productCategoryId, fromDate: ec.user.nowTimestamp]"/></if>
+        </actions>
+    </service>
+
+    <service verb="delete" noun="Product">
+        <description> Delete a Product </description>
+        <in-parameters>
+            <parameter name="productId" required="true"/>
+        </in-parameters>
+        <actions>
+            <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context"/>
+            <entity-find-one value-field="product" entity-name="mantle.product.Product" for-update="true">
+                <field-map field-name="productId"/><field-map field-name="ownerPartyId"/> </entity-find-one>
+            <set field="product.salesDiscontinuationDate" from="ec.user.nowTimestamp"/>
+            <entity-update value-field="product"/>
         </actions>
     </service>
 
@@ -80,15 +196,16 @@ along with this software (see the LICENSE.md file). If not, see
                 <date-filter/>
                 <econdition field-name="ownerPartyId"/>
                 <econdition field-name="parentProductCategoryId"/>
-                <econdition field-name="productCategoryId" ignore-if-empty="true"/></entity-find>
+                <econdition field-name="productCategoryId" from="categoryId" ignore-if-empty="true"/></entity-find>
             <if condition="!categoryId">
-            <set field="categories" from="[]"/></if>
+                <set field="categories" from="[]"/></if>
             <iterate entry="group" list="groups">
                 <entity-find entity-name="mantle.product.category.ProductCategoryContent" list="contents">
                     <econdition field-name="productCategoryId" from="group.productCategoryId"/>
                     <econdition field-name="categoryContentTypeEnumId" value="PcctImageThumbNail" />
                 </entity-find>
                 <if condition="contents">
+                    <log message="===image found: ${group.productCategoryId}"/>
                     <service-call name="growerp.100.ImageServices100.download#Image"
                         in-map="[contentLocation: contents[0].contentLocation]" out-map="context"/></if>
                 <entity-find-count entity-name="growerp.mobile.product.ProductAndPriceAndProductCategory" count-field="nbrOfProducts">
@@ -109,7 +226,7 @@ along with this software (see the LICENSE.md file). If not, see
                     </else>
                 </if>
             </iterate>
-            <if condition="!categoryId">
+            <if condition="categories &amp;&amp; !categoryId">
                 <script>categories.sort{a, b -> 
                     a.categoryName.compareToIgnoreCase(b.categoryName) } </script>
             </if>
@@ -130,7 +247,6 @@ along with this software (see the LICENSE.md file). If not, see
                 import groovy.json.JsonSlurper
                 JsonSlurper slurper = new JsonSlurper()
                 Object categoryIn = new JsonSlurper().parseText(category).category</script>
-            <log message="=====incoming category: $categoryIn"/>
             <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
             <entity-find entity-name="mantle.product.category.ProductCategory" list="rootList">
                 <econdition field-name="ownerPartyId"/></entity-find>
@@ -139,7 +255,7 @@ along with this software (see the LICENSE.md file). If not, see
             <else>
                 <return error="true" message="Root category could not be found for compant: ${ownerPartyId}"/></else></if>
             <service-call name="create#mantle.product.category.ProductCategory"
-                in-map="[categoryName: categoryIn.categoryName]" out-map="context"/>
+                in-map="[categoryName: categoryIn.categoryName, ownerPartyId: ownerPartyId]" out-map="context"/>
             <service-call name="create#mantle.product.category.ProductCategoryRollup"
                     in-map="[description: categoryIn.description, parentProductCategoryId: rootProductCategoryId,
                     productCategoryId: productCategoryId]"/>
@@ -159,7 +275,7 @@ along with this software (see the LICENSE.md file). If not, see
                 Object categoryIn = new JsonSlurper().parseText(category).category</script>
             <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
             <entity-find-one value-field="productCategory" entity-name="mantle.product.category.ProductCategory" for-update="true">
-                <field-map field-name="categoryIn.categoryId"/>
+                <field-map field-name="productCategoryId" from="categoryIn.categoryId"/>
                 <field-map field-name="ownerPartyId"/></entity-find-one>
             <if condition="categoryIn.categoryName">
                 <set field="productCategory.categoryName" from="categoryIn.categoryName"/></if>

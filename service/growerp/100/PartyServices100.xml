@@ -179,7 +179,8 @@ along with this software (see the LICENSE.md file). If not, see
             <iterate entry="userInfo" list="userInfos">
                 <entity-find entity-name="mantle.party.PartyContent" list="contents">
                     <econdition field-name="partyId" from="userInfo.userPartyId"/>
-                    <econdition field-name="partyContentTypeEnumId" from="partyId? 'PcntImageMedium' : 'PcntImageSmall'" />
+                    <econdition field-name="partyContentTypeEnumId" 
+                        from="partyId? 'PcntImageMedium' : 'PcntImageSmall'" />
                 </entity-find>
                 <if condition="contents">    
                     <service-call name="growerp.100.ImageServices100.download#Image"
@@ -207,6 +208,10 @@ along with this software (see the LICENSE.md file). If not, see
                     </else>
                 </if>
             </iterate>
+            <if condition="users &amp;&amp; !partyId">
+                <script>users.sort{a, b -> 
+                    a.lastName.compareToIgnoreCase(b.lastName) } </script>
+            </if>
         </actions>
     </service>
 

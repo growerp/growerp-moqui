@@ -45,7 +45,7 @@ along with this software (see the LICENSE.md file). If not, see
             <method type="put"><service name="growerp.100.PartyServices100.create#User"/></method>
             <method type="patch"><service name="growerp.100.PartyServices100.update#User"/></method>
             <method type="delete"><service name="growerp.100.PartyServices100.delete#User"/></method></resource>
-        <!--catalog (product and categories) -->
+        <!--catalog (products and categories) -->
         <resource name="CategoriesAndProducts" require-authentication="anonymous-all">
             <method type="get"><service name="growerp.100.CatgProdServices100.get#CategoriesAndProducts"/></method></resource>
         <resource name="Categories">
@@ -54,6 +54,13 @@ along with this software (see the LICENSE.md file). If not, see
             <method type="put"><service name="growerp.100.CatgProdServices100.create#ProductCategory"/></method>
             <method type="patch"><service name="growerp.100.CatgProdServices100.update#ProductCategory"/></method>
             <method type="delete"><service name="growerp.100.CatgProdServices100.delete#ProductCategory"/></method></resource>
+        <!-- products -->
+        <resource name="Products">
+            <method type="get"><service name="growerp.100.CatgProdServices100.get#Products"/></method></resource>
+        <resource name="Product">
+            <method type="put"><service name="growerp.100.CatgProdServices100.create#Product"/></method>
+            <method type="patch"><service name="growerp.100.CatgProdServices100.update#Product"/></method>
+            <method type="delete"><service name="growerp.100.CatgProdServices100.delete#Product"/></method></resource>
         <!--order -->
         <resource name="Order">
             <method type="get"><service name="growerp.100.OrderServices100.get#Orders"/></method>

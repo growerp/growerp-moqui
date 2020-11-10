@@ -26,7 +26,7 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
             <set field="pagePath" value="/${type}/${id}/"/>
             <set field="contentLocation" value="dbresource://C${ownerPartyId}/images${pagePath}"/>
-            <log message="===uploading file of size ${base64.size()} to location: ${contentLocation}"/>
+            <log message="===uploading file of size ${base64.size()} to location: ${contentLocation} type: $type id: $id"/>
             <set field="ec" from="context.ec"/>
             <set field="attachmentReferenceLarge"
                 from="ec.resource.getLocationReference(contentLocation + 'large')"/>
@@ -152,7 +152,7 @@ along with this software (see the LICENSE.md file). If not, see
                         contentLocation: contentLocation + 'large']" />
                 </if>
                 <if condition="type == 'area'">
-                    <entity-delete-by-condition entity-name="growerp.mobile.location.AccommodationAreaContent">
+                    <entity-delete-by-condition entity-name="mantle.product.category.ProductCategoryContent">
                         <econdition field-name="accommodationAreaId" from="id"/>
                     </entity-delete-by-condition>
                     <service-call name="create#growerp.mobile.location.AccommodationAreaContent" in-map="[
@@ -164,7 +164,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <service-call name="create#growerp.mobile.location.AccommodationAreaContent" in-map="[
                         accommodationAreaId: id, accommodationAreaContentTypeEnumId: 'AactImageLarge',
                         contentLocation: contentLocation + 'large']" />
-                    </if>
+                </if>
                 <log message="Uploaded ${contentLocation}"/>
             </actions>
     </service>
