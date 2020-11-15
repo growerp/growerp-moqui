@@ -202,7 +202,8 @@ along with this software (see the LICENSE.md file). If not, see
             <iterate entry="group" list="groups">
                 <entity-find entity-name="mantle.product.category.ProductCategoryContent" list="contents">
                     <econdition field-name="productCategoryId" from="group.productCategoryId"/>
-                    <econdition field-name="categoryContentTypeEnumId" value="PcctImageThumbNail" />
+                    <econdition field-name="categoryContentTypeEnumId"
+                        from="categoryId? 'PcctImageMedium' : 'PcctImageThumbNail'" />
                 </entity-find>
                 <if condition="contents">
                     <log message="===image found: ${group.productCategoryId}"/>
