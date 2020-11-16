@@ -57,10 +57,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <if condition="contents">
                     <service-call name="growerp.100.ImageServices100.download#Image"
                         in-map="[contentLocation: contents[0].contentLocation]" out-map="context"/></if>
+                <log message="===============333====${product.productName}"/>
                 <set field="productOut" from="[
                     productId: product.productId,
-                    name: product.productName,
-                    name: product.productName,
+                    productName: product.productName?:'?',
                     description: product.description,
                     price: product.price.toString(),
                     currencyId: product.priceUomId,
@@ -76,7 +76,8 @@ along with this software (see the LICENSE.md file). If not, see
             </iterate>
             <if condition="products &amp;&amp; !productId">
                 <script>products.sort{a, b -> 
-                    a.name.compareToIgnoreCase(b.name) } </script></if>
+                    a.productName.compareToIgnoreCase(b.productName) } </script></if>
+            <log message="========products: ${products}"/>
         </actions>
     </service>
 
@@ -93,9 +94,8 @@ along with this software (see the LICENSE.md file). If not, see
                 import groovy.json.JsonSlurper
                 JsonSlurper slurper = new JsonSlurper()
                 Object productIn = new JsonSlurper().parseText(product).product</script>
-            <log message="=====incoming product: $productIn"/>
             <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"/>
-            <set field="productName" from="productIn.name"/>
+            <set field="productName" from="productIn.productName"/>
             <set field="description" from="productIn.description"/>
             <set field="priceUomId" value="OTH_ea"/>
             <set field="currencyUomId" from="company.currency"/>

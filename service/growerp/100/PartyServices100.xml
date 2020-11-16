@@ -164,6 +164,8 @@ along with this software (see the LICENSE.md file). If not, see
         </description>
         <in-parameters>
             <parameter name="partyId"/><!-- if present select a single user, else a list -->
+            <parameter name="userGroupId"/><!-- if present select user from particular groups-->
+            <parameter name="userGroups"/><!-- if present select user from particular groups-->
         </in-parameters>
         <out-parameters>
             <parameter name="users" type="List"/>
@@ -173,6 +175,8 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- TODO: add security so admin can only see other users in his company: see getUsers in ofbiz -->
             <entity-find entity-name="growerp.mobile.PersonAndLoginGroup"  list="userInfos">
                 <econdition field-name="userPartyId" from="partyId" ignore-if-empty="true"/>
+                <econdition field-name="userGroupId" from="userGroupId" ignore-if-empty="true"/>
+                <econdition field-name="userGroups" operator="in" from="userGroups" ignore-if-empty="true"/>
                 <order-by field-name="lastName"/><order-by field-name="firstName"/>
             </entity-find>
             <if condition="!partyId"><set field="users" from="[]"/></if>
@@ -191,6 +195,7 @@ along with this software (see the LICENSE.md file). If not, see
                     name: userInfo?.username,
                     firstName: userInfo?.firstName,
                     lastName: userInfo?.lastName,
+                    userGroupid: userInfo?.userGroupId,
                     groupDescription: userInfo?.description,
                     language: userInfo?.locale.toString(),
                     image: imageFile]"/>
@@ -360,7 +365,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="emailAddress" required="true">
                 <text-email />
             </parameter>
-            <parameter name="username" required="true"/>
+            <parameter name="username" default="emailAddress"/>
             <parameter name="newPassword" default="org.moqui.util.StringUtilities.getRandomString(6) + '9!'" />
             <parameter name="newPasswordVerify" default="newPassword" />
             <parameter name="userGroupId" default-value="GROWERP_M_CUSTOMER"/> <!--securitygroup required for non admin users-->
@@ -458,8 +463,12 @@ along with this software (see the LICENSE.md file). If not, see
                             in-map="[userGroupId: userGroupId, userId: userAccount.userId]" />
                     </else>
                 </if>
-                <service-call name="growerp.100.PartyServices100.get#User" in-map="[partyId: userAccount.partyId]" out-map="context"/>
-                <service-call name="growerp.100.PartyServices100.get#Company" in-map="[companyPartyId: companyPartyId]" out-map="context"/>
+                <service-call name="growerp.100.PartyServices100.get#User"
+                    in-map="[partyId: userAccount.partyId,
+                            usergroups: ['GROWERP_M_ADMIN', 'GROWERP_M_EMPLOYEE']]"
+                    out-map="context"/>
+                <service-call name="growerp.100.PartyServices100.get#Company"
+                    in-map="[companyPartyId: companyPartyId]" out-map="context"/>
             </if>
         </actions>
     </service>
@@ -473,7 +482,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="transData" type="List" default="['kitchen','food','macaroni','bar','inside','garden','drinks','cola']"/>
         </in-parameters>
         <actions>
-            <log message="===2==classid: ${classificationId}========"/>
             <if condition="classificationId == 'AppEcommerceShop'">
                 <service-call name="growerp.100.CatgProdServices100.create#ProductCategory" in-map="[
                     categoryName: transData[1], preparationAreaId: preparationAreaId]" out-map="context" /> <!-- food -->

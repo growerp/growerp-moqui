@@ -21,6 +21,8 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.security.UserGroup userGroupId="GROWERP_M_ADMIN" description="Admin" groupTypeEnumId="GROWERPMOBILE"/>
     <moqui.security.UserGroup userGroupId="GROWERP_M_EMPLOYEE" description="Employee" groupTypeEnumId="GROWERPMOBILE"/>
     <moqui.security.UserGroup userGroupId="GROWERP_M_CUSTOMER" description="Customer" groupTypeEnumId="GROWERPMOBILE"/>
+    <moqui.security.UserGroup userGroupId="GROWERP_M_LEAD" description="Lead" groupTypeEnumId="GROWERPMOBILE"/>
+    <moqui.security.UserGroup userGroupId="GROWERP_M_SUPPLIER" description="Supplier" groupTypeEnumId="GROWERPMOBILE"/>
 
     <!-- Artifact group for all of the GROWERP REST API via the GROWERP resource (the root resource) -->
     <moqui.security.ArtifactGroup artifactGroupId="GROWERP_API" description="GROWERP REST API (via root resource)"/>

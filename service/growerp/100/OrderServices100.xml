@@ -19,12 +19,16 @@ along with this software (see the LICENSE.md file). If not, see
             Get order information by order, item, spot and party
         </description>
         <in-parameters>
+            <parameter name="orderId"/>
             <parameter name="open" type="Boolean"><description>True for only open orders</description></parameter>
             <parameter name="startDate"><description>Format should be YYYY-MM-DD</description></parameter>
             <parameter name="accommodationAreaId"/>
             <parameter name="spotNumber"/>
         </in-parameters>
-        <out-parameters><parameter name="ordersAndItems" type="List"><parameter name="orderItemInfo" type="Map"/></parameter></out-parameters>
+        <out-parameters>
+            <parameter name="orders" type="List"/>
+            <parameter name="order" type="Map"/>
+        </out-parameters>
         <actions>
             <set field="statusList" from="['OrderOpen','OrderPlaced','OrderApproved']"/>
             <if condition="open">
@@ -35,6 +39,7 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
             <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context" />
             <entity-find entity-name="OrderHeaderItemAccommodationParty" list="items">
+                <econdition field-name="orderId" ignore-if-empty="true"/>
                 <econdition field-name="vendorPartyId" from="ownerPartyId"/>
                 <econdition field-name="statusId" operator="in" from="status" ignore-if-empty="true"/>
                 <econdition field-name="placedDate" operator="less-equals" from="tsDate" ignore-if-empty="true"/>
@@ -44,92 +49,97 @@ along with this software (see the LICENSE.md file). If not, see
                 <order-by field-name="orderItemSeqId"/>
                 </entity-find>
             <set field="lastItem" from="null"/>
-            <set field="ordersAndItems" from="[]"/>
+            <if condition="!orderId">
+                <set field="orders" from="[]"/>
+            </if>
             <set field="orderItems" from="[]"/>
+            <log message="====orders found: ${items.size()}"/>
             <iterate entry="item" list="items">
                 <if condition="lastItem &amp;&amp; lastItem.orderId != item.orderId">
-                    <service-call name="growerp.100.ImageServices100.download#Image"
-                        in-map="[companyPartyId: companyPartyId, size: 'small', type: 'area', id: lastItem.accommodationAreaId]"
-                        out-map="context"/>
-                    <set field="order" from="[
+                    <entity-find entity-name="moqui.security.UserAccount" list="customers">
+                        <econdition field-name="partyId" from="lastItem.partyId"/>
+                    </entity-find>
+                    <set field="orderOut" from="[
                     orderId: lastItem.orderId,
                     orderStatusId: lastItem.statusId,
-                    currencyId: lastItem.currencyUomId
                     placedDate: ec.l10n.format(lastItem.placedDate,'dd-MM-yyyy'),
                     placedTime: ec.l10n.format(lastItem.placedDate,'hh:mm'),
-                    companyPartyId: ownerPartyId,
-                    partyId: lastItem.partyId,
+                    customerPartyId: lastItem.partyId,
                     firstName: lastItem.firstName,
                     lastName: lastItem.lastName,
-                    statusId: lastItem.statusId in statusList?'Open':'Closed',
+                    email: customers[0].emailAddress,
                     nbrOfGuests: lastItem.nbrOfGuests,
-                    grandTotal: lastItem.grandTotal,
+                    grandTotal: lastItem.grandTotal.toString(),
                     accommodationAreaId: lastItem.accommodationAreaId,
                     accommodationSpotId: lastItem.accommodationSpotId,
-                    items: orderItems
+                    orderItems: orderItems
                     ]"/>
-                    <script>ordersAndItems.add(order)</script>
+                    <script>orders.add(orderOut)</script>
                     <set field="orderItems" from="[]"/>
                 </if>
-                <service-call name="growerp.100.ImageServices100.download#Image"
-                    in-map="[size: 'small', type: 'product', id: item.productId]" out-map="context"/>
                 <set field="orderItem" from="[
                     orderItemSeqId: item.orderItemSeqId,
                     productId: item.productId,
                     description: item.itemDescription,
-                    quantity: item.quantity,
-                    price: item.unitAmount,
+                    quantity: item.quantity.toString(),
+                    price: item.unitAmount.toString(),
                     ]"/>
                 <script>orderItems.add(orderItem)</script>
                 <set field="lastItem" from="item"/>
             </iterate>
             <if condition="lastItem">
-                <service-call name="growerp.100.ImageServices100.download#Image"
-                    in-map="[companyPartyId: companyPartyId, size: 'small', type: 'area', id: lastItem.accommodationAreaId]" out-map="context"/>
-                <set field="order" from="[
+                <entity-find entity-name="moqui.security.UserAccount" list="customers">
+                    <econdition field-name="partyId" from="lastItem.partyId"/>
+                </entity-find>
+                <set field="orderOut" from="[
                     orderId: lastItem.orderId,
                     orderStatusId: lastItem.statusId,
-                    currencyId: lastItem.currencyUomId
                     placedDate: ec.l10n.format(lastItem.placedDate,'dd-MM-yyyy'),
                     placedTime: ec.l10n.format(lastItem.placedDate,'hh:mm'),
-                    companyPartyId: ownerPartyId,
-                    partyId: lastItem.partyId,
+                    customerPartyId: lastItem.partyId,
                     firstName: lastItem.firstName,
                     lastName: lastItem.lastName,
-                    statusId: lastItem.statusId in statusList?'Open':'Closed',
+                    email: customers[0].emailAddress,
                     nbrOfGuests: lastItem.nbrOfGuests,
-                    grandTotal: lastItem.grandTotal,
+                    grandTotal: lastItem.grandTotal.toString(),
                     accommodationAreaId: lastItem.accommodationAreaId,
                     accommodationSpotId: lastItem.accommodationSpotId,
-                    items: orderItems
+                    orderItems: orderItems
                 ]"/>
-                <script>ordersAndItems.add(order)</script></if>
-            <log message="==== open orders send: ${ordersAndItems.size()}"/>
+                <if condition="orderId">
+                    <set field="order" from="orderOut"/>
+                    <else>
+                        <script>orders.add(orderOut)</script>
+                    </else>
+                </if>
+            </if>
+            <if condition="orderId">
+                <log message="==== open order send: ${order}"/>
+                <else>
+                    <log message="==== open orders send: ${orders.size()}"/>
+                </else>
+            </if>
         </actions></service>
 
 
     <service verb="create" noun="Order">
         <description> Create an order for the users company</description>
         <in-parameters>
-            <parameter name="orderJson" required="true" type="String"/></in-parameters>
+            <parameter name="order" required="true" type="String"/></in-parameters>
         <out-parameters>
-            <parameter name="orderId"/></out-parameters>
+            <parameter name="order"/></out-parameters>
         <actions>
+            <log message="======incoming order: $order"/>
             <script> // convert JSON data
                 import groovy.json.JsonSlurper
                 JsonSlurper slurper = new JsonSlurper()
-                Object order = new JsonSlurper().parseText(orderJson)
+                Object order = new JsonSlurper().parseText(order).order
             </script>
+            <log message="======incoming order: $order"/>
+            <log message="======process order: ${order.partyId} orderItems: ${order.orderItems}"/>
             <!-- check if productStore exist otherwise create -->
             <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"/>
             <set field="currencyUomId" from="company.currency"/>
-            <entity-find entity-name="mantle.product.store.ProductStore" list="productStores">
-                <econdition field-name="organizationPartyId" from="company.partyId"/></entity-find>
-            <if condition="!productStores">
-                <return error="true" message="Could not find productStore for company: ${company.partyId}"/>
-            <else>
-                <set field="productStoreId" from="productStores[0].productStoreId"/></else>
-            </if>
             <if condition="order.orderId"><!-- look for existing order -->
                 <entity-find entity-name="mantle.order.OrderPart" list="orderParts"><!-- get last partNumber -->
                     <econdition field-name="orderId" from="order.orderId"/>
@@ -142,7 +152,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="growerp.mobile.MobileOrderServices.change#OrderPartStatus"
                     in-map="[orderId: orderId, statusId: 'prep']"/>
             <else><!--  new order -->
-                <set field="customerPartyId" value="_NA_"/>
+                <set field="customerPartyId" from="order.customerPartyId"/>
                 <if condition="order.externalId"><!-- try find existing customer -->
                     <set field="order.externalId" value="${order.externalId.substring(0, order.externalId.indexOf(' '))}"/>
                     <entity-find entity-name="CompanyPersonAndLogin"  list="customers">
@@ -156,7 +166,7 @@ along with this software (see the LICENSE.md file). If not, see
                         <log level="error" message="Existing customer id not found id: ${order.externalId}"/>
                         <set field="customerPartyId" value="_NA_"/></else></if>
                 <else-if condition="order.newExternalId"><!-- enter new customer -->
-                    <service-call name="growerp.mobile.MobilePartyServices.create#User" out-map="newCustomer"
+                    <service-call name="growerp.100.PartyServices100.create#User" out-map="newCustomer"
                         in-map="[firstName: order.newFirstName, lastName: order.newLastName, emailAddress: 'notYet@provided.com',
                             roleTypeId: 'Customer', externalId: order.newExternalId]"/>
                     <if condition="newCustomer.partyId">
@@ -166,6 +176,7 @@ along with this software (see the LICENSE.md file). If not, see
                         <set field="customerPartyId" value="_NA_"/></else></if>
                 </else-if></if>
                 <set field="placedDate" from="ec.user.nowTimestamp"/>
+                <set field="vendorPartyId" from="company.partyId"/>
                 <service-call name="mantle.order.OrderServices.create#Order"
                     in-map="context" out-map="context"/>
                 <!-- delete default created part because we want a different part for every prep area if any-->
@@ -186,7 +197,7 @@ along with this software (see the LICENSE.md file). If not, see
                                 accommodationSpotId: order.accommodationSpotId]"/>
                 </if>
             </else></if>
-            <set field="vendorPartyId" from="company.partyId"/>
+            <log message="======process orderid:$orderId orderItems: ${order.orderItems}"/>
             <iterate entry="item" list="order.orderItems">
                 <if condition="preparationAreas">
                     <entity-find entity-name="ProductAndPreparationArea" list="getPrepArea">
@@ -210,8 +221,13 @@ along with this software (see the LICENSE.md file). If not, see
                     </if>
                 </if>
                 <service-call name="mantle.order.OrderServices.add#OrderProductQuantity"
-                    in-map="[context + [productId: item.productId, quantity: item.quantity]]" out-map="itemcreate"/>
+                    in-map="[context + [productId: item.productId,
+                                        quantity: item.quantity,
+                                        unitAmount: item.price,
+                                        currencyUomId: currencyId]]" out-map="itemcreate"/>
             </iterate>
-    </actions></service>
+            <service-call name="growerp.100.OrderServices100.getOrders" in-map="[orderId: orderId]" out-map="context"/>
+        </actions>
+    </service>
 
 </services>

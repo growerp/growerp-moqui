@@ -232,15 +232,15 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="orderId"/></member-entity>
         <member-entity entity-alias="ORIT" entity-name="mantle.order.OrderItem" join-from-alias="ORPART">
             <key-map field-name="orderId"/><key-map field-name="orderPartSeqId"/></member-entity>
-        <member-entity entity-alias="SPOTPARTY" entity-name="AccommodationSpotParty" join-from-alias="ORHD">
-            <key-map field-name="orderId"/></member-entity>
-        <member-entity entity-alias="PERSON" entity-name="mantle.party.Person" join-from-alias="SPOTPARTY">
-            <key-map field-name="partyId"/></member-entity>
-        <member-entity entity-alias="SPOT" entity-name="growerp.mobile.location.AccommodationSpot" join-from-alias="SPOTPARTY">
-            <key-map field-name="accommodationSpotId"/>
+        <member-entity entity-alias="PERSON" entity-name="mantle.party.Person" join-from-alias="ORPART"
+            join-optional="true"><key-map field-name="customerPartyId" related="partyId"/></member-entity>
+        <member-entity entity-alias="SPOTPARTY" entity-name="AccommodationSpotParty" join-from-alias="ORHD"
+             join-optional="true"><key-map field-name="orderId"/></member-entity>
+        <member-entity entity-alias="SPOT" entity-name="growerp.mobile.location.AccommodationSpot" join-from-alias="SPOTPARTY"
+            join-optional="true"><key-map field-name="accommodationSpotId"/>
             <entity-condition><date-filter from-field-name="spotFromDate" thru-field-name="spotThruDate"/></entity-condition></member-entity>
-        <member-entity entity-name="growerp.mobile.location.AccommodationArea" entity-alias="AREA" join-from-alias="SPOT">
-            <key-map field-name="accommodationAreaId"/>
+        <member-entity entity-name="growerp.mobile.location.AccommodationArea" entity-alias="AREA" join-from-alias="SPOT"
+            join-optional="true"><key-map field-name="accommodationAreaId"/>
             <entity-condition><date-filter/></entity-condition></member-entity>
         <alias entity-alias="ORHD" name="orderId"/>
         <alias entity-alias="ORHD" name="placedDate"/>
@@ -253,8 +253,10 @@ along with this software (see the LICENSE.md file). If not, see
         <alias entity-alias="ORIT" name="itemDescription"/>
         <alias entity-alias="ORIT" name="quantity"/>
         <alias entity-alias="ORIT" name="unitAmount"/>
-        <alias entity-alias="SPOTPARTY" name="partyId"/>
         <alias entity-alias="SPOTPARTY" name="nbrOfGuests"/>
+        <alias entity-alias="PERSON" name="partyId"/>
+        <alias entity-alias="PERSON" name="firstName"/>
+        <alias entity-alias="PERSON" name="lastName"/>
         <alias entity-alias="AREA" name="accommodationAreaId"/>
         <alias entity-alias="AREA" name="ownerPartyId"/>
         <alias entity-alias="AREA" name="description"/>

@@ -26,7 +26,6 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
             <set field="pagePath" value="/${type}/${id}/"/>
             <set field="contentLocation" value="dbresource://C${ownerPartyId}/images${pagePath}"/>
-            <log message="===uploading file of size ${base64.size()} to location: ${contentLocation} type: $type id: $id"/>
             <set field="ec" from="context.ec"/>
             <set field="attachmentReferenceLarge"
                 from="ec.resource.getLocationReference(contentLocation + 'large')"/>
