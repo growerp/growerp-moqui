@@ -16,10 +16,10 @@ along with this software (see the LICENSE.md file). If not, see
 
     <service verb="get" noun="RelatedCompanyPartyId">
         <in-parameters>
-            <parameter name="userPartyId" />
+            <parameter name="userPartyId"/><!-- of this particular user -->
         </in-parameters>
         <out-parameters>
-            <parameter name="ownerPartyId" />
+            <parameter name="ownerPartyId"/>
             <parameter name="partyId" />
         </out-parameters>
         <actions>
