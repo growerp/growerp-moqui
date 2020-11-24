@@ -53,7 +53,6 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="orders" from="[]"/>
             </if>
             <set field="orderItems" from="[]"/>
-            <log message="====orders found: ${items.size()}"/>
             <iterate entry="item" list="items">
                 <if condition="lastItem &amp;&amp; lastItem.orderId != item.orderId">
                     <entity-find entity-name="moqui.security.UserAccount" list="customers">
@@ -113,12 +112,12 @@ along with this software (see the LICENSE.md file). If not, see
                     </else>
                 </if>
             </if>
-            <if condition="orderId">
+            <!--if condition="orderId">
                 <log message="==== open order send: ${order}"/>
                 <else>
                     <log message="==== open orders send: ${orders.size()}"/>
                 </else>
-            </if>
+            </if-->
         </actions></service>
 
 
@@ -129,14 +128,11 @@ along with this software (see the LICENSE.md file). If not, see
         <out-parameters>
             <parameter name="order"/></out-parameters>
         <actions>
-            <log message="======incoming order: $order"/>
             <script> // convert JSON data
                 import groovy.json.JsonSlurper
                 JsonSlurper slurper = new JsonSlurper()
                 Object order = new JsonSlurper().parseText(order).order
             </script>
-            <log message="======incoming order: $order"/>
-            <log message="======process order: ${order.partyId} orderItems: ${order.orderItems}"/>
             <!-- check if productStore exist otherwise create -->
             <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"/>
             <set field="currencyUomId" from="company.currency"/>
@@ -197,7 +193,6 @@ along with this software (see the LICENSE.md file). If not, see
                                 accommodationSpotId: order.accommodationSpotId]"/>
                 </if>
             </else></if>
-            <log message="======process orderid:$orderId orderItems: ${order.orderItems}"/>
             <iterate entry="item" list="order.orderItems">
                 <if condition="preparationAreas">
                     <entity-find entity-name="ProductAndPreparationArea" list="getPrepArea">
