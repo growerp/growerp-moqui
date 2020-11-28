@@ -86,8 +86,8 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!passwordChange">
                 <script>ec.user.loginUser(username, password)</script>
                 <service-call name="growerp.100.PartyServices100.get#User"
-                    in-map="[partyId: userAccount.partyId]" out-map="context"/>
-                <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"/>
+                    in-map="[userPartyId: userAccount.partyId]" out-map="context"/>
+                    <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"/>
                 <set field="apiKey" from="ec.user.getLoginKey()"/>
                 <set field="moquiSessionToken" from="ec.web.sessionToken"/>
             </if>

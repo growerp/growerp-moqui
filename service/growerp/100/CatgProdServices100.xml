@@ -130,7 +130,7 @@ along with this software (see the LICENSE.md file). If not, see
                 import groovy.json.JsonSlurper
                 JsonSlurper slurper = new JsonSlurper()
                 Object productIn = new JsonSlurper().parseText(product).product</script>
-<log message="====incoming productId: ${productIn.productId}"/>
+            <if condition="!productIn.categoryId"><return error="true" message="Category required"/></if>
             <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
                 out-map="context"/>
             <entity-find-one value-field="product" entity-name="mantle.product.Product" for-update="true">

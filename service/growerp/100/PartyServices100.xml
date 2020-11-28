@@ -86,7 +86,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="employees" from="[]"/>
                 <iterate list="compEmployees" entry="employee">
                     <service-call name="growerp.100.PartyServices100.get#User" out-map="context"
-                        in-map="[partyId: employee.userPartyId]"></service-call>
+                        in-map="[userPartyId: employee.userPartyId]"></service-call>
                     <script>employees.add(user)</script>
                 </iterate>
             </if>
@@ -163,7 +163,7 @@ along with this software (see the LICENSE.md file). If not, see
             Get all users of the company or usergroup they belong to(with partyId just a single party with PartyId)
         </description>
         <in-parameters>
-            <parameter name="partyId"/><!-- if present select a single user, else a list -->
+            <parameter name="userPartyId"/><!-- if present select a single user, else a list -->
             <parameter name="userGroupId"/><!-- if present select user from particular groups-->
             <parameter name="userGroups"/><!-- if present select user from particular groups-->
         </in-parameters>
@@ -172,19 +172,21 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="user" type="Map"/>
         </out-parameters>
         <actions>
+            <!--if condition="ec.user.userAccount?.partyId == userPartyId">
+            </if-->
             <!-- TODO: add security so admin can only see other users in his company: see getUsers in ofbiz -->
             <entity-find entity-name="growerp.mobile.PersonAndLoginGroup"  list="userInfos">
-                <econdition field-name="userPartyId" from="partyId" ignore-if-empty="true"/>
+                <econdition field-name="userPartyId" from="userPartyId" ignore-if-empty="true"/>
                 <econdition field-name="userGroupId" from="userGroupId" ignore-if-empty="true"/>
                 <econdition field-name="userGroups" operator="in" from="userGroups" ignore-if-empty="true"/>
                 <order-by field-name="lastName"/><order-by field-name="firstName"/>
             </entity-find>
-            <if condition="!partyId"><set field="users" from="[]"/></if>
+            <if condition="!userPartyId"><set field="users" from="[]"/></if>
             <iterate entry="userInfo" list="userInfos">
                 <entity-find entity-name="mantle.party.PartyContent" list="contents">
                     <econdition field-name="partyId" from="userInfo.userPartyId"/>
                     <econdition field-name="partyContentTypeEnumId" 
-                        from="partyId? 'PcntImageMedium' : 'PcntImageSmall'" />
+                        from="userPartyId? 'PcntImageMedium' : 'PcntImageSmall'" />
                 </entity-find>
                 <if condition="contents">    
                     <service-call name="growerp.100.ImageServices100.download#Image"
@@ -195,12 +197,11 @@ along with this software (see the LICENSE.md file). If not, see
                     name: userInfo?.username,
                     firstName: userInfo?.firstName,
                     lastName: userInfo?.lastName,
-                    userGroupid: userInfo?.userGroupId,
                     groupDescription: userInfo?.description,
                     language: userInfo?.locale.toString(),
                     image: imageFile]"/>
 
-                <if condition="!partyId">
+                <if condition="!userPartyId">
                     <script>users.add(userOut)</script>
                     <else>
                         <set field="user1" from="[
@@ -213,7 +214,7 @@ along with this software (see the LICENSE.md file). If not, see
                     </else>
                 </if>
             </iterate>
-            <if condition="users &amp;&amp; !partyId">
+            <if condition="users &amp;&amp; !userPartyId">
                 <script>users.sort{a, b -> 
                     a.lastName.compareToIgnoreCase(b.lastName) } </script>
             </if>
@@ -275,7 +276,7 @@ along with this software (see the LICENSE.md file). If not, see
                 Object userIn = new JsonSlurper().parseText(user).user
             </script>
             <service-call name="growerp.100.PartyServices100.get#User"
-                in-map="[partyId: userIn.partyId]" out-map="oldValue"/>
+                in-map="[userPartyId: userIn.partyId]" out-map="oldValue"/>
             <service-call name="update#mantle.party.Person" 
                 in-map="[   partyId: userIn.partyId, 
                             firstName: userIn.firstName ? userIn.firstName : oldValue.user.firstName, 
@@ -322,7 +323,7 @@ along with this software (see the LICENSE.md file). If not, see
                     in-map="[type: 'user', id: userIn.partyId, base64: base64]"/>
             </if>
             <!-- return updated user -->
-            <service-call name="growerp.100.PartyServices100.get#User" in-map="[partyId: userIn.partyId]" out-map="context"/>
+            <service-call name="growerp.100.PartyServices100.get#User" in-map="[userPartyId: userIn.partyId]" out-map="context"/>
         </actions>
     </service>
 
@@ -336,7 +337,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <!-- check if this user has an admin account -->
             <service-call name="growerp.100.PartyServices100.get#User"
-                in-map="[partyId: partyId]" out-map="oldValue"/>
+                in-map="[userPartyId: partyId]" out-map="oldValue"/>
             <if condition="oldValue.user.userGroupid == 'GROWERP_M_ADMIN'">
                 <!-- check if only a single admin: cannot change -->
                 <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" 
@@ -464,7 +465,7 @@ along with this software (see the LICENSE.md file). If not, see
                     </else>
                 </if>
                 <service-call name="growerp.100.PartyServices100.get#User"
-                    in-map="[partyId: userAccount.partyId,
+                    in-map="[userPartyId: userAccount.partyId,
                             usergroups: ['GROWERP_M_ADMIN', 'GROWERP_M_EMPLOYEE']]"
                     out-map="context"/>
                 <service-call name="growerp.100.PartyServices100.get#Company"
