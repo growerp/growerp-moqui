@@ -37,7 +37,8 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <service verb="login" noun="User" authenticate="anonymous-all"><description>service to return and apikey if user/password ok, when not check for a reset password</description>
+    <service verb="login" noun="User" authenticate="anonymous-all">
+        <description>service to return an apikey if user/password ok, when not check for a reset password</description>
         <in-parameters>
             <parameter name="username" required="true"/>
             <parameter name="password" required="true"/>

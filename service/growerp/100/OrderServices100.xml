@@ -61,8 +61,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <set field="orderOut" from="[
                     orderId: lastItem.orderId,
                     orderStatusId: lastItem.statusId,
-                    placedDate: ec.l10n.format(lastItem.placedDate,'dd-MM-yyyy'),
-                    placedTime: ec.l10n.format(lastItem.placedDate,'hh:mm'),
+                    placedDate: lastItem.placedDate.toString().substring(0,19) + 'Z',
                     customerPartyId: lastItem.partyId,
                     firstName: lastItem.firstName,
                     lastName: lastItem.lastName,
@@ -82,6 +81,8 @@ along with this software (see the LICENSE.md file). If not, see
                     description: item.itemDescription,
                     quantity: item.quantity.toString(),
                     price: item.unitAmount.toString(),
+                    fromDate: null,
+                    thruDate: null
                     ]"/>
                 <script>orderItems.add(orderItem)</script>
                 <set field="lastItem" from="item"/>
@@ -93,8 +94,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="orderOut" from="[
                     orderId: lastItem.orderId,
                     orderStatusId: lastItem.statusId,
-                    placedDate: ec.l10n.format(lastItem.placedDate,'dd-MM-yyyy'),
-                    placedTime: ec.l10n.format(lastItem.placedDate,'hh:mm'),
+                    placedDate: lastItem.placedDate.toString().substring(0,19) + 'Z',
                     customerPartyId: lastItem.partyId,
                     firstName: lastItem.firstName,
                     lastName: lastItem.lastName,

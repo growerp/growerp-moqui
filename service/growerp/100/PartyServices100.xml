@@ -373,9 +373,9 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="locale" />
             <!-- company information -->
             <parameter name="companyPartyId" /> <!-- add users for existing company -->
-            <parameter name="companyName" />
+            <parameter name="companyName"/><!-- can be empty with new user existing company -->
             <parameter name="companyEmailAddress"/>
-            <parameter name="currencyId" />
+            <parameter name="currencyId"/>
             <parameter name="classificationId"/> <!-- allocate company to application name -->
             <!-- default setup -->
             <parameter name="environment" />
@@ -477,6 +477,7 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="load" noun="DefaultData" authenticate="anonymous-all">
         <!-- not reachable outside -->
         <in-parameters>
+            <parameter name="companyPartyId"/>
             <parameter name="currencyId"/>
             <parameter name="classificationId" required="true" />
             <parameter name="environment" />
@@ -484,15 +485,15 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <actions>
             <if condition="classificationId == 'AppEcommerceShop'">
-                <service-call name="growerp.100.CatgProdServices100.create#ProductCategory" in-map="[
-                    categoryName: transData[1], preparationAreaId: preparationAreaId]" out-map="context" /> <!-- food -->
+                <service-call name="create#mantle.product.category.ProductCategory"
+                in-map="[categoryName: transData[1], ownerPartyId: companyPartyId]" out-map="context"/>
                 <service-call name="create#ProductCategoryContent" in-map="[
                     productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageThumbNail',
                     contentLocation: 'dbresource://GrowERP/images/foodSmall.png']" />
                 <service-call name="create#ProductCategoryContent" in-map="[
                     productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageMedium',
                     contentLocation: 'dbresource://GrowERP/images/foodMedium.png']" />
-                <service-call name="growerp.mobile.MobileCatgProdServices.create#Product" in-map="[
+                <service-call name="create#mantle.product.Product" in-map="[
                     productName: transData[2], productCategoryId: productCategoryId, price: '10.00',
                     currencyId: currencyId]" out-map="context" /> <!-- macaroni-->
                 <service-call name="create#ProductContent" in-map="[
@@ -501,15 +502,15 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="create#ProductContent" in-map="[
                     productId: productId, productContentTypeEnumId: 'PcntImageMedium',
                     contentLocation: 'dbresource://GrowERP/images/macaroniMedium.png']" />
-                <service-call name="growerp.100.CatgProdServices100.create#ProductCategory" in-map="[
-                    categoryName: transData[6]]" out-map="context" /> <!-- drinks -->
+                <service-call name="create#mantle.product.category.ProductCategory"
+                    in-map="[categoryName: transData[6], ownerPartyId: companyPartyId]" out-map="context"/>
                 <service-call name="create#ProductCategoryContent" in-map="[
                     productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageThumbNail',
                     contentLocation: 'dbresource://GrowERP/images/drinksSmall.png']" />
                 <service-call name="create#ProductCategoryContent" in-map="[
                     productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageMedium',
                     contentLocation: 'dbresource://GrowERP/images/drinksMedium.png']" />
-                <service-call name="growerp.mobile.MobileCatgProdServices.create#Product" in-map="[
+                <service-call name="create#mantle.product.Product" in-map="[
                     productName: transData[7], productCategoryId: productCategoryId, price: '15.00', 
                     currencyId: currencyId]" out-map="context" /> <!-- macaroni-->
                 <service-call name="create#ProductContent" in-map="[
@@ -536,17 +537,17 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="create#PreparationAreaContent" in-map="[
                     preparationAreaId: preparationAreaId, preparationAreaContentTypeEnumId: 'PactImageMedium',
                     contentLocation: 'dbresource://GrowERP/images/kitchenMedium.png']" />
-                <service-call name="growerp.100.MobileCatgProdServices100.create#ProductCategory" in-map="[
-                    categoryName: transData[1], preparationAreaId: preparationAreaId]" out-map="context" /> <!-- food -->
+                <service-call name="growerp.100.MobileCatgProdServices100.create#ProductCategory" in-map="[category:[
+                    categoryName: transData[1]]]" out-map="context" /> <!-- food -->
                 <service-call name="create#ProductCategoryContent" in-map="[
                     productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageThumbNail',
                     contentLocation: 'dbresource://GrowERP/images/foodSmall.png']" />
                 <service-call name="create#ProductCategoryContent" in-map="[
                     productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageMedium',
                     contentLocation: 'dbresource://GrowERP/images/foodMedium.png']" />
-                <service-call name="growerp.mobile.MobileCatgProdServices.create#Product" in-map="[
+                <service-call name="growerp.100.CatgProdServices100.create#Product" in-map="[product:[
                     productName: transData[2], productCategoryId: productCategoryId, price: '10.00',
-                    currencyId: currencyId]" out-map="context" /> <!-- macaroni-->
+                    currencyId: currencyId]]" out-map="context" /> <!-- macaroni-->
                 <service-call name="create#ProductContent" in-map="[
                     productId: productId, productContentTypeEnumId: 'PcntImageSmall',
                     contentLocation: 'dbresource://GrowERP/images/macaroniSmall.png']" />
@@ -569,7 +570,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="create#ProductCategoryContent" in-map="[
                     productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageMedium',
                     contentLocation: 'dbresource://GrowERP/images/drinksMedium.png']" />
-                <service-call name="growerp.mobile.MobileCatgProdServices.create#Product" in-map="[
+                <service-call name="growerp.100.CatgProdServices100.create#Product" in-map="[
                     productName: transData[7], productCategoryId: productCategoryId, price: '15.00', 
                     currencyId: currencyId]" out-map="context" /> <!-- macaroni-->
                 <service-call name="create#ProductContent" in-map="[
