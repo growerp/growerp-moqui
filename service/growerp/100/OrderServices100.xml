@@ -22,8 +22,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="orderId"/>
             <parameter name="open" type="Boolean"><description>True for only open orders</description></parameter>
             <parameter name="startDate"><description>Format should be YYYY-MM-DD</description></parameter>
-            <parameter name="accommodationAreaId"/>
-            <parameter name="spotNumber"/>
+            <parameter name="customerPartyId"/>
         </in-parameters>
         <out-parameters>
             <parameter name="orders" type="List"/>
@@ -38,13 +37,12 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="tsDate" from="ec.l10n.parseTimestamp(ec.l10n.format(startDate, 'yyyy-MM-dd') + ' 23:59:59.999', 'yyyy-MM-dd HH:mm:ss.SSS')"/>
             </if>
             <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context" />
-            <entity-find entity-name="OrderHeaderItemAccommodationParty" list="items">
+            <entity-find entity-name="OrderHeaderAndPartAndItem" list="items">
                 <econdition field-name="orderId" ignore-if-empty="true"/>
                 <econdition field-name="vendorPartyId" from="ownerPartyId"/>
+                <econdition field-name="customerPartyId" from="customerPartyId" ignore-if-empty="true"/>
                 <econdition field-name="statusId" operator="in" from="status" ignore-if-empty="true"/>
                 <econdition field-name="placedDate" operator="less-equals" from="tsDate" ignore-if-empty="true"/>
-                <econdition field-name="accommodationAreaId" ignore-if-empty="true"/>
-                <econdition field-name="spotNumber" ignore-if-empty="true"/>
                 <order-by field-name="orderId"/>
                 <order-by field-name="orderItemSeqId"/>
                 </entity-find>
@@ -56,20 +54,20 @@ along with this software (see the LICENSE.md file). If not, see
             <iterate entry="item" list="items">
                 <if condition="lastItem &amp;&amp; lastItem.orderId != item.orderId">
                     <entity-find entity-name="moqui.security.UserAccount" list="customers">
-                        <econdition field-name="partyId" from="lastItem.partyId"/>
+                        <econdition field-name="partyId" from="lastItem.customerPartyId"/>
                     </entity-find>
+                    <entity-find-one entity-name="mantle.party.Person" value-field="person">
+                        <field-map field-name="partyId" from="lastItem.customerPartyId"/>
+                    </entity-find-one>
                     <set field="orderOut" from="[
                     orderId: lastItem.orderId,
                     orderStatusId: lastItem.statusId,
                     placedDate: lastItem.placedDate.toString().substring(0,19) + 'Z',
-                    customerPartyId: lastItem.partyId,
-                    firstName: lastItem.firstName,
-                    lastName: lastItem.lastName,
+                    customerPartyId: lastItem.customerPartyId,
+                    firstName: person?.firstName,
+                    lastName: person?.lastName,
                     email: customers[0].emailAddress,
-                    nbrOfGuests: lastItem.nbrOfGuests,
                     grandTotal: lastItem.grandTotal.toString(),
-                    accommodationAreaId: lastItem.accommodationAreaId,
-                    accommodationSpotId: lastItem.accommodationSpotId,
                     orderItems: orderItems
                     ]"/>
                     <script>orders.add(orderOut)</script>
@@ -89,23 +87,23 @@ along with this software (see the LICENSE.md file). If not, see
             </iterate>
             <if condition="lastItem">
                 <entity-find entity-name="moqui.security.UserAccount" list="customers">
-                    <econdition field-name="partyId" from="lastItem.partyId"/>
+                    <econdition field-name="partyId" from="lastItem.customerPartyId"/>
                 </entity-find>
+                <entity-find-one entity-name="mantle.party.Person" value-field="person">
+                    <field-map field-name="partyId" from="lastItem.customerPartyId"/>
+                </entity-find-one>
                 <set field="orderOut" from="[
-                    orderId: lastItem.orderId,
-                    orderStatusId: lastItem.statusId,
-                    placedDate: lastItem.placedDate.toString().substring(0,19) + 'Z',
-                    customerPartyId: lastItem.partyId,
-                    firstName: lastItem.firstName,
-                    lastName: lastItem.lastName,
-                    email: customers[0].emailAddress,
-                    nbrOfGuests: lastItem.nbrOfGuests,
-                    grandTotal: lastItem.grandTotal.toString(),
-                    accommodationAreaId: lastItem.accommodationAreaId,
-                    accommodationSpotId: lastItem.accommodationSpotId,
-                    orderItems: orderItems
+                orderId: lastItem.orderId,
+                orderStatusId: lastItem.statusId,
+                placedDate: lastItem.placedDate.toString().substring(0,19) + 'Z',
+                customerPartyId: lastItem.customerPartyId,
+                firstName: person?.firstName,
+                lastName: person?.lastName,
+                email: customers[0].emailAddress,
+                grandTotal: lastItem.grandTotal.toString(),
+                orderItems: orderItems
                 ]"/>
-                <if condition="orderId">
+            <if condition="orderId">
                     <set field="order" from="orderOut"/>
                     <else>
                         <script>orders.add(orderOut)</script>
