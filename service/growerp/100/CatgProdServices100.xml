@@ -86,6 +86,7 @@ along with this software (see the LICENSE.md file). If not, see
         <description> Create a Product with a price in a category</description>
         <in-parameters>
             <parameter name="product" required="true"/>
+            <parameter name="base64"/>
         </in-parameters>
         <out-parameters>
             <parameter name="product"/>
@@ -112,6 +113,10 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="create#mantle.product.ProductPrice" in-map="context"/>
             <set field="productCategoryId" from="productIn.categoryId"/>
             <service-call name="create#mantle.product.category.ProductCategoryMember" in-map="context"/>
+            <if condition="base64">
+                <service-call name="growerp.100.ImageServices100.upload#Image"
+                    in-map="[type: 'product', id: productId, base64: base64]"/>
+            </if>
             <service-call name="growerp.100.CatgProdServices100.get#Products"
                 in-map="[productId: productId]" out-map="context"/>
         </actions>
@@ -121,6 +126,7 @@ along with this software (see the LICENSE.md file). If not, see
         <description> Update an existing Product</description>
         <in-parameters>
             <parameter name="product" required="true"/>
+            <parameter name="base64"/>
         </in-parameters>
         <out-parameters>
             <parameter name="product"/>
@@ -130,13 +136,13 @@ along with this software (see the LICENSE.md file). If not, see
                 import groovy.json.JsonSlurper
                 JsonSlurper slurper = new JsonSlurper()
                 Object productIn = new JsonSlurper().parseText(product).product</script>
-            <if condition="!productIn.categoryId"><return error="true" message="Category required"/></if>
+            <if condition="!productIn.productId"><return error="true" message="ProductId required"/></if>
             <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
                 out-map="context"/>
             <entity-find-one value-field="product" entity-name="mantle.product.Product" for-update="true">
                 <field-map field-name="productId" from="productIn.productId"/>
                 <field-map field-name="ownerPartyId"/></entity-find-one>
-            <if condition="!product"><return error="true" message="product ${productIn.prouctId} not found!}"/></if>
+            <if condition="!product"><return error="true" message="product ${productIn.productId} not found!}"/></if>
             <if condition="productIn.productName &amp;&amp; product.productName != productIn.productName">
                 <set field="product.productName" from="productIn.productName"/>
                 <entity-update value-field="product"/></if>
@@ -169,9 +175,13 @@ along with this software (see the LICENSE.md file). If not, see
                                 productCategoryId: productCategoryId,
                                 fromDate: ec.user.nowTimestamp]"/>
             </if>
+            <!-- update image -->
+            <if condition="base64">
+                <service-call name="growerp.100.ImageServices100.upload#Image"
+                    in-map="[type: 'product', id: productIn.productId, base64: base64]"/>
+            </if>
             <service-call name="growerp.100.CatgProdServices100.get#Products"
                 in-map="[productId: productIn.productId]" out-map="context"/>
-<log message="====inoutgoing productId: ${product.productId}"/>
             </actions>
     </service>
 
@@ -221,7 +231,6 @@ along with this software (see the LICENSE.md file). If not, see
                         from="categoryId? 'PcctImageMedium' : 'PcctImageThumbNail'" />
                 </entity-find>
                 <if condition="contents">
-                    <log message="===image found: ${group.productCategoryId}"/>
                     <service-call name="growerp.100.ImageServices100.download#Image"
                         in-map="[contentLocation: contents[0].contentLocation]" out-map="context"/></if>
                 <entity-find-count entity-name="growerp.mobile.product.ProductAndPriceAndProductCategory" count-field="nbrOfProducts">
@@ -254,6 +263,7 @@ along with this software (see the LICENSE.md file). If not, see
                                             salads, deserts etc</description>
         <in-parameters>
             <parameter name="category" required="true"/>
+            <parameter name="base64"/>
         </in-parameters>
         <out-parameters>
             <parameter name="category"/>
@@ -275,6 +285,10 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="create#mantle.product.category.ProductCategoryRollup"
                     in-map="[description: categoryIn.description, parentProductCategoryId: rootProductCategoryId,
                     productCategoryId: productCategoryId]"/>
+            <if condition="base64">
+                <service-call name="growerp.100.ImageServices100.upload#Image"
+                    in-map="[type: 'category', id: productCategoryId, base64: base64]"/>
+            </if>
             <service-call name="growerp.100.CatgProdServices100.get#ProductCategories"
                 in-map="[categoryId: productCategoryId]" out-map="context"/>
         </actions>
@@ -282,7 +296,10 @@ along with this software (see the LICENSE.md file). If not, see
 
     <service verb="update" noun="ProductCategory">
         <description> Update a category to group products by drinks , salads, deserts etc</description>
-        <in-parameters><parameter name="category" required="true"/></in-parameters>
+        <in-parameters>
+            <parameter name="category" required="true"/>
+            <parameter name="base64"/>
+        </in-parameters>
         <out-parameters><parameter name="category"/></out-parameters>
         <actions>
             <script> // convert JSON data
@@ -298,6 +315,11 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="categoryIn.preparationAreaId">
                 <set field="productCategory.preparationAreaId" from="categoryIn.preparationAreaId"/></if>
             <entity-update value-field="productCategory"/>
+            <!-- update image -->
+            <if condition="base64">
+                <service-call name="growerp.100.ImageServices100.upload#Image"
+                    in-map="[type: 'category', id: categoryIn.categoryId, base64: base64]"/>
+            </if>
             <service-call name="growerp.100.CatgProdServices100.get#ProductCategories"
                 in-map="[categoryId: categoryIn.categoryId]" out-map="context"/>
         </actions>

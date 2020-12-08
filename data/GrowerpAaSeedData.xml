@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.email.EmailServer emailServerId="SYSTEM"
             smtpHost="smtp.gmail.com" smtpPort="587" smtpStartTls="Y" smtpSsl="N"
             storeHost="imap.gmail.com" storePort="993" storeProtocol="imaps" storeFolder=""
-            storeDelete="N" storeMarkSeen="Y" storeSkipSeen="Y" mailUsername="mobile@growerp.com" mailPassword="s#m7XyP?"/>
+            storeDelete="N" storeMarkSeen="Y" storeSkipSeen="Y" mailUsername="mobile@growerp.com" mailPassword="xxxxxxx"/>
 
      <!-- allocate companies to application -->
     <moqui.basic.Enumeration description="Mobile App user" enumId="PcltMobileApp" enumTypeId="PartyClassificationType"/>
