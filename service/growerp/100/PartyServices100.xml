@@ -108,6 +108,7 @@ along with this software (see the LICENSE.md file). If not, see
         </description>
         <in-parameters>
             <parameter name="company"/>
+            <parameter name="base64"/>
         </in-parameters>
         <out-parameters>
             <parameter name="company" type="Map"/>
@@ -149,9 +150,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-update value-field="pref" />
             </if>
             <!-- update image -->
-            <if condition="compIn.image">
+            <if condition="base64">
                 <service-call name="growerp.100.ImageServices100.upload#Image"
-                    in-map="[type: 'company', id: compIn.partyId, base64: compIn.image]"/>
+                    in-map="[type: 'user', id: compIn.partyId, base64: base64]"/>
             </if>
             <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"/>
         </actions>
@@ -226,6 +227,7 @@ along with this software (see the LICENSE.md file). If not, see
         </description>
         <in-parameters>
             <parameter name="user"/>
+            <parameter name="base64"/>
         </in-parameters>
         <out-parameters>
             <parameter name="user"/>
@@ -236,30 +238,23 @@ along with this software (see the LICENSE.md file). If not, see
                 JsonSlurper slurper = new JsonSlurper()
                 Object userIn = new JsonSlurper().parseText(user).user
             </script>
-            <service-call name="growerp.100.PartyServices100.get#Company"
-                out-map="compOut"/>
-            <service-call 
-                name="growerp.100.PartyServices100.register#UserAndCompany"
-                in-map="[
-                    firstName: userIn.firstName,
-                    lastName: userIn.lastName,
-                    emailAddress: userIn.email,
-                    locale: userIn.locale,
-                    username: userIn.name,
-                    externalId: userIn.externalid,
-                    userGroupId: userIn.userGroupId,
-                    companyPartyId: compOut.company.partyId]"
-                out-map="userOut"/>
+            <service-call name="growerp.100.PartyServices100.get#Company" out-map="compOut"/>
+            <service-call name="growerp.100.PartyServices100.register#UserAndCompany"
+            in-map="[
+                firstName: userIn.firstName,
+                lastName: userIn.lastName,
+                emailAddress: userIn.email,
+                locale: userIn.locale,
+                username: userIn.name,
+                externalId: userIn.externalid,
+                userGroupId: userIn.userGroupId,
+                companyPartyId: compOut.company.partyId]" out-map="userOut"/>
             <set field="user" from="userOut.user"/>
             <!-- update image -->
-            <if condition="userIn.image">
+            <if condition="base64">
                 <service-call name="growerp.100.ImageServices100.upload#Image"
-                    in-map="[type: 'user', id: userOut.user.partyId,
-                        base64: userIn.image]"/>
+                    in-map="[type: 'user', id: userOut.user.partyId, base64: base64]"/>
             </if>
-            <!-- return updated user -->
-            <service-call name="growerp.100.PartyServices100.get#User"
-                in-map="[userPartyId: userOut.partyId]" out-map="context"/>
         </actions>
     </service>
 
@@ -269,6 +264,7 @@ along with this software (see the LICENSE.md file). If not, see
         </description>
         <in-parameters>
             <parameter name="user"/>
+            <parameter name="base64"/>
         </in-parameters>
         <out-parameters>
             <parameter name="user"/>
@@ -283,67 +279,51 @@ along with this software (see the LICENSE.md file). If not, see
                 in-map="[userPartyId: userIn.partyId]" out-map="oldValue"/>
             <service-call name="update#mantle.party.Person" 
                 in-map="[   partyId: userIn.partyId, 
-                            firstName: userIn.firstName 
-                                ? userIn.firstName : oldValue.user.firstName, 
-                            lastName: userIn.lastName 
-                                ? userIn.lastName : oldValue.user.lastName]"/>
-            <service-call 
-                name="mantle.party.PartyServices.update#PartyUserAccount"
+                            firstName: userIn.firstName ? userIn.firstName : oldValue.user.firstName, 
+                            lastName: userIn.lastName ? userIn.lastName : oldValue.user.lastName]"/>
+            <service-call name="mantle.party.PartyServices.update#PartyUserAccount"
                 in-map="[   partyId: userIn.partyId, 
-                            emailAddress: userIn.email 
-                                ? userIn.email : oldValue.user.email,
-                            username: userIn.name
-                                ? userIn.name : oldValue.user.name,
+                            emailAddress: userIn.email ? userIn.email : oldValue.user.email,
+                            username: userIn.name? userIn.name : oldValue.user.name,
                             locale: language
                         ]"/>
             <!--update user group -->
             <if condition="!userIn.userGroupId">
-                <return error="true" 
-                    message="userGroupId not supplied to update user"/></if>
+                <return error="true" message="userGroupId not supplied to update user"/></if>
             <if condition="userIn.userGroupId != oldValue.user.userGroupId">
                 <if condition="oldValue.user.userGroupid == 'GROWERP_M_ADMIN'">
                     <!-- check if only a single admin: cannot change -->
-                    <service-call 
-                        name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" 
-                            in-map="[userPartyId: userIn.partyId]" out-map="company"/>
-                    <entity-find entity-name="growerp.mobile.CompanyPersonAndLoginGroup"
-                             list="admins">
+                    <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" 
+                        in-map="[userPartyId: userIn.partyId]" out-map="company"/>
+                    <entity-find entity-name="growerp.mobile.CompanyPersonAndLoginGroup" list="admins">
                         <econdition field-name="userGroupId" value="GROWERP_M_ADMIN"/>
                         <econdition field-name="companyPartyId" from="company.partyId" />
                         <date-filter/></entity-find>
                     <if condition="admins.size() == 1">
-                        <return error="true"
-                            message="You need at least a single Admin in your company: cannot remove this one!"/>
-                    </if>
+                        <return error="true" message="You need at least a single Admin in your company: cannot remove this one!"/></if>
                 </if>
-                <entity-find entity-name="moqui.security.UserGroupMember"
-                    list="groupMembers" for-update="true">
+                <entity-find entity-name="moqui.security.UserGroupMember" list="groupMembers" for-update="true">
                     <econdition field-name="userGroupId" from="oldValue.user.userGroupId"/>
                     <econdition field-name="userId" from="oldValue.user.userId"/>
                 </entity-find>
                 <set field="groupMembers[0].thruDate" from="ec.user.nowTimestamp"/>
                 <entity-update value-field="groupMembers[0]"/>
                 <service-call name="create#moqui.security.UserGroupMember"
-                    in-map="[userGroupId: userIn.userGroupId,
-                            userId: oldValue.user.userId,
-                            fromDate: ec.user.nowTimestamp]"/>
+                    in-map="[userGroupId: userIn.userGroupId, userId: oldValue.user.userId, fromDate: ec.user.nowTimestamp]"/>
             </if>    
             <!-- update external id for customer indentification -->
-            <entity-find-one value-field="party" entity-name="mantle.party.Party"
-                 for-update="true">
+            <entity-find-one value-field="party" entity-name="mantle.party.Party" for-update="true">
                 <field-map field-name="partyId" from="userIn.partyId"/></entity-find-one>
             <if condition="userIn.externalId != party.externalId">
                 <set field="party.externalId" from="userIn.externalId"/>
                 <entity-update value-field="party"/></if>
             <!-- update image -->
-            <if condition="userIn.image">
+            <if condition="base64">
                 <service-call name="growerp.100.ImageServices100.upload#Image"
-                    in-map="[type: 'user', id: userIn.partyId,
-                                base64: userIn.image]"/>
+                    in-map="[type: 'user', id: userIn.partyId, base64: base64]"/>
             </if>
             <!-- return updated user -->
-            <service-call name="growerp.100.PartyServices100.get#User"
-                in-map="[userPartyId: userIn.partyId]" out-map="context"/>
+            <service-call name="growerp.100.PartyServices100.get#User" in-map="[userPartyId: userIn.partyId]" out-map="context"/>
         </actions>
     </service>
 
@@ -501,142 +481,68 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="currencyId"/>
             <parameter name="classificationId" required="true" />
             <parameter name="environment" />
-            <parameter name="transData" type="List" default="['kitchen','food','macaroni','bar','inside','garden','drinks','cola']"/>
+            <parameter name="transData" type="List"/>
         </in-parameters>
         <actions>
-            <if condition="classificationId == 'AppEcommerceShop'">
+            <script> // convert JSON data
+                import groovy.json.JsonSlurper
+                JsonSlurper slurper = new JsonSlurper()
+                Object data = new JsonSlurper().parseText(transData).transData</script>
+
+            <log message="loading default data with classificationId $classificationId"/>
+            <entity-find entity-name="mantle.product.category.ProductCategory" list="rootList">
+                <econdition field-name="companyPartyId"/></entity-find>
+            <set field="rootProductCategoryId" from="rootList[0].productCategoryId"/>
+
+            <!-- structure of data, image should be in dbresource://GrowERP/images/...Medium.jpg-->
+            <!-- format of the data should be in the catalog format: 
+                https://github.com/growerp/growerp/blob/packages/models/lib/catalog.dart -->
+            <set field="demoData" from="[
+                [ categoryName: 'category 1', image: 'imageName',
+                    products: [ productName: 'product1', description:'description', price: 34, image='name'],
+                              [ productName: 'product 2', description: 'desc 2', price: 25]
+                ],
+                [ categoryName: 'category 2', image: 'imageName2',
+                    products: [ productName: 'product11', description:'desc 1', price: 44],
+                              [ productName: 'product 12', description: 'desc 2', price: 45]
+                ],
+            ]"/>
+
+            <iterate list="data" entry="el">
                 <service-call name="create#mantle.product.category.ProductCategory"
-                in-map="[categoryName: transData[1], ownerPartyId: companyPartyId]" out-map="context"/>
+                    in-map="[categoryName: el.categoryName, ownerPartyId: companyPartyId]"
+                    out-map="context"/>
+                <service-call name="create#mantle.product.category.ProductCategoryRollup"
+                    in-map="[parentProductCategoryId: rootProductCategoryId,
+                             productCategoryId: productCategoryId]"/>
                 <service-call name="create#ProductCategoryContent" in-map="[
                     productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageThumbNail',
-                    contentLocation: 'dbresource://GrowERP/images/foodSmall.png']" />
+                    contentLocation: 'dbresource://GrowERP/images/${el.image}Small.png']" />
                 <service-call name="create#ProductCategoryContent" in-map="[
                     productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageMedium',
-                    contentLocation: 'dbresource://GrowERP/images/foodMedium.png']" />
-                <service-call name="create#mantle.product.Product" in-map="[
-                    productName: transData[2], productCategoryId: productCategoryId, price: '10.00',
-                    currencyId: currencyId]" out-map="context" /> <!-- macaroni-->
-                <service-call name="create#ProductContent" in-map="[
-                    productId: productId, productContentTypeEnumId: 'PcntImageSmall',
-                    contentLocation: 'dbresource://GrowERP/images/macaroniSmall.png']" />
-                <service-call name="create#ProductContent" in-map="[
-                    productId: productId, productContentTypeEnumId: 'PcntImageMedium',
-                    contentLocation: 'dbresource://GrowERP/images/macaroniMedium.png']" />
-                <service-call name="create#mantle.product.category.ProductCategory"
-                    in-map="[categoryName: transData[6], ownerPartyId: companyPartyId]" out-map="context"/>
-                <service-call name="create#ProductCategoryContent" in-map="[
-                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageThumbNail',
-                    contentLocation: 'dbresource://GrowERP/images/drinksSmall.png']" />
-                <service-call name="create#ProductCategoryContent" in-map="[
-                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageMedium',
-                    contentLocation: 'dbresource://GrowERP/images/drinksMedium.png']" />
-                <service-call name="create#mantle.product.Product" in-map="[
-                    productName: transData[7], productCategoryId: productCategoryId, price: '15.00', 
-                    currencyId: currencyId]" out-map="context" /> <!-- macaroni-->
-                <service-call name="create#ProductContent" in-map="[
-                    productId: productId, productContentTypeEnumId: 'PcntImageSmall',
-                    contentLocation: 'dbresource://GrowERP/images/colaSmall.png']" />
-                <service-call name="create#ProductContent" in-map="[
-                    productId: productId, productContentTypeEnumId: 'PcntImageMedium',
-                    contentLocation: 'dbresource://GrowERP/images/colaMedium.png']" />
-            </if>
-            <if condition="partyClassificationId == 'AppRestaurant'">
-                <!-- billing -->
-                <service-call name="growerp.mobile.MobileLocationServices.create#PreparationArea" in-map="[description: transData[8]]" out-map="context" />
-                <service-call name="create#PreparationAreaContent" in-map="[
-                    preparationAreaId: preparationAreaId, preparationAreaContentTypeEnumId: 'PactImageThumbNail',
-                    contentLocation: 'dbresource://GrowERP/images/billingSmall.png']" />
-                <service-call name="create#PreparationAreaContent" in-map="[
-                    preparationAreaId: preparationAreaId, preparationAreaContentTypeEnumId: 'PactImageMedium',
-                    contentLocation: 'dbresource://GrowERP/images/billingMedium.png']" />
-                <!-- kitchen -->
-                <service-call name="growerp.mobile.MobileLocationServices.create#PreparationArea" in-map="[description: transData[0]]" out-map="context" />
-                <service-call name="create#PreparationAreaContent" in-map="[
-                    preparationAreaId: preparationAreaId, preparationAreaContentTypeEnumId: 'PactImageThumbNail',
-                    contentLocation: 'dbresource://GrowERP/images/kitchenSmall.png']" />
-                <service-call name="create#PreparationAreaContent" in-map="[
-                    preparationAreaId: preparationAreaId, preparationAreaContentTypeEnumId: 'PactImageMedium',
-                    contentLocation: 'dbresource://GrowERP/images/kitchenMedium.png']" />
-                <service-call name="growerp.100.MobileCatgProdServices100.create#ProductCategory" in-map="[category:[
-                    categoryName: transData[1]]]" out-map="context" /> <!-- food -->
-                <service-call name="create#ProductCategoryContent" in-map="[
-                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageThumbNail',
-                    contentLocation: 'dbresource://GrowERP/images/foodSmall.png']" />
-                <service-call name="create#ProductCategoryContent" in-map="[
-                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageMedium',
-                    contentLocation: 'dbresource://GrowERP/images/foodMedium.png']" />
-                <service-call name="growerp.100.CatgProdServices100.create#Product" in-map="[product:[
-                    productName: transData[2], productCategoryId: productCategoryId, price: '10.00',
-                    currencyId: currencyId]]" out-map="context" /> <!-- macaroni-->
-                <service-call name="create#ProductContent" in-map="[
-                    productId: productId, productContentTypeEnumId: 'PcntImageSmall',
-                    contentLocation: 'dbresource://GrowERP/images/macaroniSmall.png']" />
-                <service-call name="create#ProductContent" in-map="[
-                    productId: productId, productContentTypeEnumId: 'PcntImageMedium',
-                    contentLocation: 'dbresource://GrowERP/images/macaroniMedium.png']" />
-                <!-- bar -->
-                <service-call name="growerp.mobile.MobileLocationServices.create#PreparationArea" in-map="[description: transData[3]]" out-map="context" />
-                <service-call name="create#PreparationAreaContent" in-map="[
-                    preparationAreaId: preparationAreaId, preparationAreaContentTypeEnumId: 'PactImageThumbNail',
-                    contentLocation: 'dbresource://GrowERP/images/barSmall.png']" />
-                <service-call name="create#PreparationAreaContent" in-map="[
-                    preparationAreaId: preparationAreaId, preparationAreaContentTypeEnumId: 'PactImageMedium',
-                    contentLocation: 'dbresource://GrowERP/images/barMedium.png']" />
-                <service-call name="growerp.100.CatgProdServices100.create#ProductCategory" in-map="[
-                    categoryName: transData[6], preparationAreaId: preparationAreaId]" out-map="context" /> <!-- drinks -->
-                <service-call name="create#ProductCategoryContent" in-map="[
-                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageThumbNail',
-                    contentLocation: 'dbresource://GrowERP/images/drinksSmall.png']" />
-                <service-call name="create#ProductCategoryContent" in-map="[
-                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageMedium',
-                    contentLocation: 'dbresource://GrowERP/images/drinksMedium.png']" />
-                <service-call name="growerp.100.CatgProdServices100.create#Product" in-map="[
-                    productName: transData[7], productCategoryId: productCategoryId, price: '15.00', 
-                    currencyId: currencyId]" out-map="context" /> <!-- macaroni-->
-                <service-call name="create#ProductContent" in-map="[
-                    productId: productId, productContentTypeEnumId: 'PcntImageSmall',
-                    contentLocation: 'dbresource://GrowERP/images/colaSmall.png']" />
-                <service-call name="create#ProductContent" in-map="[
-                    productId: productId, productContentTypeEnumId: 'PcntImageMedium',
-                    contentLocation: 'dbresource://GrowERP/images/colaMedium.png']" />
+                    contentLocation: 'dbresource://GrowERP/images/${el.image}Medium.png']" />
+         
+                <iterate list="el.products" entry="product">
+                    <service-call name="create#mantle.product.Product" in-map="[
+                        productName: product.productName, productCategoryId: productCategoryId, price: '10.00',
+                        currencyId: currencyId]" out-map="context" />
+                    <service-call name="create#ProductContent" in-map="[
+                        productId: productId, productContentTypeEnumId: 'PcntImageSmall',
+                        contentLocation: 'dbresource://GrowERP/images/${product.image}Small.png']" />
+                    <service-call name="create#ProductContent" in-map="[
+                        productId: productId, productContentTypeEnumId: 'PcntImageMedium',
+                        contentLocation: 'dbresource://GrowERP/images/${product.image}Medium.png']" />
+                </iterate>
+            </iterate>
 
-                <service-call name="growerp.mobile.MobileLocationServices.create#AccommodationArea" in-map="[description: transData[4], nbrOfSpots: 10]" out-map="context" />
-                <service-call name="create#AccommodationAreaContent" in-map="[
-                    accommodationAreaId: accommodationAreaId, accommodationAreaContentTypeEnumId: 'AactImageThumbNail',
-                    contentLocation: 'dbresource://GrowERP/images/insideSmall.png']" />
-                <service-call name="create#AccommodationAreaContent" in-map="[
-                    accommodationAreaId: accommodationAreaId, accommodationAreaContentTypeEnumId: 'AactImageMedium',
-                    contentLocation: 'dbresource://GrowERP/images/insideMedium.png']" />
-
-                <service-call name="growerp.mobile.MobileLocationServices.create#AccommodationArea" in-map="[description: transData[5], nbrOfSpots: 15]" out-map="context" />
-                <service-call name="create#AccommodationAreaContent" in-map="[
-                    accommodationAreaId: accommodationAreaId, accommodationAreaContentTypeEnumId: 'AactImageThumbNail',
-                    contentLocation: 'dbresource://GrowERP/images/gardenSmall.png']" />
-                <service-call name="create#AccommodationAreaContent" in-map="[
-                    accommodationAreaId: accommodationAreaId, accommodationAreaContentTypeEnumId: 'AactImageMedium',
-                    contentLocation: 'dbresource://GrowERP/images/gardenMedium.png']" />
-
-                <if condition="environment != 'production'">
-                    <service-call name="growerp.100.MobilePartyServices100.get#Company" out-map="context" />
-                    <set field="random" value="${org.moqui.util.StringUtilities.getRandomString(8)}" />
-                    <service-call name="growerp.mobile.MobilePartyServices.create#User" in-map="[
-                        firstName: 'Peter', lastName: 'Coster', companyPartyId: company.partyId,
-                        emailAddress: random.toLowerCase() + '@example.com',
-                        roleTypeId: 'Employee', groupDescription: 'Employee']" out-map="context" />
-                    <service-call name="growerp.mobile.MobileTaskRequestServices.create#WorkEffort" in-map="[workEffortName:'This a first task for Peter',
-                        partyId: partyId, priority: '5']" />
-                    <service-call name="growerp.mobile.MobileTaskRequestServices.create#WorkEffort" in-map="[workEffortName:'This a first task for me',
-                        priority: '5']" />
-                    <entity-find entity-name="PreparationArea" list="prepAreas">
-                        <econdition field-name="ownerPartyId" from="company.partyId" />
-                    </entity-find>
-                    <set field="index" value="0" type="Integer" />
-                    <iterate list="prepAreas" entry="prepArea">
-                        <!-- setup up ports for virtual escpos printers -->
-                        <service-call name="growerp.mobile.MobileLocationServices.update#PreparationArea" in-map="[preparationAreaId: prepArea.preparationAreaId, description: prepArea.description, printerIp: ':' + (9100 + index++)]" />
-                    </iterate>
-                </if>
-            </if>
+            <!--if condition="environment != 'production'">
+                <service-call name="growerp.100.MobilePartyServices100.get#Company" out-map="context" />
+                <set field="random" value="${org.moqui.util.StringUtilities.getRandomString(8)}" />
+                <service-call name="growerp.mobile.MobilePartyServices.create#User" in-map="[
+                    firstName: 'Peter', lastName: 'Coster', companyPartyId: company.partyId,
+                    emailAddress: random.toLowerCase() + '@example.com',
+                    roleTypeId: 'Employee', groupDescription: 'Employee']" out-map="context" />
+            </if-->
         </actions>
     </service>
 

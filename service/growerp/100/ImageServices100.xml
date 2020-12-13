@@ -23,8 +23,9 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="base64"/>
         </in-parameters>
         <actions>
-            <!--log message="=====uploading $type image size: ${base64.length()}"/-->
-            <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
+            <log message="=====uploading image $type $id size: ${base64.length()}"/>
+            <service-call 
+                name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
             <set field="pagePath" value="/${type}/${id}/"/>
             <set field="contentLocation" value="dbresource://C${ownerPartyId}/images${pagePath}"/>
             <set field="ec" from="context.ec"/>
@@ -72,14 +73,11 @@ along with this software (see the LICENSE.md file). If not, see
                 fileStreamLarge = attachmentReferenceLarge.openStream()
                 BufferedImage img = ImageIO.read(fileStreamLarge);
                 // resize
-                def scale = 5000 / fileSize
-                int newWidth = img.width * scale
-                int newHeight = img.height * scale
                 ByteArrayOutputStream os = new ByteArrayOutputStream();
-                new BufferedImage( newWidth, newHeight, img.type ).with { i ->
+                new BufferedImage( 400, 400, img.type ).with { i ->
                     createGraphics().with {
                         setRenderingHint( KEY_INTERPOLATION, VALUE_INTERPOLATION_BICUBIC )
-                        drawImage( img, 0, 0, newWidth, newHeight, null )
+                        drawImage( img, 0, 0, 400, 400, null )
                         dispose()
                     }
                     ImageIO.write( i, 'png', os )
@@ -92,14 +90,11 @@ along with this software (see the LICENSE.md file). If not, see
                 //convert large image to small format
                 fileStreamLarge = attachmentReferenceLarge.openStream()
                 img = ImageIO.read(fileStreamLarge);
-                scale = 2000 / fileSize
-                newWidth = img.width * scale
-                newHeight = img.height * scale
                 os = new ByteArrayOutputStream();
-                new BufferedImage( newWidth, newHeight, img.type ).with { i ->
+                new BufferedImage( 50, 50, img.type ).with { i ->
                     createGraphics().with {
                         setRenderingHint( KEY_INTERPOLATION, VALUE_INTERPOLATION_BICUBIC )
-                        drawImage( img, 0, 0, newWidth, newHeight, null )
+                        drawImage( img, 0, 0, 50, 50, null )
                         dispose()
                     }
                     ImageIO.write( i, 'png', os )
@@ -110,62 +105,74 @@ along with this software (see the LICENSE.md file). If not, see
                 fileStreamLarge.close()
                 ]]></script>
                 <if condition="type == 'user'  || type == 'company'">
-                    <entity-delete-by-condition entity-name="mantle.party.PartyContent">
+                    <entity-delete-by-condition
+                        entity-name="mantle.party.PartyContent">
                         <econdition field-name="partyId" from="id"/>
                     </entity-delete-by-condition>
-                    <service-call name="create#mantle.party.PartyContent" in-map="[
-                        partyId: id, partyContentTypeEnumId: 'PcntImageSmall',
-                        contentLocation: contentLocation + 'small']" />
-                    <service-call name="create#mantle.party.PartyContent" in-map="[
-                        partyId: id, partyContentTypeEnumId: 'PcntImageMedium',
-                        contentLocation: contentLocation + 'medium']" />
-                    <service-call name="create#mantle.party.PartyContent" in-map="[
-                        partyId: id, partyContentTypeEnumId: 'PcntImageLarge',
-                        contentLocation: contentLocation + 'large']" />
+                    <service-call name="create#mantle.party.PartyContent"
+                        in-map="[
+                            partyId: id,
+                            partyContentTypeEnumId: 'PcntImageSmall',
+                            contentLocation: contentLocation + 'small']" />
+                    <service-call name="create#mantle.party.PartyContent"
+                        in-map="[
+                            partyId: id,
+                            partyContentTypeEnumId: 'PcntImageMedium',
+                            contentLocation: contentLocation + 'medium']" />
+                    <service-call name="create#mantle.party.PartyContent"
+                        in-map="[
+                            partyId: id,
+                            partyContentTypeEnumId: 'PcntImageLarge',
+                            contentLocation: contentLocation + 'large']" />
                 </if>
                 <if condition="type == 'product'">
-                    <entity-delete-by-condition entity-name="mantle.product.ProductContent">
+                    <entity-delete-by-condition 
+                        entity-name="mantle.product.ProductContent">
                         <econdition field-name="productId" from="id"/>
                     </entity-delete-by-condition>
-                    <service-call name="create#mantle.product.ProductContent" in-map="[
-                        productId: id, productContentTypeEnumId: 'PcntImageSmall',
-                        contentLocation: contentLocation + 'small']" />
-                    <service-call name="create#mantle.product.ProductContent" in-map="[
-                        productId: id, productContentTypeEnumId: 'PcntImageMedium',
-                        contentLocation: contentLocation + 'medium']" />
-                    <service-call name="create#mantle.product.ProductContent" in-map="[
-                        productId: id, productContentTypeEnumId: 'PcntImageLarge',
-                        contentLocation: contentLocation + 'large']" />
+                    <service-call
+                        name="create#mantle.product.ProductContent"
+                        in-map="[
+                            productId: id,
+                            productContentTypeEnumId: 'PcntImageSmall',
+                            contentLocation: contentLocation + 'small']" />
+                    <service-call
+                        name="create#mantle.product.ProductContent"
+                        in-map="[
+                            productId: id,
+                            productContentTypeEnumId: 'PcntImageMedium',
+                            contentLocation: contentLocation + 'medium']" />
+                    <service-call
+                        name="create#mantle.product.ProductContent" in-map="[
+                            productId: id,
+                            productContentTypeEnumId: 'PcntImageLarge',
+                            contentLocation: contentLocation + 'large']" />
                 </if>
                 <if condition="type == 'category'">
-                    <entity-delete-by-condition entity-name="mantle.product.category.ProductCategoryContent">
+                    <entity-delete-by-condition
+                        entity-name="mantle.product.category.ProductCategoryContent">
                         <econdition field-name="productCategoryId" from="id"/>
                     </entity-delete-by-condition>
-                    <service-call name="create#mantle.product.category.ProductCategoryContent" in-map="[
-                        productCategoryId: id, categoryContentTypeEnumId: 'PcctImageThumbNail',
-                        contentLocation: contentLocation + 'small']" />
-                    <service-call name="create#mantle.product.category.ProductCategoryContent" in-map="[
-                        productCategoryId: id, categoryContentTypeEnumId: 'PcctImageMedium',
-                        contentLocation: contentLocation + 'medium']" />
-                    <service-call name="create#mantle.product.category.ProductCategoryContent" in-map="[
-                        productCategoryId: id, categoryContentTypeEnumId: 'PcctImageLarge',
-                        contentLocation: contentLocation + 'large']" />
-                </if>
-                <if condition="type == 'area'">
-                    <entity-delete-by-condition entity-name="mantle.product.category.ProductCategoryContent">
-                        <econdition field-name="accommodationAreaId" from="id"/>
-                    </entity-delete-by-condition>
-                    <service-call name="create#growerp.mobile.location.AccommodationAreaContent" in-map="[
-                        accommodationAreaId: id, accommodationAreaContentTypeEnumId: 'AactImageThumbNail',
-                        contentLocation: contentLocation + 'small']" />
-                    <service-call name="create#growerp.mobile.location.AccommodationAreaContent" in-map="[
-                        accommodationAreaId: id, accommodationAreaContentTypeEnumId: 'AactImageMedium',
-                        contentLocation: contentLocation + 'medium']" />
-                    <service-call name="create#growerp.mobile.location.AccommodationAreaContent" in-map="[
-                        accommodationAreaId: id, accommodationAreaContentTypeEnumId: 'AactImageLarge',
-                        contentLocation: contentLocation + 'large']" />
-                </if>
-                <log message="Uploaded ${contentLocation}"/>
+                    <service-call
+                        name="create#mantle.product.category.ProductCategoryContent"
+                        in-map="[
+                            productCategoryId: id,
+                            categoryContentTypeEnumId: 'PcctImageThumbNail',
+                            contentLocation: contentLocation + 'small']" />
+                    <service-call
+                        name="create#mantle.product.category.ProductCategoryContent"
+                        in-map="[
+                            productCategoryId: id,
+                            categoryContentTypeEnumId: 'PcctImageMedium',
+                            contentLocation: contentLocation + 'medium']" />
+                    <service-call
+                        name="create#mantle.product.category.ProductCategoryContent"
+                        in-map="[
+                            productCategoryId: id,
+                            categoryContentTypeEnumId: 'PcctImageLarge',
+                            contentLocation: contentLocation + 'large']" />
+                    </if>
+                <log message="===image upload result: $type$id location: $contentLocation"/>
             </actions>
     </service>
 
@@ -189,6 +196,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="imageFile" from="org.apache.commons.codec.binary.Base64.encodeBase64String(docBytes)"/>
                 </else>
             </if>
+            <log message="====result downloading file : loc: ${contentLocation} size: ${imageFile.length()}"/>
         </actions>
     </service>
 

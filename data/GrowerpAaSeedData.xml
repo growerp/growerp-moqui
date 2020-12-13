@@ -15,10 +15,10 @@ along with this software (see the LICENSE.md file). If not, see
 <entity-facade-xml type="seed">
 
     <!-- Configuration send email -->
-    <moqui.basic.email.EmailServer emailServerId="SYSTEM"
+    <!--moqui.basic.email.EmailServer emailServerId="SYSTEM"
             smtpHost="smtp.gmail.com" smtpPort="587" smtpStartTls="Y" smtpSsl="N"
             storeHost="imap.gmail.com" storePort="993" storeProtocol="imaps" storeFolder=""
-            storeDelete="N" storeMarkSeen="Y" storeSkipSeen="Y" mailUsername="mobile@growerp.com" mailPassword="xxxxxxx"/>
+            storeDelete="N" storeMarkSeen="Y" storeSkipSeen="Y" mailUsername="mobile@growerp.com" mailPassword="xxxxxxx"/-->
 
      <!-- allocate companies to application -->
     <moqui.basic.Enumeration description="Mobile App user" enumId="PcltMobileApp" enumTypeId="PartyClassificationType"/>
@@ -33,29 +33,11 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- added thumbnail image size for party -->
     <moqui.basic.Enumeration description="Logo Image Thump Nail"  enumId="PcntLogoThumbImage" enumTypeId="PartyContentType"/>
     <moqui.basic.Enumeration description="Face Image Thump Nail"  enumId="PcntFaceThumbImage" enumTypeId="PartyContentType"/>
-
-    <!-- images for tasks -->
-    <moqui.basic.Enumeration enumId="WectImageSmall" description="Task small image" enumTypeId="WorkEffortContentType"/>
-    <moqui.basic.Enumeration enumId="WectImageMedium" description="Task medium image" enumTypeId="WorkEffortContentType"/>
     
     <!-- added images for category -->
     <moqui.basic.Enumeration description="Category Image Thumb Nail" enumId="PcctImageThumbNail" enumTypeId="ProductCategoryContentType"/>
     <moqui.basic.Enumeration description="Category Image Medium Size" enumId="PcctImageMedium" enumTypeId="ProductCategoryContentType"/>
-    <moqui.basic.Enumeration description="Category Image Medium Size" enumId="PcctImageLarge" enumTypeId="ProductCategoryContentType"/>
-
-    <!-- preparation area images -->
-    <moqui.basic.EnumerationType description="Preparation Area Content Type" enumTypeId="PreparationAreaContentType"/>
-    <moqui.basic.Enumeration description="Preparation Area Image small" enumId="PactImageThumbNail" enumTypeId="PreparationAreaContentType"/>
-    <moqui.basic.Enumeration description="Preparation Area Image Medium" enumId="PactImageMedium" enumTypeId="PreparationAreaContentType"/>
-
-    <!-- accommodation area images -->
-    <moqui.basic.EnumerationType description="Accommodation Area Content Type" enumTypeId="AccommodationAreaContentType"/>
-    <moqui.basic.Enumeration description="Accommodation Area  Image small" enumId="AactImageThumbNail" enumTypeId="AccommodationAreaContentType"/>
-    <moqui.basic.Enumeration description="Accommodation Area  Image Medium" enumId="AactImageMedium" enumTypeId="AccommodationAreaContentType"/>
-
-    <!-- FAQ in requests -->
-    <moqui.basic.Enumeration enumId="RqtFAQ" description="Frequently Asked Questions" enumTypeId="RequestType"/>
-    <moqui.basic.Enumeration enumId="RqtQUEST" description="Question or request" enumTypeId="RequestType"/>
+    <moqui.basic.Enumeration description="Category Image Large Size" enumId="PcctImageLarge" enumTypeId="ProductCategoryContentType"/>
 
     <!-- define a top level category type for a restaurant menu -->
     <moqui.basic.Enumeration enumId="PctRoot" description="Root category" enumTypeId="ProductCategoryType"/>

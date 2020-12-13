@@ -173,46 +173,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="vendorPartyId" from="company.partyId"/>
                 <service-call name="mantle.order.OrderServices.create#Order"
                     in-map="context" out-map="context"/>
-                <!-- delete default created part because we want a different part for every prep area if any-->
-                <entity-find entity-name="growerp.mobile.location.PreparationArea" list="preparationAreas">
-                    <econdition field-name="ownerPartyId" from="company.partyId"/>
-                    <date-filter />
-                </entity-find>
-                <if condition="preparationAreas">
-                    <service-call name="delete#OrderPart" in-map="[orderId: orderId, orderPartSeqId: orderPartSeqId]"/>
-                </if>
-                <!-- keep record of where the customer with quests where seated and what was ordered -->
-                <if condition="accommodationSpotId">
-                    <service-call name="create#AccommodationSpotParty"
-                        in-map="[partyId: customerPartyId,
-                                date: ec.user.nowTimestamp,
-                                nbrOfGuests: order.nbrOfGuests,
-                                orderId: orderId,
-                                accommodationSpotId: order.accommodationSpotId]"/>
-                </if>
             </else></if>
             <iterate entry="item" list="order.orderItems">
-                <if condition="preparationAreas">
-                    <entity-find entity-name="ProductAndPreparationArea" list="getPrepArea">
-                        <econdition field-name="productId" from="item.productId"/></entity-find>
-                    <set field="preparationAreaId" from="getPrepArea[0].preparationAreaId"/>
-                    <!--  find existing part and when not found create new one for every preparationArea-->
-                    <entity-find entity-name="mantle.order.OrderPart" list="parts">
-                        <econdition field-name="preparationAreaId"/>
-                        <econdition field-name="orderPartSeqId" from="lastPartId" operator="greater" ignore-if-empty="true"/>
-                        <econdition field-name="orderId"/></entity-find>
-                    <if condition="parts">
-                        <set field="orderPartSeqId" from="parts[0].orderPartSeqId"/>
-                    <else>
-                        <service-call name="mantle.order.OrderServices.create#OrderPart" in-map="context" out-map="context"/>
-                        <!-- taking parameters from context does not work -->
-                        <service-call name="mantle.party.PartyServices.ensure#PartyRole"
-                            in-map="[roleTypeId: 'OrderTakeMore', partyId: ec.user.userAccount.partyId]"/>
-                        <service-call name="create#mantle.order.OrderPartParty"
-                            in-map="[orderId: orderId, orderPartSeqId: orderPartSeqId,
-                                partyId: ec.user.userAccount.partyId, roleTypeId: 'OrderTakeMore']"/></else>
-                    </if>
-                </if>
                 <service-call name="mantle.order.OrderServices.add#OrderProductQuantity"
                     in-map="[context + [productId: item.productId,
                                         quantity: item.quantity,
