@@ -481,15 +481,17 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="currencyId"/>
             <parameter name="classificationId" required="true" />
             <parameter name="environment" />
-            <parameter name="transData" type="List"/>
+            <parameter name="transData"/>
         </in-parameters>
         <actions>
-            <script> // convert JSON data
+            <return/>
+            <!--script> // convert JSON data
                 import groovy.json.JsonSlurper
                 JsonSlurper slurper = new JsonSlurper()
-                Object data = new JsonSlurper().parseText(transData).transData</script>
+                Object data = new JsonSlurper().parseText(transData).transData</script-->
 
-            <log message="loading default data with classificationId $classificationId"/>
+            <log message="====incoming data: $data"/>
+                <log message="loading default data with classificationId $classificationId"/>
             <entity-find entity-name="mantle.product.category.ProductCategory" list="rootList">
                 <econdition field-name="companyPartyId"/></entity-find>
             <set field="rootProductCategoryId" from="rootList[0].productCategoryId"/>
@@ -497,7 +499,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- structure of data, image should be in dbresource://GrowERP/images/...Medium.jpg-->
             <!-- format of the data should be in the catalog format: 
                 https://github.com/growerp/growerp/blob/packages/models/lib/catalog.dart -->
-            <set field="demoData" from="[
+            <!--set field="demoData" from="[
                 [ categoryName: 'category 1', image: 'imageName',
                     products: [ productName: 'product1', description:'description', price: 34, image='name'],
                               [ productName: 'product 2', description: 'desc 2', price: 25]
@@ -506,7 +508,7 @@ along with this software (see the LICENSE.md file). If not, see
                     products: [ productName: 'product11', description:'desc 1', price: 44],
                               [ productName: 'product 12', description: 'desc 2', price: 45]
                 ],
-            ]"/>
+            ]"/-->
 
             <iterate list="data" entry="el">
                 <service-call name="create#mantle.product.category.ProductCategory"
