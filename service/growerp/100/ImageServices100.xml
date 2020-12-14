@@ -196,7 +196,6 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="imageFile" from="org.apache.commons.codec.binary.Base64.encodeBase64String(docBytes)"/>
                 </else>
             </if>
-            <log message="====result downloading file : loc: ${contentLocation} size: ${imageFile.length()}"/>
         </actions>
     </service>
 

@@ -62,17 +62,11 @@ along with this software (see the LICENSE.md file). If not, see
                     <set field="imageSize" value="PcntImageMedium"/>
                 </else>
             <iterate entry="product" list="productList">
-                <entity-find-one
-                    entity-name="mantle.product.category.ProductCategory" value-field="category">
-                    <field-map field-name="productCategoryId" from="product.productCategoryId"/>
-                </entity-find-one>
                 <entity-find entity-name="mantle.product.ProductContent" list="contents">
                     <econdition field-name="productId" from="product.productId"/>
                     <econdition field-name="productContentTypeEnumId" from="imageSize"/>
                 </entity-find>
-                <log message="=====content? ${contents}"/>
                 <if condition="contents">
-                    <log message="=======get product image found"/>
                     <service-call name="growerp.100.ImageServices100.download#Image"
                         in-map="[contentLocation: contents[0].contentLocation]" out-map="context"/></if>
                 <set field="productOut" from="[
@@ -81,7 +75,7 @@ along with this software (see the LICENSE.md file). If not, see
                     description: product.description,
                     price: product.price.toString(),
                     categoryId: product.productCategoryId,
-                    categoryName: category.categoryName,
+                    categoryName: product.categoryName,
                     image: imageFile? imageFile : null]"/>
                 <if condition="productId">
                     <set field="product" from="productOut"/>
@@ -110,23 +104,23 @@ along with this software (see the LICENSE.md file). If not, see
                 JsonSlurper slurper = new JsonSlurper()
                 Object productIn = new JsonSlurper().parseText(product).product</script>
             <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"/>
-            <set field="productName" from="productIn.productName"/>
-            <set field="description" from="productIn.description"/>
-            <set field="priceUomId" value="OTH_ea"/>
-            <set field="currencyUomId" from="company.currencyId"/>
             <set field="ownerPartyId" from="company.partyId"/>
             <set field="quantityUomId" value="OTH_ea"/>
             <service-call name="create#mantle.product.Product"
                 in-map="context" out-map="context"/>
-            <set field="price" from="productIn.price"/>
-            <set field="priceTypeEnumId" value='PptList'/>
-            <set field="priceUomId" from="company.currencyId"/>
-            <set field="fromDate" from="ec.user.nowTimestamp"/>
+            <service-call name="create#mantle.product.Product" in-map="[
+                productName: productIn.productName,
+                description: productIn.description,
+                ownerPartyId: company.partyId,
+                productTypeEnumId: 'PtAsset',
+                assetTypeEnumId: 'AstTpInventory',
+                assetClassEnumId: 'AsClsInventoryFin']" out-map="context" />
             <service-call name="create#mantle.product.ProductPrice" 
-                in-map="context"/>
-            <set field="priceTypeEnumId" value='PptCurrent'/>
-            <service-call name="create#mantle.product.ProductPrice"
-                in-map="context"/>
+                in-map="[productId: productId, priceTypeEnumId: 'PptList',
+                priceUomId: company.currencyId, price: productIn.price,
+                fromDate: ec.user.nowTimestamp,
+                pricePurposeEnumId: 'PppPurchase']"/>
+            <set field="fromDate" from="ec.user.nowTimestamp"/>
             <set field="productCategoryId" from="productIn.categoryId"/>
             <service-call name="create#mantle.product.category.ProductCategoryMember"
                 in-map="context"/>
@@ -293,22 +287,29 @@ along with this software (see the LICENSE.md file). If not, see
                 import groovy.json.JsonSlurper
                 JsonSlurper slurper = new JsonSlurper()
                 Object categoryIn = new JsonSlurper().parseText(category).category</script>
-            <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
-            <entity-find entity-name="mantle.product.category.ProductCategory" list="rootList">
+            <service-call out-map="context"
+                name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"/>
+            <entity-find
+                entity-name="mantle.product.category.ProductCategory" list="rootList">
                 <econdition field-name="ownerPartyId"/></entity-find>
             <if condition="rootList">
                 <set field="rootProductCategoryId" from="rootList[0].productCategoryId"/>
-            <else>
-                <return error="true" message="Root category could not be found for compant: ${ownerPartyId}"/></else></if>
+                <else>
+                    <return error="true"
+                        message="Root category could not be found for compant: ${ownerPartyId}"/>
+                </else></if>
             <service-call name="create#mantle.product.category.ProductCategory"
                 in-map="[categoryName: categoryIn.categoryName,
-                    description: categoryIn.description, ownerPartyId: ownerPartyId]" out-map="context"/>
-            <service-call name="create#mantle.product.category.ProductCategoryRollup"
+                    description: categoryIn.description,
+                    ownerPartyId: ownerPartyId]" out-map="context"/>
+            <service-call
+                name="create#mantle.product.category.ProductCategoryRollup"
                     in-map="[parentProductCategoryId: rootProductCategoryId,
                         productCategoryId: productCategoryId]"/>
             <if condition="categoryIn.image">
                 <service-call name="growerp.100.ImageServices100.upload#Image"
-                    in-map="[type: 'category', id: productCategoryId, base64: categoryIn.image]"/>
+                    in-map="[type: 'category',
+                        id: productCategoryId, base64: categoryIn.image]"/>
             </if>
             <service-call name="growerp.100.CatgProdServices100.get#ProductCategories"
                 in-map="[categoryId: productCategoryId]" out-map="context"/>

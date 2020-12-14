@@ -378,8 +378,8 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="currencyId"/>
             <parameter name="classificationId"/> <!-- allocate company to application name -->
             <!-- default setup -->
-            <parameter name="environment" />
-            <parameter name="transData" type="List" /> <!-- [ 'kitchen','food','macaroni','bar','inside','garden','drinks','cola' -->
+            <parameter name="environment"/>
+            <parameter name="defaultData"/>
         </in-parameters>
         <out-parameters>
             <parameter name="user" />
@@ -480,20 +480,18 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="companyPartyId"/>
             <parameter name="currencyId"/>
             <parameter name="classificationId" required="true" />
-            <parameter name="environment" />
-            <parameter name="transData"/>
+            <parameter name="environment" required="true"/>
+            <parameter name="defaultData" required="true"/>
         </in-parameters>
         <actions>
-            <return/>
-            <!--script> // convert JSON data
+            <script> // convert JSON data
                 import groovy.json.JsonSlurper
                 JsonSlurper slurper = new JsonSlurper()
-                Object data = new JsonSlurper().parseText(transData).transData</script-->
+                List data = new JsonSlurper().parseText(defaultData).categories</script>
 
-            <log message="====incoming data: $data"/>
-                <log message="loading default data with classificationId $classificationId"/>
+            <log message="loading default data with classificationId $classificationId"/>
             <entity-find entity-name="mantle.product.category.ProductCategory" list="rootList">
-                <econdition field-name="companyPartyId"/></entity-find>
+                <econdition field-name="ownerPartyId" from="companyPartyId"/></entity-find>
             <set field="rootProductCategoryId" from="rootList[0].productCategoryId"/>
 
             <!-- structure of data, image should be in dbresource://GrowERP/images/...Medium.jpg-->
@@ -512,39 +510,54 @@ along with this software (see the LICENSE.md file). If not, see
 
             <iterate list="data" entry="el">
                 <service-call name="create#mantle.product.category.ProductCategory"
-                    in-map="[categoryName: el.categoryName, ownerPartyId: companyPartyId]"
+                    in-map="[categoryName: el.categoryName,
+                            description: el.description,
+                            ownerPartyId: companyPartyId]"
                     out-map="context"/>
-                <service-call name="create#mantle.product.category.ProductCategoryRollup"
+                <service-call 
+                    name="create#mantle.product.category.ProductCategoryRollup"
                     in-map="[parentProductCategoryId: rootProductCategoryId,
                              productCategoryId: productCategoryId]"/>
                 <service-call name="create#ProductCategoryContent" in-map="[
-                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageThumbNail',
-                    contentLocation: 'dbresource://GrowERP/images/${el.image}Small.png']" />
+                    productCategoryId: productCategoryId,
+                    categoryContentTypeEnumId: 'PcctImageThumbNail',
+                    contentLocation: 'dbresource://GrowERP/images/' +
+                        el.image + 'Small.png']" />
                 <service-call name="create#ProductCategoryContent" in-map="[
-                    productCategoryId: productCategoryId, categoryContentTypeEnumId: 'PcctImageMedium',
-                    contentLocation: 'dbresource://GrowERP/images/${el.image}Medium.png']" />
-         
+                    productCategoryId: productCategoryId,
+                    categoryContentTypeEnumId: 'PcctImageMedium',
+                    contentLocation: 'dbresource://GrowERP/images/' +
+                        el.image + 'Medium.png']" />
                 <iterate list="el.products" entry="product">
                     <service-call name="create#mantle.product.Product" in-map="[
-                        productName: product.productName, productCategoryId: productCategoryId, price: '10.00',
-                        currencyId: currencyId]" out-map="context" />
+                        productName: product.productName,
+                        description: product.description,
+                        ownerPartyId: companyPartyId,
+                        productTypeEnumId: 'PtAsset',
+                        assetTypeEnumId: 'AstTpInventory',
+                        assetClassEnumId: 'AsClsInventoryFin']" out-map="context" />
+                    <set field="fromDate" from="ec.user.nowTimestamp"/>
+                    <service-call in-map="context"
+                        name="create#mantle.product.category.ProductCategoryMember"/>
+                    <service-call name="create#mantle.product.ProductPrice"
+                        in-map="[productId: productId, priceTypeEnumId: 'PptList',
+                        priceUomId: currencyId, price: product.price,
+                        fromDate: ec.user.nowTimestamp,
+                        pricePurposeEnumId: 'PppPurchase']"/>
                     <service-call name="create#ProductContent" in-map="[
-                        productId: productId, productContentTypeEnumId: 'PcntImageSmall',
-                        contentLocation: 'dbresource://GrowERP/images/${product.image}Small.png']" />
+                        productId: productId,
+                        productContentTypeEnumId: 'PcntImageSmall',
+                        contentLocation: 'dbresource://GrowERP/images/' +
+                            product.image + 'Small.png']" />
                     <service-call name="create#ProductContent" in-map="[
-                        productId: productId, productContentTypeEnumId: 'PcntImageMedium',
-                        contentLocation: 'dbresource://GrowERP/images/${product.image}Medium.png']" />
+                        productId: productId,
+                        productContentTypeEnumId: 'PcntImageMedium',
+                        contentLocation: 'dbresource://GrowERP/images/' +
+                        product.image + 'Medium.png']" />
                 </iterate>
             </iterate>
 
-            <!--if condition="environment != 'production'">
-                <service-call name="growerp.100.MobilePartyServices100.get#Company" out-map="context" />
-                <set field="random" value="${org.moqui.util.StringUtilities.getRandomString(8)}" />
-                <service-call name="growerp.mobile.MobilePartyServices.create#User" in-map="[
-                    firstName: 'Peter', lastName: 'Coster', companyPartyId: company.partyId,
-                    emailAddress: random.toLowerCase() + '@example.com',
-                    roleTypeId: 'Employee', groupDescription: 'Employee']" out-map="context" />
-            </if-->
+            <!--if condition="environment != 'production'"-->
         </actions>
     </service>
 

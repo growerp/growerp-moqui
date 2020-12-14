@@ -194,7 +194,7 @@ along with this software (see the LICENSE.md file). If not, see
                 join-from-alias="PROD" join-optional="true">
             <key-map field-name="productId"/>
             <entity-condition><date-filter from-field-name="priceFromDate" thru-field-name="priceThruDate"/>
-            <econdition field-name="priceTypeEnumId" value="PptCurrent"/></entity-condition></member-entity>
+            <econdition field-name="priceTypeEnumId" value="PptList"/></entity-condition></member-entity>
         <alias name="productCategoryId" entity-alias="CATG"/>
         <alias name="categoryName" entity-alias="CATG"/>
         <alias name="fromDate" entity-alias="MEM"/>
