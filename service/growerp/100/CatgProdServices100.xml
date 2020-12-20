@@ -45,7 +45,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="products" type="List"/>
         </out-parameters>
         <actions>
-            <log message="====get productId: ${productId}"/>
             <service-call
                 name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
                  out-map="context"/>
@@ -56,15 +55,16 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="productId" ignore-if-empty="true"/>
             </entity-find>
             <if condition="!productId">
-                <set field="imageSize" value="PcntImageSmall"/>
-                <set field="products" from="[]"/></if>
+                <set field="contentTypeId" value="PcntImageSmall"/>
+                <set field="products" from="[]"/>
                 <else>
-                    <set field="imageSize" value="PcntImageMedium"/>
+                    <set field="contentTypeId" value="PcntImageMedium"/>
                 </else>
+            </if>
             <iterate entry="product" list="productList">
                 <entity-find entity-name="mantle.product.ProductContent" list="contents">
                     <econdition field-name="productId" from="product.productId"/>
-                    <econdition field-name="productContentTypeEnumId" from="imageSize"/>
+                    <econdition field-name="productContentTypeEnumId" from="contentTypeId"/>
                 </entity-find>
                 <if condition="contents">
                     <service-call name="growerp.100.ImageServices100.download#Image"
@@ -86,7 +86,8 @@ along with this software (see the LICENSE.md file). If not, see
             </iterate>
             <if condition="products &amp;&amp; !productId">
                 <script>products.sort{a, b -> 
-                    a.productName.compareToIgnoreCase(b.productName) } </script></if>
+                    a.productName.compareToIgnoreCase(b.productName) } </script>
+            </if>
         </actions>
     </service>
 
@@ -131,7 +132,7 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
             <service-call name="growerp.100.CatgProdServices100.get#Products"
                 in-map="[productId: productId]" out-map="context"/>
-            <log message="=======create product result: ${product.image?.length()}"/>
+            <!--log message="=======create product result: ${product.image?.length()}"/-->
         </actions>
     </service>
 
