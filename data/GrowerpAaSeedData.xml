@@ -83,7 +83,8 @@ along with this software (see the LICENSE.md file). If not, see
                 attachmentLocation="component://growerp/screen/email/CustomersExport.xml"
                 screenRenderMode="text"/>
     </moqui.basic.email.EmailTemplate>
-    <moqui.basic.email.EmailTemplate emailTemplateId="GrowerpExportCatgsProducts" description="GrowERP export Categories and Products"
+    <moqui.basic.email.EmailTemplate emailTemplateId="GrowerpExportCatgsProducts"
+            description="GrowERP export Categories and Products"
             emailServerId="SYSTEM" webappName="webroot"
             fromAddress="noreply@growerp.com" fromName="Support GrowERP" sendPartial="Y"
             subject="Export Categories and products file"
@@ -92,6 +93,10 @@ along with this software (see the LICENSE.md file). If not, see
                 attachmentLocation="component://growerp/screen/email/CatgsProductsExport.xml"
                 screenRenderMode="text"/>
     </moqui.basic.email.EmailTemplate>
+    <!-- Paypal account -->
+    <mantle.account.method.PaymentGatewayConfig paymentGatewayConfigId="PaypalDemo"/>
+    <mantle.account.method.PaymentMethod PaymentMethodId="PayPalDemo" paymentMethodTypeEnumId="PmtPayPalAccount"
+            paymentGatewayConfigId="PaypalDemo"/>
 
     <!-- ========== Scheduled ServiceJob Data ========== -->
     <!-- Handy cron strings: [0 0 2 * * ?] every night at 2:00 am, [0 0/15 * * * ?] every 15 minutes, [0 0/2 * * * ?] every 2 minutes -->

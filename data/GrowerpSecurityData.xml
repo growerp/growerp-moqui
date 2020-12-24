@@ -18,8 +18,12 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.Enumeration description="GrowERP Mobile User groups" enumId="GROWERPMOBILE" enumTypeId="UserGroupType"/> 
     <moqui.security.UserGroup userGroupId="GROWERP_M_SYSTEM" description="System Admin" groupTypeEnumId="GROWERPMOBILE"/>
         <moqui.security.UserGroupMember userGroupId="GROWERP_M_SYSTEM" userId="EX_JOHN_DOE" fromDate="1265184000000"/>
-    <moqui.security.UserGroup userGroupId="GROWERP_M_ADMIN" description="Admin" groupTypeEnumId="GROWERPMOBILE"/>
-    <moqui.security.UserGroup userGroupId="GROWERP_M_EMPLOYEE" description="Employee" groupTypeEnumId="GROWERPMOBILE"/>
+    <moqui.security.UserGroup userGroupId="GROWERP_M_ADMIN" description="Admin" groupTypeEnumId="GROWERPMOBILE">
+        <permissions userPermissionId="ORDER_APPROVE" fromDate="0"/>
+    </moqui.security.UserGroup>
+    <moqui.security.UserGroup userGroupId="GROWERP_M_EMPLOYEE" description="Employee" groupTypeEnumId="GROWERPMOBILE">
+        <permissions userPermissionId="ORDER_APPROVE" fromDate="0"/>
+    </moqui.security.UserGroup>
     <moqui.security.UserGroup userGroupId="GROWERP_M_CUSTOMER" description="Customer" groupTypeEnumId="GROWERPMOBILE"/>
     <moqui.security.UserGroup userGroupId="GROWERP_M_LEAD" description="Lead" groupTypeEnumId="GROWERPMOBILE"/>
     <moqui.security.UserGroup userGroupId="GROWERP_M_SUPPLIER" description="Supplier" groupTypeEnumId="GROWERPMOBILE"/>

@@ -20,9 +20,17 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="orderId"/></member-entity>
         <member-entity entity-alias="OITEM" entity-name="mantle.order.OrderItem" join-from-alias="OPRT">
             <key-map field-name="orderId"/><key-map field-name="orderPartSeqId"/></member-entity>
+        <member-entity entity-alias="OINV" entity-name="mantle.order.OrderItemBilling"
+            join-from-alias="ORHD" join-optional="true">
+            <key-map field-name="orderId" /></member-entity>
+        <member-entity entity-alias="OPAY" entity-name="mantle.account.payment.Payment"
+            join-from-alias="ORHD" join-optional="true">
+            <key-map field-name="orderId"/></member-entity>
         <alias-all entity-alias="ORHD"/>
         <alias-all entity-alias="OPRT"><exclude field="priority"/><exclude field="statusId"/></alias-all>
         <alias-all entity-alias="OITEM"/>
+        <alias name="invoiceId" entity-alias="OINV"/>
+        <alias name="paymentId" entity-alias="OPAY"/>
         <alias name="partStatusId" entity-alias="OPRT" field="statusId"/>
     </view-entity>
 

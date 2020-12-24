@@ -23,7 +23,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="base64"/>
         </in-parameters>
         <actions>
-            <log message="=====uploading image $type $id size: ${base64.length()}"/>
+            <!--log message="=====uploading image $type $id size: ${base64.length()}"/-->
             <service-call 
                 name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
             <set field="pagePath" value="/${type}/${id}/"/>
@@ -172,7 +172,7 @@ along with this software (see the LICENSE.md file). If not, see
                             categoryContentTypeEnumId: 'PcctImageLarge',
                             contentLocation: contentLocation + 'large']" />
                     </if>
-                <log message="===image upload result: $type$id location: $contentLocation"/>
+                <!--log message="===image upload result: $type$id location: $contentLocation"/-->
             </actions>
     </service>
 
@@ -234,5 +234,21 @@ along with this software (see the LICENSE.md file). If not, see
 
         </actions>
     </service>
-
+    <service verb="download" noun="Pdf">
+        <description>
+            Get a pdf document
+        </description>
+        <in-parameters>
+            <parameter name="type" required="true"/><!-- order and more to follow -->
+            <parameter name="id" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="imageFile"/>
+        </out-parameters>
+        <actions>
+            <service-call name="mantle.account.InvoiceServices.get#InvoicePrintInfo" in-map="[invoiceId:invoiceId]" out-map="context"/>
+            <if condition="!templateLocation">
+                <set field="templateLocation" value="component://SimpleScreens/template/account/Invoice.xsl-fo.ftl"/></if>
+            </actions>
+    </service>
 </services>

@@ -37,7 +37,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="tsDate" from="ec.l10n.parseTimestamp(ec.l10n.format(startDate, 'yyyy-MM-dd') + ' 23:59:59.999', 'yyyy-MM-dd HH:mm:ss.SSS')"/>
             </if>
             <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context" />
-            <entity-find entity-name="OrderHeaderAndPartAndItem" list="items">
+            <entity-find entity-name="growerp.order.OrderHeaderAndPartAndItem" list="items">
                 <econdition field-name="orderId" ignore-if-empty="true"/>
                 <econdition field-name="vendorPartyId" from="ownerPartyId"/>
                 <econdition field-name="customerPartyId" from="customerPartyId" ignore-if-empty="true"/>
@@ -68,6 +68,8 @@ along with this software (see the LICENSE.md file). If not, see
                     lastName: person?.lastName,
                     email: customers[0].emailAddress,
                     grandTotal: lastItem.grandTotal.toString(),
+                    invoiceId: lastItem.invoiceId,
+                    paymentId: lastItem.paymentId,
                     orderItems: orderItems
                     ]"/>
                     <script>orders.add(orderOut)</script>
@@ -101,6 +103,8 @@ along with this software (see the LICENSE.md file). If not, see
                 lastName: person?.lastName,
                 email: customers[0].emailAddress,
                 grandTotal: lastItem.grandTotal.toString(),
+                invoiceId: lastItem.invoiceId,
+                paymentId: lastItem.paymentId,
                 orderItems: orderItems
                 ]"/>
             <if condition="orderId">
@@ -131,58 +135,106 @@ along with this software (see the LICENSE.md file). If not, see
                 JsonSlurper slurper = new JsonSlurper()
                 Object order = new JsonSlurper().parseText(order).order
             </script>
-            <!-- check if productStore exist otherwise create -->
-            <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"/>
+            <service-call name="growerp.100.PartyServices100.get#Company"
+                out-map="context"/>
+            <entity-find entity-name="mantle.product.store.ProductStore" list="stores">
+                <econdition field-name="organizationPartyId" from="company.partyId"/>
+            </entity-find>
+            <set field="productStoreId" from="stores[0].productStoreId"/>
             <set field="currencyUomId" from="company.currency"/>
-            <if condition="order.orderId"><!-- look for existing order -->
-                <entity-find entity-name="mantle.order.OrderPart" list="orderParts"><!-- get last partNumber -->
-                    <econdition field-name="orderId" from="order.orderId"/>
-                    <select-field field-name="orderPartSeqId"/>
-                    <order-by field-name="-orderPartSeqId"/>
-                </entity-find>
-                <set field="lastPartId" from="orderParts[0].orderPartSeqId"/>
-                <set field="orderId" from="order.orderId"/>
-                <!-- move status back -->
-                <service-call name="growerp.mobile.MobileOrderServices.change#OrderPartStatus"
-                    in-map="[orderId: orderId, statusId: 'prep']"/>
-            <else><!--  new order -->
-                <set field="customerPartyId" from="order.customerPartyId"/>
-                <if condition="order.externalId"><!-- try find existing customer -->
-                    <set field="order.externalId" value="${order.externalId.substring(0, order.externalId.indexOf(' '))}"/>
-                    <entity-find entity-name="CompanyPersonAndLogin"  list="customers">
-                        <econdition field-name="fromRoleTypeId" value="Customer"/>
-                        <econdition field-name="toPartyId" from="company.partyId"/>
-                        <econdition field-name="externalId" from="order.externalId"/>
-                    </entity-find>
-                    <if condition="customers">
-                        <set field="customerPartyId" from="customers[0].fromPartyId"/>
-                    <else><!-- customer not found! should not happen, validated at input -->
-                        <log level="error" message="Existing customer id not found id: ${order.externalId}"/>
-                        <set field="customerPartyId" value="_NA_"/></else></if>
-                <else-if condition="order.newExternalId"><!-- enter new customer -->
-                    <service-call name="growerp.100.PartyServices100.create#User" out-map="newCustomer"
-                        in-map="[firstName: order.newFirstName, lastName: order.newLastName, emailAddress: 'notYet@provided.com',
-                            roleTypeId: 'Customer', externalId: order.newExternalId]"/>
-                    <if condition="newCustomer.partyId">
-                        <set field="customerPartyId" from="newCustomer.partyId"/>
-                    <else>
-                        <log level="error" message="Could not create new customer with externalId: order.newExternalid and lastName: order.newLastName}"/>
-                        <set field="customerPartyId" value="_NA_"/></else></if>
-                </else-if></if>
-                <set field="placedDate" from="ec.user.nowTimestamp"/>
-                <set field="vendorPartyId" from="company.partyId"/>
-                <service-call name="mantle.order.OrderServices.create#Order"
-                    in-map="context" out-map="context"/>
-            </else></if>
+            <set field="customerPartyId" from="order.customerPartyId"/>
+            <set field="placedDate" from="ec.user.nowTimestamp"/>
+            <set field="vendorPartyId" from="company.partyId"/>
+            <service-call name="mantle.order.OrderServices.create#Order"
+                in-map="context" out-map="context"/>
             <iterate entry="item" list="order.orderItems">
-                <service-call name="mantle.order.OrderServices.add#OrderProductQuantity"
-                    in-map="[context + [productId: item.productId,
+                <service-call
+                    name="mantle.order.OrderServices.add#OrderProductQuantity"
+                    in-map="context + [productId: item.productId,
                                         quantity: item.quantity,
                                         unitAmount: item.price,
-                                        currencyUomId: currencyId]]" out-map="itemcreate"/>
+                                        currencyUomId: currencyId]"
+                    out-map="itemcreate"/>
             </iterate>
-            <service-call name="growerp.100.OrderServices100.getOrders" in-map="[orderId: orderId]" out-map="context"/>
+            <service-call name="growerp.100.OrderServices100.getOrders"
+                in-map="[orderId: orderId]" out-map="context"/>
         </actions>
     </service>
 
+    <service verb="update" noun="Order">
+        <description> Update the order, curently just the status.</description>
+        <in-parameters>
+            <parameter name="orderId" required="true"/>
+            <parameter name="statusId" required="true"/></in-parameters>
+        <out-parameters>
+            <parameter name="order"/></out-parameters>
+        <actions>
+            <!-- status sequence:
+                OrderOpen -> (OrderPlaced) -> orderApproved -> OrderCompleted
+            -->
+            <service-call out-map="context"
+                name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId"/>
+            <entity-find entity-name="OrderHeaderAndPartAndItem" list="items">
+                <econdition field-name="orderId"/>
+                <econdition field-name="vendorPartyId" from="ownerPartyId"/>
+                <order-by field-name="orderItemSeqId"/>
+            </entity-find>
+            <if condition="!items"><return error="true" message="Order not found"/></if>
+            <set field="paymentId" from="items[0].paymentId"/>
+            <set field="invoiceId" from="items[0].invoiceId"/>
+            <set field="orderPartSeqId" value="01"/>
+            <if condition="statusId == 'OrderPlaced'">
+                <log message="====order place"/>
+                <service-call in-map="context" out-map="context"
+                    name="mantle.order.OrderServices.place#Order"/>
+                <set field="statusId" from="null"/>
+                <log message="====create invoice"/>
+                <service-call in-map="context" out-map="context"
+                    name="mantle.account.InvoiceServices.create#EntireOrderPartInvoice"/>
+                <log message="====create payment"/>
+                <service-call name="mantle.order.OrderServices.add#OrderPartPayment"
+                    in-map="context + [paymentGatewayConfigId: 'PaypalDemo']"
+                    out-map="context"/>
+                <log message="====authorize moqui payment"/>      
+                <entity-find-one entity-name="mantle.account.payment.Payment"
+                    value-field="payment" for-update="true"/>
+                <set field="payment.statusId" value="PmntAuthorized"/>
+                <service-call name="update#mantle.account.payment.Payment" in-map="payment"/>
+                <log message="====Paypal authorize payment"/>      
+                <service-call name="mantle.account.PaymentServices.authorize#SinglePayment">
+                    <field-map field-name="paymentGatewayConfigId" value="PaypalDemo"/>
+                    <field-map field-name="paymentId"/>
+                </service-call>
+            </if>
+            <if condition="statusId == 'OrderApproved'">
+                <log message="====order approve"/>
+                <service-call name="mantle.order.OrderServices.approve#Order"
+                    in-map="context"/>
+                <log message="====finalize moqui invoice"/>      
+                <entity-find-one entity-name="mantle.account.invoice.Invoice"
+                    value-field="invoice" for-update="true"/>
+                <set field="invoice.statusId" value="InvoiceFinalized"/>
+                <service-call name="update#mantle.account.invoice.Invoice" in-map="invoice"/>
+                <log message="====capture payment"/>      
+                <service-call name="mantle.account.PaymentServices.capture#SinglePayment">
+                    <field-map field-name="paymentGatewayConfigId" value="PaypalDemo"/>
+                    <field-map field-name="paymentId"/>
+                </service-call>
+                <log message="====order send payment"/>      
+                <service-call name="mantle.account.PaymentServices.send#PromisedPayment">
+                    <field-map field-name="invoiceId"/>
+                    <field-map field-name="paymentId"/>
+                </service-call>
+            </if>
+            <if condition="statusId == 'OrderCompleted'">
+                <log message="====order complete"/>
+                <service-call name="mantle.order.OrderServices.complete#Order"
+                    in-map="context"/>
+            </if>
+            <if condition="statusId == 'OrderCancelled'">
+            </if>
+            <service-call name="growerp.100.OrderServices100.getOrders"
+                in-map="[orderId: orderId]" out-map="context"/>
+        </actions>
+    </service>
 </services>

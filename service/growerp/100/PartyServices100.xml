@@ -398,8 +398,9 @@ along with this software (see the LICENSE.md file). If not, see
                     <service-call name="mantle.party.ContactServices.create#EmailAddress" 
                         in-map="[emailAddress: companyEmailAddress, partyId: companyPartyId,
                             contactMechPurposeId:'EmailPrimary']" out-map="emailOut"/>
-                    <service-call name="create#mantle.ledger.config.PartyAcctgPreference"
-                        in-map="[organizationPartyId: companyPartyId, baseCurrencyUomId: currencyId]" />
+                    <service-call name="mantle.ledger.LedgerServices.init#PartyAccountingConfiguration"
+                        in-map="[sourcePartyId: 'DefaultSettings',
+                                organizationPartyId: companyPartyId, baseCurrencyUomId: currencyId]" />
                     <if condition="!classificationId">
                         <return error="true" message="When creating a new company classificationId is required" /></if>
                     <service-call name="create#mantle.party.PartyClassificationAppl"
@@ -408,7 +409,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <service-call name="create#mantle.product.store.ProductStore"
                         out-map="context" in-map="[organizationPartyId: companyPartyId,
                             requireInventory: 'N',
-                            reservationOrderEnumId:'AsResAutoNone',
+                            reservationOrderEnumId:'AsResOrdNoRes',
                             defaultCurrencyUomId: currencyId]" />
                     <!-- create root category -->
                     <set field="fromDate" from="ec.user.nowTimestamp"/>
@@ -481,9 +482,10 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="currencyId"/>
             <parameter name="classificationId" required="true" />
             <parameter name="environment" required="true"/>
-            <parameter name="defaultData" required="true"/>
+            <parameter name="defaultData"/>
         </in-parameters>
         <actions>
+            <if condition="!defaultData"><return/></if>
             <script> // convert JSON data
                 import groovy.json.JsonSlurper
                 JsonSlurper slurper = new JsonSlurper()
