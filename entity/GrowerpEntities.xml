@@ -18,4 +18,10 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="telephoneNumber" type="text-medium">
             <description>The telephone number to use for forgot password emails and other system messages.</description></field>
     </extend-entity>
+    <extend-entity entity-name="SalesOpportunity" package="mantle.sales.opportunity"><!-- not sure if we need this -->
+        <field name="ownerPartyId" type="id">
+            <description>The company owner, to separate companies.</description></field>
+        <relationship type="one" title="Owner" related="mantle.party.Party" short-alias="owner">
+            <key-map field-name="ownerPartyId"/></relationship>
+        </extend-entity>
 </entities>

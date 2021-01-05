@@ -30,6 +30,13 @@ along with this software (see the LICENSE.md file). If not, see
     <mantle.party.PartyClassification partyClassificationId="AppHotel" classificationTypeEnumId="PcltMobileApp" description="App for Hotel, Bed &amp; Breakfeast"/>
     <mantle.party.PartyClassification partyClassificationId="AppRealtor" classificationTypeEnumId="PcltMobileApp" description="App for Realtor/property management"/>
 
+    <!-- sales opportunity stage -->
+    <mantle.sales.opportunity.SalesOpportunityStage opportunityStageId="Prospecting" sequenceNum="1"/>
+    <mantle.sales.opportunity.SalesOpportunityStage opportunityStageId="Qualification" sequenceNum="2"/>
+    <mantle.sales.opportunity.SalesOpportunityStage opportunityStageId="Demo/Meeting" sequenceNum="3"/>
+    <mantle.sales.opportunity.SalesOpportunityStage opportunityStageId="Proposal" sequenceNum="4"/>
+    <mantle.sales.opportunity.SalesOpportunityStage opportunityStageId="Quote" sequenceNum="5"/>
+    <mantle.sales.opportunity.SalesOpportunityStage opportunityStageId="Deleted" sequenceNum="5"/>
     <!-- added thumbnail image size for party -->
     <moqui.basic.Enumeration description="Logo Image Thump Nail"  enumId="PcntLogoThumbImage" enumTypeId="PartyContentType"/>
     <moqui.basic.Enumeration description="Face Image Thump Nail"  enumId="PcntFaceThumbImage" enumTypeId="PartyContentType"/>

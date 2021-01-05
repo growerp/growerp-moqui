@@ -107,8 +107,6 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"/>
             <set field="ownerPartyId" from="company.partyId"/>
             <set field="quantityUomId" value="OTH_ea"/>
-            <service-call name="create#mantle.product.Product"
-                in-map="context" out-map="context"/>
             <service-call name="create#mantle.product.Product" in-map="[
                 productName: productIn.productName,
                 description: productIn.description,
@@ -132,7 +130,6 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
             <service-call name="growerp.100.CatgProdServices100.get#Products"
                 in-map="[productId: productId]" out-map="context"/>
-            <!--log message="=======create product result: ${product.image?.length()}"/-->
         </actions>
     </service>
 
@@ -191,14 +188,12 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
             <!-- update image -->
             <if condition="productIn.image">
-                <log message="=====update prouct image found"/>
                 <service-call name="growerp.100.ImageServices100.upload#Image"
                     in-map="[type: 'product', id: productIn.productId,
                         base64: productIn.image]"/>
             </if>
             <service-call name="growerp.100.CatgProdServices100.get#Products"
                 in-map="[productId: productIn.productId]" out-map="context"/>
-            <log message="=======update product result: $product"/>
             </actions>
     </service>
 
@@ -207,6 +202,9 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="productId" required="true"/>
         </in-parameters>
+        <out-parameters>
+            <parameter name="productId"/>
+        </out-parameters>
         <actions>
             <service-call name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId" out-map="context"/>
             <entity-find-one value-field="product" entity-name="mantle.product.Product" for-update="true">

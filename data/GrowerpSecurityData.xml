@@ -50,7 +50,7 @@ along with this software (see the LICENSE.md file). If not, see
     <userPermissions userPermissionId="GROWERP_M_ALL" description="Any action on any employee, any company"/>
     <userPermissions userPermissionId="GROWERP_M_COMPANY" description="Any action on own company info"/>
     <userPermissions userPermissionId="GROWERP_M_USERS" description="Any action on any employee in the same company"/>
-    <userPermissions userPermissionId="GROWERP_M_CUSTOMERS" description="Any action on any employee in the same company"/>
+    <userPermissions userPermissionId="GROWERP_M_CUSTOMERS" description="Outside user group"/>
     <!-- system group -->
     <userGroupPermissions userGroupId="GROWERP_M_SYSTEM" userPermissionId="GROWERP_M_ALL" fromDate="0"/>
     <!-- company admin group -->
@@ -60,6 +60,8 @@ along with this software (see the LICENSE.md file). If not, see
     <userGroupPermissions userGroupId="GROWERP_M_EMPLOYEE" userPermissionId="GROWERP_M_USERS" fromDate="0"/>
     <!-- customer group -->
     <userGroupPermissions userGroupId="GROWERP_M_CUSTOMER" userPermissionId="GROWERP_M_CUSTOMERS" fromDate="0"/>
+    <userGroupPermissions userGroupId="GROWERP_M_LEAD" userPermissionId="GROWERP_M_CUSTOMERS" fromDate="0"/>
+    <userGroupPermissions userGroupId="GROWERP_M_SUPPLIER" userPermissionId="GROWERP_M_CUSTOMERS" fromDate="0"/>
 
     <moqui.security.UserGroupPermission userGroupId="GROWERP_M_SYSTEM" userPermissionId="ADMIN_PASSWORD" fromDate="0"/>
     <moqui.security.UserGroupPermission userGroupId="GROWERP_M_ADMIN" userPermissionId="ADMIN_PASSWORD" fromDate="0"/>

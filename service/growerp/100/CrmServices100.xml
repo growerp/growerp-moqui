@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domaicrn Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+    <service verb="get" noun="Crm">
+        <out-parameters>
+            <parameter name="crm" type="Map"/>
+        </out-parameters>
+        <actions>
+            <set field="crm" from="[:]"/>
+            <service-call name="growerp.100.PartyServices100.get#User" out-map="leads"
+                in-map="[userGroupId: 'GROWERP_M_LEAD']"></service-call>
+            <set field="crm.leads" from="leads.users?leads.users:[]"/>
+            <service-call name="growerp.100.PartyServices100.get#User" out-map="customers"
+                in-map="[userGroupId: 'GROWERP_M_CUSTOMER']"></service-call>
+            <set field="crm.customers" from="customers.users?customers.users:[]"/>
+            <service-call name="growerp.100.CrmServices100.get#Opportunity" out-map="opps"/>
+            <set field="crm.opportunities" from="opps.opportunities"/>
+        </actions>
+    </service>
+
+    <service verb="get" noun="Opportunity">
+        <in-parameters>
+            <parameter name="opportunityId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="opportunities" type="List"/>
+            <parameter name="opportunity" type="Map"/>
+        </out-parameters>
+        <actions>
+            <service-call
+                name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
+                    out-map="context"/>
+            <entity-find entity-name="growerp.mobile.crm.OpportunityPartyAndStage"
+                list="opps">
+                <econdition field-name="ownerPartyId"/>
+                <econdition field-name="opportunityId" ignore-if-empty="true"/>
+                <econdition field-name="stageId" operator="not-equals" value="Deleted"/>
+                <date-filter/>
+                <order-by field-name="lastUpdatedStamp"/>
+            </entity-find>
+            <if condition="!opportunityId">
+                <set field="opportunities" from="[]"/></if>
+            <iterate list="opps" entry="opp">
+                <log message="=======get opp $opp"/>
+                <set field="opOut" from="[
+                    opportunityId: opp.opportunityId,
+                    opportunityName: opp.opportunityName,
+                    accountPartyId: opp.accountPartyId,
+                    description: opp.description,
+                    nextStep: opp.nextStep,
+                    estAmount: opp.estAmount?.toString(),
+                    estProbability: opp.estProbability?.toString(),
+                    leadPartyId: opp.leadPartyId,
+                    stageId: opp.stageId,
+                    email: opp.email,
+                    fullName: opp.fullName,
+                    lastUpdated: opp.lastUpdatedStamp.toString() + 'z'
+                ]"/>
+                <if condition="!opportunityId">
+                    <script>opportunities.add(opOut)</script>
+                    <else>
+                        <set field="opportunity" from="opOut"/>
+                    </else></if>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="create" noun="Opportunity">
+        <description> Create a Opportunity with a price in a category</description>
+        <in-parameters>
+            <parameter name="opportunity" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="opportunity"/>
+        </out-parameters>
+        <actions>
+            <script> // convert JSON data
+                Object opportunity = new groovy.json.JsonSlurper().parseText(opportunity).opportunity</script>
+            <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"/>
+            <set field="ownerPartyId" from="company.partyId"/>
+            <service-call name="create#mantle.sales.opportunity.SalesOpportunity"
+                in-map="[opportunity + [estimatedAmount: opportunity.estAmount,
+                                        estimatedProbability: opportunity.estProbability,
+                                        ownerPartyId: company.partyId,
+                                        opportunityStageId: opportunity.stageId,
+                                        ]]" out-map="context"/>
+            <if condition="opportunity.leadPartyId">
+                <service-call name="create#mantle.sales.opportunity.SalesOpportunityParty"
+                    in-map="[salesOpportunityId: salesOpportunityId,
+                        partyId: opportunity.leadPartyId,
+                        roleTypeId: 'Customer',
+                        fromDate: ec.user.nowTimestamp]" out-map="context"/>
+            </if>
+            <log message="========get create reult id: $salesOpportunityId"/>
+            <service-call name="growerp.100.CrmServices100.get#Opportunity"
+                in-map="[opportunityId: salesOpportunityId]" out-map="context"/>
+            <log message="=======create opportunity result: ${opportunity}"/>
+        </actions>
+    </service>
+
+    <service verb="update" noun="Opportunity">
+        <description> Update an existing Opportunity</description>
+        <in-parameters>
+            <parameter name="opportunity" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="opportunity"/>
+        </out-parameters>
+        <actions>
+            <script> // convert JSON data
+                Object opportunity = new groovy.json.JsonSlurper().parseText(opportunity).opportunity</script>
+            <service-call
+                name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
+                out-map="context"/>
+            <entity-find-one value-field="oldValue"
+                    entity-name="mantle.sales.opportunity.SalesOpportunity"
+                    for-update="true">
+                <field-map field-name="opportunityId" from="opportunity.opportunityId"/>
+                <field-map field-name="ownerPartyId"/></entity-find-one>
+            <if condition="!oldValue"><return error="true" message="opportunity ${opportunity.opportunityId} not found!}"/></if>
+            <set field="update" value="false"/>
+            <if condition="oldValue.opportunityName != opportunity.opportunityName">
+                <set field="oldValue.opportunityName" from="opportunity.opportunityName"/>
+                <set field="update" value="true"/></if>
+            <if condition="oldValue.estimatedAmount != opportunity.estAmount">
+                <set field="oldValue.estimatedAmount" from="opportunity.estAmount"/>
+                <set field="update" value="true"/></if>
+            <if condition="oldValue.estimatedProbability != opportunity.estProbability">
+                <set field="oldValue.estimatedProbability" from="opportunity.estProbability"/>
+                <set field="update" value="true"/></if>
+            <if condition="oldValue.accountPartyId != opportunity.accountPartyId">
+                <set field="oldValue.accountPartyId" from="opportunity.accountPartyId"/>
+                <set field="update" value="true"/></if>
+            <if condition="oldValue.description != opportunity.description">
+                <set field="oldValue.description" from="opportunity.description"/>
+                <set field="update" value="true"/></if>
+            <if condition="oldValue.nextStep != opportunity.nextStep">
+                <set field="oldValue.nextStep" from="opportunity.nextStep"/>
+                <set field="update" value="true"/></if>
+            <if condition="oldValue.opportunityStageId != opportunity.stageId">
+                <set field="oldValue.opportunityStageId" from="opportunity.stageId"/>
+                <set field="update" value="true"/></if>
+            <if condition="update == 'true'">                        
+                <entity-update value-field="oldValue"/></if>
+            <entity-find list="oldValues"
+                entity-name="mantle.sales.opportunity.SalesOpportunityParty"
+                for-update="true">
+                <econdition field-name="opportunityId" from="opportunity.opportunityId"/>
+                <econdition field-name="partyId" from="leadPartyId"/>
+                <date-filter/></entity-find>
+            <if condition="oldValues[0].partyId != opportunity.leadPartyId">
+                <set field="oldValues[0].thruDate" from="ec.user.nowTimestamp"/>
+                <entity-update value-field="oldValues[0]"/>
+                <service-call name="create#mantle.sales.opportunity.SalesOpportunityParty"
+                    in-map="[salesOpportunityId: opportunity.salesOpportunityId,
+                        partyId: opportunity.leadPartyId,
+                        roleTypeId: 'Customer',
+                        fromDate: ec.user.nowTimestamp]"/>
+            </if>
+            <service-call name="growerp.100.CatgProdServices100.get#Opportunity"
+                in-map="[opportunityId: opportunity.opportunityId]" out-map="context"/>
+            <log message="=======update opportunity result: $opportunity"/>
+            </actions>
+    </service>
+
+    <service verb="delete" noun="Opportunity">
+        <description> Delete a Opportunity </description>
+        <in-parameters>
+            <parameter name="opportunityId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="opportunityId" required="true"/>
+        </out-parameters>
+        <actions>
+            <service-call
+                name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
+                out-map="context"/>
+            <entity-find-one value-field="oldValue"
+                    entity-name="mantle.sales.opportunity.SalesOpportunity"
+                    for-update="true">
+                <field-map field-name="salesOpportunityId" from="opportunityId"/>
+                <field-map field-name="ownerPartyId"/></entity-find-one>
+            <set field="oldValue.opportunityStageId" value="Deleted"/>
+            <entity-update value-field="oldValue"/>
+        </actions>
+    </service>
+</services>
