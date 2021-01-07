@@ -53,7 +53,6 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!opportunityId">
                 <set field="opportunities" from="[]"/></if>
             <iterate list="opps" entry="opp">
-                <log message="=======get opp $opp"/>
                 <set field="opOut" from="[
                     opportunityId: opp.opportunityId,
                     opportunityName: opp.opportunityName,
@@ -102,10 +101,8 @@ along with this software (see the LICENSE.md file). If not, see
                         roleTypeId: 'Customer',
                         fromDate: ec.user.nowTimestamp]" out-map="context"/>
             </if>
-            <log message="========get create reult id: $salesOpportunityId"/>
             <service-call name="growerp.100.CrmServices100.get#Opportunity"
                 in-map="[opportunityId: salesOpportunityId]" out-map="context"/>
-            <log message="=======create opportunity result: ${opportunity}"/>
         </actions>
     </service>
 
@@ -170,7 +167,6 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
             <service-call name="growerp.100.CatgProdServices100.get#Opportunity"
                 in-map="[opportunityId: opportunity.opportunityId]" out-map="context"/>
-            <log message="=======update opportunity result: $opportunity"/>
             </actions>
     </service>
 

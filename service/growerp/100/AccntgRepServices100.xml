@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domaicrn Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+    <service verb="get" noun="BalanceSheet">
+        <out-parameters>
+            <parameter name="classInfoById" type="Map"/>
+            <parameter name="netAssetTotalMap" type="Map"/>
+            <parameter name="equityTotalMap" type="Map"/>
+            <parameter name="liabilityEquityTotalMap" type="Map"/>
+            <parameter name="netIncomeOut" type="Map"/>
+        </out-parameters>
+        <actions>
+            <log message="====start balance sheet"/>
+            <service-call
+                name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
+                    out-map="context"/>
+            <entity-find entity-name="mantle.party.time.TimePeriod"
+                        list="periods">
+                <econdition field-name="partyId" from="ownerPartyId"/>
+                <econdition field-name="timePeriodTypeId" value="FiscalYear"/>
+                <econdition field-name="periodNum" 
+                        from="ec.user.nowTimestamp.toString().substring(0,4)"/>
+            </entity-find>
+            <service-call
+                name="mantle.ledger.LedgerReportServices.run#BalanceSheet"
+                in-map="[organizationPartyId: ownerPartyId, 
+                                    timePeriodIdList: [periods[0].timePeriodId],
+                                    childOrgPeriods: false]"
+                out-map="context"/>
+            <script>
+                def newMap = [:];
+                classInfoById.each {it -> 
+                    if (classInfoById[it.key].totalBalanceByTimePeriod.containsKey("ALL") ||  \
+                            classInfoById[it.key].totalPostedByTimePeriod.containsKey("ALL")) {
+                        if (classInfoById[it.key].totalPostedByTimePeriod["ALL"] != 0.00 || \
+                                classInfoById[it.key].totalBalanceByTimePeriod["ALL"] != 0.00) {
+                            newMap[it.key] = it.value;
+                            newMap[it.key].remove("childClassInfoList")
+                            newMap[it.key].remove("glAccountDetailList")
+                            newMap[it.key].remove("glAccountInfoList")
+                            newMap[it.key].remove("childBalanceByTimePeriod")
+                            newMap[it.key].remove("childPostedByTimePeriod")
+                            newMap[it.key].remove("childPostedNoClosingByTimePeriod")
+                            newMap[it.key].remove("postedNoClosingByTimePeriod")
+                            newMap[it.key].remove("postedByTimePeriod")
+                        }
+                    }
+                }
+            </script>
+            <log message="=====$newMap"/>
+            <set field="classInfoById" from="newMap"/>
+        </actions>
+    </service>
+
+</services>

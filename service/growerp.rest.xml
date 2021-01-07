@@ -74,7 +74,10 @@ along with this software (see the LICENSE.md file). If not, see
             <method type="put"><service name="growerp.100.CrmServices100.create#Opportunity"/></method>
             <method type="patch"><service name="growerp.100.CrmServices100.update#Opportunity"/></method>
             <method type="delete"><service name="growerp.100.CrmServices100.delete#Opportunity"/></method></resource>
-        </resource>
+        <!-- Accounting -->
+        <resource name="BalanceSheet">
+            <method type="get"><service name="growerp.100.AccntgRepServices100.get#BalanceSheet"/></method></resource>
+    </resource>
 
     <!-- nativescript REST interface -->
     <!-- Login and Register, security -->
