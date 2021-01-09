@@ -23,7 +23,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="base64"/>
         </in-parameters>
         <actions>
-            <!--log message="=====uploading image $type $id size: ${base64.length()}"/-->
             <service-call 
                 name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
             <set field="pagePath" value="/${type}/${id}/"/>
@@ -172,7 +171,6 @@ along with this software (see the LICENSE.md file). If not, see
                             categoryContentTypeEnumId: 'PcctImageLarge',
                             contentLocation: contentLocation + 'large']" />
                     </if>
-                <!--log message="===image upload result: $type$id location: $contentLocation"/-->
             </actions>
     </service>
 

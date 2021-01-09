@@ -22,7 +22,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="orderId"/>
             <parameter name="open" type="Boolean"><description>True for only open orders</description></parameter>
             <parameter name="startDate"><description>Format should be YYYY-MM-DD</description></parameter>
-            <parameter name="customerPartyId"/>
         </in-parameters>
         <out-parameters>
             <parameter name="orders" type="List"/>
@@ -39,8 +38,10 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context" />
             <entity-find entity-name="growerp.order.OrderHeaderAndPartAndItem" list="items">
                 <econdition field-name="orderId" ignore-if-empty="true"/>
-                <econdition field-name="vendorPartyId" from="ownerPartyId"/>
-                <econdition field-name="customerPartyId" from="customerPartyId" ignore-if-empty="true"/>
+                <econditions combine="or">
+                    <econdition field-name="vendorPartyId" from="ownerPartyId"/>
+                    <econdition field-name="customerPartyId" from="ownerPartyId"/>
+                    </econditions>
                 <econdition field-name="statusId" operator="in" from="status" ignore-if-empty="true"/>
                 <econdition field-name="placedDate" operator="less-equals" from="tsDate" ignore-if-empty="true"/>
                 <order-by field-name="orderId"/>
@@ -53,25 +54,33 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="orderItems" from="[]"/>
             <iterate entry="item" list="items">
                 <if condition="lastItem &amp;&amp; lastItem.orderId != item.orderId">
-                    <entity-find entity-name="moqui.security.UserAccount" list="customers">
-                        <econdition field-name="partyId" from="lastItem.customerPartyId"/>
+                    <log message="====$ownerPartyId=====${lastItem?.vendorPartyId}=====${lastItem?.customerPartyId}"/>
+                    <if condition="lastItem.customerPartyId == ownerPartyId">
+                       <set field="otherPartyId" from="lastItem.vendorPartyId"/>
+                       <else>
+                            <set field="otherPartyId" from="lastItem.customerPartyId"/>
+                        </else>
+                    </if>
+                    <entity-find entity-name="moqui.security.UserAccount" list="others">
+                        <econdition field-name="partyId" from="otherPartyId"/>
                     </entity-find>
                     <entity-find-one entity-name="mantle.party.Person" value-field="person">
-                        <field-map field-name="partyId" from="lastItem.customerPartyId"/>
+                        <field-map field-name="partyId" from="otherPartyId"/>
                     </entity-find-one>
                     <set field="orderOut" from="[
-                    orderId: lastItem.orderId,
-                    orderStatusId: lastItem.statusId,
-                    placedDate: lastItem.placedDate.toString().substring(0,19) + 'Z',
-                    customerPartyId: lastItem.customerPartyId,
-                    firstName: person?.firstName,
-                    lastName: person?.lastName,
-                    email: customers[0].emailAddress,
-                    grandTotal: lastItem.grandTotal.toString(),
-                    invoiceId: lastItem.invoiceId,
-                    paymentId: lastItem.paymentId,
-                    orderItems: orderItems
-                    ]"/>
+                        orderId: lastItem.orderId,
+                        orderStatusId: lastItem.statusId,
+                        placedDate: lastItem.placedDate.toString().substring(0,19) + 'Z',
+                        customerPartyId: lastItem.customerPartyId,
+                        supplierPartyId: lastItem.vendorPartyId,
+                        firstName: person?.firstName,
+                        lastName: person?.lastName,
+                        email: others[0]?.emailAddress,
+                        grandTotal: lastItem.grandTotal.toString(),
+                        invoiceId: lastItem.invoiceId,
+                        paymentId: lastItem.paymentId,
+                        orderItems: orderItems
+                        ]"/>
                     <script>orders.add(orderOut)</script>
                     <set field="orderItems" from="[]"/>
                 </if>
@@ -88,26 +97,34 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="lastItem" from="item"/>
             </iterate>
             <if condition="lastItem">
-                <entity-find entity-name="moqui.security.UserAccount" list="customers">
-                    <econdition field-name="partyId" from="lastItem.customerPartyId"/>
-                </entity-find>
-                <entity-find-one entity-name="mantle.party.Person" value-field="person">
-                    <field-map field-name="partyId" from="lastItem.customerPartyId"/>
-                </entity-find-one>
+                <log message="====$ownerPartyId=====${lastItem.vendorPartyId}=====${lastItem.customerPartyId}"/>
+                <if condition="lastItem.customerPartyId == ownerPartyId">
+                    <set field="otherPartyId" from="lastItem.vendorPartyId"/>
+                    <else>
+                     <set field="otherPartyId" from="lastItem.customerPartyId"/>
+                    </else>
+                 </if>
+                 <entity-find entity-name="moqui.security.UserAccount" list="others">
+                     <econdition field-name="partyId" from="otherPartyId"/>
+                 </entity-find>
+                 <entity-find-one entity-name="mantle.party.Person" value-field="person">
+                     <field-map field-name="partyId" from="otherPartyId"/>
+                 </entity-find-one>
                 <set field="orderOut" from="[
-                orderId: lastItem.orderId,
-                orderStatusId: lastItem.statusId,
-                placedDate: lastItem.placedDate.toString().substring(0,19) + 'Z',
-                customerPartyId: lastItem.customerPartyId,
-                firstName: person?.firstName,
-                lastName: person?.lastName,
-                email: customers[0].emailAddress,
-                grandTotal: lastItem.grandTotal.toString(),
-                invoiceId: lastItem.invoiceId,
-                paymentId: lastItem.paymentId,
-                orderItems: orderItems
-                ]"/>
-            <if condition="orderId">
+                    orderId: lastItem.orderId,
+                    orderStatusId: lastItem.statusId,
+                    placedDate: lastItem.placedDate.toString().substring(0,19) + 'Z',
+                    customerPartyId: lastItem.customerPartyId,
+                    supplierPartyId: lastItem.vendorPartyId,
+                    firstName: person?.firstName,
+                    lastName: person?.lastName,
+                    email: others[0]?.emailAddress,
+                    grandTotal: lastItem.grandTotal.toString(),
+                    invoiceId: lastItem.invoiceId,
+                    paymentId: lastItem.paymentId,
+                    orderItems: orderItems
+                    ]"/>
+                <if condition="orderId">
                     <set field="order" from="orderOut"/>
                     <else>
                         <script>orders.add(orderOut)</script>
@@ -135,6 +152,9 @@ along with this software (see the LICENSE.md file). If not, see
             </script>
             <service-call name="growerp.100.PartyServices100.get#Company"
                 out-map="context"/>
+            <if condition="order.supplierPartyid != ownerPartyId &amp;&amp; order.customerPartyId != ownerPartyId">
+                <return error="true" message="Either customer or supplier Partyid should be the owner company?"/>
+            </if>
             <entity-find entity-name="mantle.product.store.ProductStore" list="stores">
                 <econdition field-name="organizationPartyId" from="company.partyId"/>
             </entity-find>
@@ -142,7 +162,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="currencyUomId" from="company.currency"/>
             <set field="customerPartyId" from="order.customerPartyId"/>
             <set field="placedDate" from="ec.user.nowTimestamp"/>
-            <set field="vendorPartyId" from="company.partyId"/>
+            <set field="vendorPartyId" from="order.supplierPartyId"/>
             <service-call name="mantle.order.OrderServices.create#Order"
                 in-map="context" out-map="context"/>
             <iterate entry="item" list="order.orderItems">

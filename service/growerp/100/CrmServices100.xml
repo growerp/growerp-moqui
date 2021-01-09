@@ -25,6 +25,9 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="growerp.100.PartyServices100.get#User" out-map="customers"
                 in-map="[userGroupId: 'GROWERP_M_CUSTOMER']"></service-call>
             <set field="crm.customers" from="customers.users?customers.users:[]"/>
+            <service-call name="growerp.100.PartyServices100.get#User" out-map="suppliers"
+                in-map="[userGroupId: 'GROWERP_M_SUPPLIER']"></service-call>
+            <set field="crm.suppliers" from="suppliers.users?suppliers.users:[]"/>
             <service-call name="growerp.100.CrmServices100.get#Opportunity" out-map="opps"/>
             <set field="crm.opportunities" from="opps.opportunities"/>
         </actions>

@@ -22,7 +22,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="netIncomeOut" type="Map"/>
         </out-parameters>
         <actions>
-            <log message="====start balance sheet"/>
             <service-call
                 name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
                     out-map="context"/>
@@ -39,13 +38,14 @@ along with this software (see the LICENSE.md file). If not, see
                                     timePeriodIdList: [periods[0].timePeriodId],
                                     childOrgPeriods: false]"
                 out-map="context"/>
+            <!--log message="$classInfoById"/-->
             <script>
                 def newMap = [:];
                 classInfoById.each {it -> 
                     if (classInfoById[it.key].totalBalanceByTimePeriod.containsKey("ALL") ||  \
                             classInfoById[it.key].totalPostedByTimePeriod.containsKey("ALL")) {
-                        if (classInfoById[it.key].totalPostedByTimePeriod["ALL"] != 0.00 || \
-                                classInfoById[it.key].totalBalanceByTimePeriod["ALL"] != 0.00) {
+                    //    if (classInfoById[it.key].totalPostedByTimePeriod["ALL"] != 0.00 || \
+                    //            classInfoById[it.key].totalBalanceByTimePeriod["ALL"] != 0.00) {
                             newMap[it.key] = it.value;
                             newMap[it.key].remove("childClassInfoList")
                             newMap[it.key].remove("glAccountDetailList")
@@ -55,11 +55,10 @@ along with this software (see the LICENSE.md file). If not, see
                             newMap[it.key].remove("childPostedNoClosingByTimePeriod")
                             newMap[it.key].remove("postedNoClosingByTimePeriod")
                             newMap[it.key].remove("postedByTimePeriod")
-                        }
+                       // }
                     }
                 }
             </script>
-            <log message="=====$newMap"/>
             <set field="classInfoById" from="newMap"/>
         </actions>
     </service>
