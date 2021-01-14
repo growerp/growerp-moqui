@@ -14,46 +14,35 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
 
-<!-- category related-->
-    <service verb="get" noun="CategoriesAndProducts">
-        <description>
-            Get table data for data entry product categories and products
-        </description>
-        <in-parameters>
-            <parameter name="companyPartyId"/>
-        </in-parameters>
-        <out-parameters>
-            <parameter name="categories" type="List"/>
-            <parameter name="products" type="List"/>
-        </out-parameters>
-        <actions>
-            <service-call name="growerp.100.CatgProdServices100.get#ProductCategories"
-                in-map="[companyPartyId: companyPartyId]" out-map="context"/>
-            <service-call name="growerp.100.CatgProdServices100.get#Products"
-                in-map="[companyPartyId: companyPartyId]" out-map="context"/>
-        </actions>
-    </service>
-
-    <service verb="get" noun="Products">
+    <service verb="get" noun="Products" authenticate="false">
         <description> get a single, or all products (will page lateron</description>
         <in-parameters>
             <parameter name="companyPartyId"/>
             <parameter name="productId"/>
+            <parameter name="start" default-value="0" type="Integer"/>
+            <parameter name="limit" default-value="10" type="Integer"/>
         </in-parameters>
         <out-parameters>
             <parameter name="product" type="Map"/>
             <parameter name="products" type="List"/>
+            <parameter name="count" type="Integer"/>
         </out-parameters>
         <actions>
             <service-call
                 name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
                  out-map="context"/>
-            <entity-find
+            <entity-find offset="start" limit="limit"
                     entity-name="growerp.mobile.product.ProductAndPriceAndProductCategory"
                         list="productList">
-                <econdition field-name="ownerPartyId" from="ownerPartyId?:companyPartyId"/>
-                <econdition field-name="productId" ignore-if-empty="true"/>
-            </entity-find>
+                        <econditions combine="or">
+                            <econdition field-name="ownerPartyId" from="ownerPartyId?:companyPartyId"/>
+                            <!--econdition field-name="ownerPartyId" value="_NA_"/>
+                            <econdition field-name="ownerPartyId" operator="is-null"/-->
+                        </econditions>
+                        <econdition field-name="productId" operator="is-not-null"/>
+                        <econdition field-name="productId" ignore-if-empty="true"/>
+                        <order-by field-name="productName"/>
+                    </entity-find>
             <if condition="!productId">
                 <set field="contentTypeId" value="PcntImageSmall"/>
                 <set field="products" from="[]"/>
@@ -85,9 +74,12 @@ along with this software (see the LICENSE.md file). If not, see
                 </if>
             </iterate>
             <if condition="products &amp;&amp; !productId">
-                <script>products.sort{a, b -> 
-                    a.productName.compareToIgnoreCase(b.productName) } </script>
-            </if>
+            <entity-find-count
+                entity-name="growerp.mobile.product.ProductAndPriceAndProductCategory"
+                count-field="count">
+            <econdition field-name="ownerPartyId" from="ownerPartyId?:companyPartyId"/>
+        </entity-find-count>
+        </if>
         </actions>
     </service>
 
@@ -214,25 +206,30 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <service verb="get" noun="ProductCategories">
+    <service verb="get" noun="ProductCategories" authenticate="false">
         <description> get a single or all categories to group products by drinks , salads, deserts etc</description>
         <in-parameters>
             <parameter name="companyPartyId"/>
             <parameter name="categoryId"/>
+            <parameter name="start" default-value="0" type="Integer"/>
+            <parameter name="limit" default-value="20" type="Integer"/>
         </in-parameters>
         <out-parameters>
             <parameter name="category" type="Map"/>
             <parameter name="categories" type="List"/>
         </out-parameters>
         <actions>
+            <log message="=====get categories with start: $start and limit $limit"/>
             <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
-            <entity-find entity-name="mantle.product.category.ProductCategory" list="rootList">
+            <entity-find
+                entity-name="mantle.product.category.ProductCategory" list="rootList">
                 <econdition field-name="ownerPartyId" from="ownerPartyId?:companyPartyId"/>
                 <econdition field-name="productCategoryTypeEnumId" value="PctRoot"/></entity-find>
             <if condition="rootList">
                 <set field="parentProductCategoryId" from="rootList[0].productCategoryId"/>
             <else><return error="true" message="Category root not found for company: ${ownerPartyId}"/></else></if>
-            <entity-find entity-name="growerp.mobile.party.category.ProductCategoryParentsAndChild" list="groups">
+            <entity-find  offset="start" limit="limit"
+                entity-name="growerp.mobile.party.category.ProductCategoryParentsAndChild" list="groups">
                 <date-filter/>
                 <econdition field-name="ownerPartyId" from="ownerPartyId?:companyPartyId"/>
                 <econdition field-name="parentProductCategoryId"/>

@@ -80,6 +80,8 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
             <entity-find entity-name="CompanyPersonAndLoginGroup" list="compEmployees">
                 <econdition field-name="companyPartyId" />
+                <econdition field-name="userGroupId" operator="in" 
+                    from="['GROWERP_M_ADMIN','GROWERP_M_EMPLOYEE']"/>
             </entity-find>
             <!-- provide users when logged in and admin-->
             <if condition="ec.getUser().getUsername() &amp;&amp; ec.user.hasPermission('GROWERP_M_COMPANY')">
@@ -427,13 +429,13 @@ along with this software (see the LICENSE.md file). If not, see
                          value-field="partyClassificationAppl">
                     <field-map field-name="partyId" from="companyPartyId" />
                 </entity-find-one>
-                <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
+                <!--service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
                     <field-map field-name="emailTemplateId" value="WELCOME" />
                     <field-map field-name="toAddresses" from="emailAddress" />
                     <field-map field-name="bodyParameters" 
                         from="[classification: partyClassificationAppl.partyClassificationId.substring(3),
                             newPassword:newPassword]" />
-                </service-call>
+                </service-call-->
                 <if condition="company">
                     <!-- initial company/user needs login for loading default data (create#user calls this service)-->
                     <!-- add the user as admin -->
@@ -491,7 +493,6 @@ along with this software (see the LICENSE.md file). If not, see
                     groupDescription: userGroup.description,
                     language: "null"]'/>
             </if>
-            <log message="====output register user: $user company: $company"/>
         </actions>
     </service>
     <!--internal service used in register -->
@@ -507,9 +508,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <if condition="!defaultData"><return/></if>
             <script> // convert JSON data
-                import groovy.json.JsonSlurper
-                JsonSlurper slurper = new JsonSlurper()
-                List data = new JsonSlurper().parseText(defaultData).categories</script>
+                Map data = new groovy.json.JsonSlurper().parseText(defaultData)</script>
 
             <log message="loading default data with classificationId $classificationId"/>
             <entity-find entity-name="mantle.product.category.ProductCategory" list="rootList">
@@ -519,23 +518,44 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- structure of data, image should be in dbresource://GrowERP/images/...Medium.jpg-->
             <!-- format of the data should be in the catalog format: 
                 https://github.com/growerp/growerp/blob/packages/models/lib/catalog.dart -->
-            <!--set field="demoData" from="[
-                [ categoryName: 'category 1', image: 'imageName',
-                    products: [ productName: 'product1', description:'description', price: 34, image='name'],
-                              [ productName: 'product 2', description: 'desc 2', price: 25]
-                ],
-                [ categoryName: 'category 2', image: 'imageName2',
-                    products: [ productName: 'product11', description:'desc 1', price: 44],
-                              [ productName: 'product 12', description: 'desc 2', price: 45]
-                ],
-            ]"/-->
+                <set field="product1" from="[ productName: 'cola', description:'description', price: 34, image: 'cola']"/>    
+                <set field="product2" from="[ productName: 'wiskey', description:'description', price: 31, image: 'wiskey']"/>    
+                <set field="products1" from="[ product1, product2]"/>
+                <set field="category1" from="[categoryName: 'drinks', image: 'drinks', image: 'drinks', products: products1]"/>    
+                <set field="product3" from="[ productName: 'macaroni', description:'description', price: 12, image: 'macaroni']"/>    
+                <set field="product4" from="[ productName: 'hamburger', description:'description', price: 33, image: 'hamburger']"/>    
+                <set field="products2" from="[ product3, product4]"/>
+                <set field="category2" from="[categoryName: 'food', image: 'drinks', image: 'food', products: products2]"/>    
+                <set field="categories" from="[category1, category2]"/>    
 
-            <iterate list="data" entry="el">
+                <set field="users" from="
+                [
+                [ firstName: 'Jan', lastName: 'Jansen', emailAddress: 'jan1@example.com',
+                  locale: 'EN', username: 'jan1', externalId: 'ext',
+                  userGroupId: 'GROWERP_M_ADMIN' ],
+                [ firstName: 'Jan', lastName: 'Jansen', emailAddress: 'jan2@example.com',
+                  locale: 'EN', username: 'jan2', externalId: 'ext',
+                  userGroupId: 'GROWERP_M_EMPLOYEE' ],
+                [ firstName: 'Jan', lastName: 'Jansen', emailAddress: 'jan3@example.com',
+                  locale: 'EN', username: 'jan3', externalId: 'ext',
+                  userGroupId: 'GROWERP_M_CUSTOMER' ],
+                [ firstName: 'Jan', lastName: 'Jansen', emailAddress: 'jan4@example.com',
+                  locale: 'EN', username: 'jan4', externalId: 'ext',
+                  userGroupId: 'GROWERP_M_LEAD' ],
+                [ firstName: 'Jan', lastName: 'Jansen', emailAddress: 'jan5@example.com',
+                  locale: 'EN', username: 'jan5', externalId: 'ext',
+                  userGroupId: 'GROWERP_M_SUPPLIER' ]
+            ]"/>
+            <set field="nowDate" from="ec.user.nowTimestamp"/>
+            <set field="counter" value="30" type="Integer"/>
+            <while condition="counter--">
+            <iterate list="categories" entry="el">
                 <service-call name="create#mantle.product.category.ProductCategory"
-                    in-map="[categoryName: el.categoryName,
+                    in-map="[categoryName: counter.toString() + el.categoryName,
                             description: el.description,
                             ownerPartyId: companyPartyId]"
                     out-map="context"/>
+                <log message="===== catId: $productCategoryId created"/>
                 <service-call 
                     name="create#mantle.product.category.ProductCategoryRollup"
                     in-map="[parentProductCategoryId: rootProductCategoryId,
@@ -552,15 +572,17 @@ along with this software (see the LICENSE.md file). If not, see
                         el.image + 'Medium.png']" />
                 <iterate list="el.products" entry="product">
                     <service-call name="create#mantle.product.Product" in-map="[
-                        productName: product.productName,
+                        productName: counter.toString() + product.productName,
                         description: product.description,
                         ownerPartyId: companyPartyId,
                         productTypeEnumId: 'PtAsset',
                         assetTypeEnumId: 'AstTpInventory',
                         assetClassEnumId: 'AsClsInventoryFin']" out-map="context" />
-                    <set field="fromDate" from="ec.user.nowTimestamp"/>
-                    <service-call in-map="context"
-                        name="create#mantle.product.category.ProductCategoryMember"/>
+                    <log message="===== productId: $productId created"/>
+                    <service-call
+                        name="create#mantle.product.category.ProductCategoryMember"
+                        in-map="[productId: productId, productCategoryId: productCategoryId, fromDate: fromDate]"/>
+                    <log message="===== productmember created"/>
                     <service-call name="create#mantle.product.ProductPrice"
                         in-map="[productId: productId, priceTypeEnumId: 'PptList',
                         priceUomId: currencyId, price: product.price,
@@ -578,7 +600,20 @@ along with this software (see the LICENSE.md file). If not, see
                         product.image + 'Medium.png']" />
                 </iterate>
             </iterate>
-
+            <iterate list="users" entry="user">
+                <service-call name="growerp.100.PartyServices100.register#UserAndCompany"
+                    in-map="[
+                    companyPartyId: companyPartyId,
+                    firstName: user.firstName,
+                    lastName: counter.toString() + user.lastName,
+                    emailAddress: companyPartyId + counter.toString() + user.emailAddress,
+                    locale: user.locale,
+                    username: companyPartyId + counter.toString() + user.username,
+                    externalId: user.externalid,
+                    userGroupId: user.userGroupId,
+                ]" out-map="out"/>
+            </iterate>
+            </while>
             <!--if condition="environment != 'production'"-->
         </actions>
     </service>
