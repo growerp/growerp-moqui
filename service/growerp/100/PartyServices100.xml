@@ -167,15 +167,19 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="userPartyId"/><!-- if present select a single user, else a list -->
             <parameter name="userGroupId"/><!-- if present select user from particular groups-->
+            <parameter name="start" type="Integer" default-value="0"/>
+            <parameter name="limit" type="Integer" default-value="20"/>
         </in-parameters>
         <out-parameters>
             <parameter name="users" type="List"/>
             <parameter name="user" type="Map"/>
         </out-parameters>
         <actions>
+            <log message="====getusers groupId: $userGroupId start: $start limit: $limit"/>
             <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" 
                     out-map="company"/>
-            <entity-find entity-name="growerp.mobile.CompanyPersonAndLoginGroup"  list="userInfos" >
+            <entity-find entity-name="growerp.mobile.CompanyPersonAndLoginGroup"  list="userInfos"
+                    offset="start" limit="limit" >
                 <econdition field-name="ownerPartyId" from="company.partyId"/>
                 <econdition field-name="userPartyId" from="userPartyId" ignore-if-empty="true"/>
                 <econdition field-name="userGroupId" from="userGroupId" ignore-if-empty="true"/>
@@ -216,6 +220,7 @@ along with this software (see the LICENSE.md file). If not, see
                 </if>
             </iterate>
             <if condition="users &amp;&amp; !userPartyId">
+                <log message="====getusers=result: ${users.size()}"/>
                 <script>users.sort{a, b -> 
                     a.lastName.compareToIgnoreCase(b.lastName) } </script>
             </if>
@@ -406,11 +411,11 @@ along with this software (see the LICENSE.md file). If not, see
                             requireInventory: 'N',
                             reservationOrderEnumId:'AsResOrdNoRes',
                             defaultCurrencyUomId: currencyId]" />
-                    <!-- create root category -->
                     <entity-find-one entity-name="mantle.party.PartyClassification"
                             value-field="partyClassification">
                         <field-map field-name="partyClassificationId" from="classificationId"/>
                     </entity-find-one>
+                    <!-- create root category -->
                     <service-call name="create#mantle.product.category.ProductCategory" out-map="rootCat" 
                         in-map="[ownerPartyId: companyPartyId, productCategoryTypeEnumId: 'PctRoot',
                             categoryName: 'Root category for: ' + partyClassification.description]" />
@@ -448,7 +453,7 @@ along with this software (see the LICENSE.md file). If not, see
                         in-map="[fromPartyId: userAccount.partyId, fromRoleTypeId: 'Employee',
                             relationshipTypeEnumId: 'PrtEmployee', fromDate: fromDate,
                             toPartyId: companyPartyId, toRoleTypeId: 'OrgInternal']" />
-                    <service-call name="growerp.100.PartyServices100.load#DefaultData" in-map="context" />
+                    <service-call name="growerp.100.PartyServices100.load#DefaultData" in-map="context"/>
                     <service-call name="growerp.100.PartyServices100.get#User"
                         in-map="[userPartyId: userAccount.partyId]"
                         out-map="context"/>
@@ -496,23 +501,26 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
     <!--internal service used in register -->
-    <service verb="load" noun="DefaultData" authenticate="anonymous-all">
+    <service verb="load" noun="DefaultData" authenticate="anonymous-all" transaction-timeout="3600">
         <!-- not reachable outside -->
         <in-parameters>
-            <parameter name="companyPartyId"/>
+            <parameter name="companyPartyId" required="true"/>
             <parameter name="currencyId"/>
-            <parameter name="classificationId" required="true" />
-            <parameter name="environment" required="true"/>
+            <parameter name="classificationId" />
+            <parameter name="environment"/>
             <parameter name="defaultData"/>
         </in-parameters>
         <actions>
-            <if condition="!defaultData"><return/></if>
-            <script> // convert JSON data
-                Map data = new groovy.json.JsonSlurper().parseText(defaultData)</script>
+            <!--if condition="!defaultData"><return/></if-->
+            <!--script> // convert JSON data
+                Map data = new groovy.json.JsonSlurper().parseText(defaultData)</script-->
 
             <log message="loading default data with classificationId $classificationId"/>
             <entity-find entity-name="mantle.product.category.ProductCategory" list="rootList">
+                <econdition field-name="productCategoryTypeEnumId" value="PctRoot"/>
                 <econdition field-name="ownerPartyId" from="companyPartyId"/></entity-find>
+            <if condition="!rootList">
+                <return error="true" message="Root cat not found for companyId: $companyId"/></if>
             <set field="rootProductCategoryId" from="rootList[0].productCategoryId"/>
 
             <!-- structure of data, image should be in dbresource://GrowERP/images/...Medium.jpg-->
@@ -530,24 +538,34 @@ along with this software (see the LICENSE.md file). If not, see
 
                 <set field="users" from="
                 [
-                [ firstName: 'Jan', lastName: 'Jansen', emailAddress: 'jan1@example.com',
-                  locale: 'EN', username: 'jan1', externalId: 'ext',
-                  userGroupId: 'GROWERP_M_ADMIN' ],
-                [ firstName: 'Jan', lastName: 'Jansen', emailAddress: 'jan2@example.com',
-                  locale: 'EN', username: 'jan2', externalId: 'ext',
-                  userGroupId: 'GROWERP_M_EMPLOYEE' ],
-                [ firstName: 'Jan', lastName: 'Jansen', emailAddress: 'jan3@example.com',
-                  locale: 'EN', username: 'jan3', externalId: 'ext',
-                  userGroupId: 'GROWERP_M_CUSTOMER' ],
-                [ firstName: 'Jan', lastName: 'Jansen', emailAddress: 'jan4@example.com',
-                  locale: 'EN', username: 'jan4', externalId: 'ext',
-                  userGroupId: 'GROWERP_M_LEAD' ],
-                [ firstName: 'Jan', lastName: 'Jansen', emailAddress: 'jan5@example.com',
-                  locale: 'EN', username: 'jan5', externalId: 'ext',
-                  userGroupId: 'GROWERP_M_SUPPLIER' ]
-            ]"/>
+                    [ firstName: 'Jan', lastName: 'Admin', emailAddress: 'jan1@example.com',
+                    locale: 'EN', username: 'jan1', externalId: 'ext',
+                    userGroupId: 'GROWERP_M_ADMIN' ],
+                    [ firstName: 'Jan', lastName: 'Employee', emailAddress: 'jan2@example.com',
+                    locale: 'EN', username: 'jan2', externalId: 'ext',
+                    userGroupId: 'GROWERP_M_EMPLOYEE' ],
+                    [ firstName: 'Jan', lastName: 'Customer', emailAddress: 'jan3@example.com',
+                    locale: 'EN', username: 'jan3', externalId: 'ext',
+                    userGroupId: 'GROWERP_M_CUSTOMER' ],
+                    [ firstName: 'Jan', lastName: 'lead', emailAddress: 'jan4@example.com',
+                    locale: 'EN', username: 'jan4', externalId: 'ext',
+                    userGroupId: 'GROWERP_M_LEAD' ],
+                    [ firstName: 'Jan', lastName: 'Supplier', emailAddress: 'jan5@example.com',
+                    locale: 'EN', username: 'jan5', externalId: 'ext',
+                    userGroupId: 'GROWERP_M_SUPPLIER' ]
+                ]"/>
+
+                <set field="opportunities" from="
+                [
+                    [ opportunityName: 'The best opportunity', description: 'the best oppr description',
+                        nextStep: 'not sure yet', estimatedAmount: 1000, estimatedProbability: 33,
+                        ownerPartyId: companyPartyId, opportunityStageId: 'Prospecting' ],
+                    [ opportunityName: 'The second best opportunity', description: 'the secondbest oppr description',
+                        nextStep: 'not sure yet', estimatedAmount: 5000, estimatedProbability: 66,
+                        ownerPartyId: companyPartyId, opportunityStageId: 'Proposal' ]
+                ]"/>
             <set field="nowDate" from="ec.user.nowTimestamp"/>
-            <set field="counter" value="30" type="Integer"/>
+            <set field="counter" value="1" type="Integer"/>
             <while condition="counter--">
             <iterate list="categories" entry="el">
                 <service-call name="create#mantle.product.category.ProductCategory"
@@ -612,6 +630,18 @@ along with this software (see the LICENSE.md file). If not, see
                     externalId: user.externalid,
                     userGroupId: user.userGroupId,
                 ]" out-map="out"/>
+            </iterate>
+            <iterate list="opportunities" entry="opp">
+                <service-call name="create#mantle.sales.opportunity.SalesOpportunity"
+                in-map="[
+                    opportunityName: opp.opportunityName,
+                    description: opp.description,
+                    nextStep: opp.nextStep,
+                    estimatedAmount: opp.estimatedAmount,
+                    estimatedProbability: opp.estimatedProbability,
+                    opportunityStageId: opp.opportunityStageId,
+                    ownerPartyId: companyPartyId
+                ]"/>
             </iterate>
             </while>
             <!--if condition="environment != 'production'"-->

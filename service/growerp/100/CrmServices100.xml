@@ -36,17 +36,20 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="get" noun="Opportunity">
         <in-parameters>
             <parameter name="opportunityId"/>
+            <parameter name="start" type="Integer" default-value="0"/>
+            <parameter name="limit" type="Integer" default-value="20"/>
         </in-parameters>
         <out-parameters>
             <parameter name="opportunities" type="List"/>
             <parameter name="opportunity" type="Map"/>
         </out-parameters>
         <actions>
+            <log message="====getOpportunity start: $start limit: $limit"/>
             <service-call
                 name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
                     out-map="context"/>
             <entity-find entity-name="growerp.mobile.crm.OpportunityPartyAndStage"
-                list="opps">
+                list="opps" offset="start" limit="limit">
                 <econdition field-name="ownerPartyId"/>
                 <econdition field-name="opportunityId" ignore-if-empty="true"/>
                 <econdition field-name="stageId" operator="not-equals" value="Deleted"/>
@@ -76,6 +79,7 @@ along with this software (see the LICENSE.md file). If not, see
                         <set field="opportunity" from="opOut"/>
                     </else></if>
             </iterate>
+            <log message="====getOpportunity result: ${opportunities.size()}"/>
         </actions>
     </service>
     <service verb="create" noun="Opportunity">
