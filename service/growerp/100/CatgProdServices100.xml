@@ -29,7 +29,7 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <service-call
-                name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
+                name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId"
                  out-map="context"/>
             <entity-find offset="start" limit="limit"
                     entity-name="growerp.mobile.product.ProductAndPriceAndProductCategory"
@@ -133,7 +133,7 @@ along with this software (see the LICENSE.md file). If not, see
                 JsonSlurper slurper = new JsonSlurper()
                 Object productIn = new JsonSlurper().parseText(product).product</script>
             <if condition="!productIn.productId"><return error="true" message="ProductId required"/></if>
-            <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
+            <service-call name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId"
                 out-map="context"/>
             <entity-find-one value-field="product" entity-name="mantle.product.Product" for-update="true">
                 <field-map field-name="productId" from="productIn.productId"/>
@@ -214,7 +214,7 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <log message="=====get categories with start: $start and limit $limit"/>
-            <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
+            <service-call name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId" out-map="context"/>
             <entity-find
                 entity-name="mantle.product.category.ProductCategory" list="rootList">
                 <econdition field-name="ownerPartyId" from="ownerPartyId?:companyPartyId"/>
@@ -278,7 +278,7 @@ along with this software (see the LICENSE.md file). If not, see
                 JsonSlurper slurper = new JsonSlurper()
                 Object categoryIn = new JsonSlurper().parseText(category).category</script>
             <service-call out-map="context"
-                name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"/>
+                name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId"/>
             <entity-find
                 entity-name="mantle.product.category.ProductCategory" list="rootList">
                 <econdition field-name="ownerPartyId"/></entity-find>
@@ -291,6 +291,7 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="create#mantle.product.category.ProductCategory"
                 in-map="[categoryName: categoryIn.categoryName,
                     description: categoryIn.description,
+                    productCategoryTypeEnumId: 'PctCatalog',
                     ownerPartyId: ownerPartyId]" out-map="context"/>
             <service-call
                 name="create#mantle.product.category.ProductCategoryRollup"
@@ -317,7 +318,7 @@ along with this software (see the LICENSE.md file). If not, see
                 import groovy.json.JsonSlurper
                 JsonSlurper slurper = new JsonSlurper()
                 Object categoryIn = new JsonSlurper().parseText(category).category</script>
-            <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
+            <service-call name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId" out-map="context"/>
             <entity-find-one value-field="productCategory" entity-name="mantle.product.category.ProductCategory" for-update="true">
                 <field-map field-name="productCategoryId" from="categoryIn.categoryId"/>
                 <field-map field-name="ownerPartyId"/></entity-find-one>

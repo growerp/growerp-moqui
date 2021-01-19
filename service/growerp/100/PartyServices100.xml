@@ -61,7 +61,7 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <if condition="!companyPartyId &amp;&amp; ec.user &amp;&amp; ec.user.userAccount?.partyId">
-                <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
+                <service-call name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId" out-map="context"/>
                 <set field="companyPartyId" from="ownerPartyId"/>
             </if>
             <if condition="!companyPartyId"><return/></if><!-- return null if no company found -->
@@ -78,20 +78,6 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="growerp.100.ImageServices100.download#Image"
                     in-map="[contentLocation: contents[0].contentLocation]" out-map="context"/>
             </if>
-            <entity-find entity-name="CompanyPersonAndLoginGroup" list="compEmployees">
-                <econdition field-name="companyPartyId" />
-                <econdition field-name="userGroupId" operator="in" 
-                    from="['GROWERP_M_ADMIN','GROWERP_M_EMPLOYEE']"/>
-            </entity-find>
-            <!-- provide users when logged in and admin-->
-            <if condition="ec.getUser().getUsername() &amp;&amp; ec.user.hasPermission('GROWERP_M_COMPANY')">
-                <set field="employees" from="[]"/>
-                <iterate list="compEmployees" entry="employee">
-                    <service-call name="growerp.100.PartyServices100.get#User" out-map="context"
-                        in-map="[userPartyId: employee.userPartyId]"></service-call>
-                    <script>employees.add(user)</script>
-                </iterate>
-            </if>
             <set field="company" from="[
                 partyId: companyPartyId,
                 name: org.organizationName,
@@ -99,8 +85,8 @@ along with this software (see the LICENSE.md file). If not, see
                 classificationDescr: org.description,
                 email: emailAddress,
                 currencyId: org.baseCurrencyUomId,
-                image: imageFile,
-                employees: employees]"/>
+                image: imageFile
+                ]"/>
         </actions>
     </service>
 
@@ -122,7 +108,7 @@ along with this software (see the LICENSE.md file). If not, see
                 Object compIn = new JsonSlurper().parseText(company).company
             </script>
             <!-- check access user belongs to this company override companyPartyId-->
-            <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
+            <service-call name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId"
                 out-map="context"/>
             <set field="compIn.partyId" from="ownerPartyId"/>
             <!-- get old values -->
@@ -176,7 +162,7 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <log message="====getusers groupId: $userGroupId start: $start limit: $limit"/>
-            <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" 
+            <service-call name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId" 
                     out-map="company"/>
             <entity-find entity-name="growerp.mobile.CompanyPersonAndLoginGroup"  list="userInfos"
                     offset="start" limit="limit" >
@@ -292,7 +278,7 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="userIn.userGroupId != oldValue.user.userGroupId">
                 <if condition="oldValue.user.userGroupid == 'GROWERP_M_ADMIN'">
                     <!-- check if only a single admin: cannot change -->
-                    <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" 
+                    <service-call name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId" 
                         in-map="[userPartyId: userIn.partyId]" out-map="company"/>
                     <entity-find entity-name="growerp.mobile.CompanyPersonAndLoginGroup" list="admins">
                         <econdition field-name="userGroupId" value="GROWERP_M_ADMIN"/>
@@ -339,7 +325,7 @@ along with this software (see the LICENSE.md file). If not, see
                 in-map="[userPartyId: partyId]" out-map="oldValue"/>
             <if condition="oldValue.user.userGroupid == 'GROWERP_M_ADMIN'">
                 <!-- check if only a single admin: cannot change -->
-                <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" 
+                <service-call name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId" 
                     in-map="[userPartyId: partyId]" out-map="company"/>
                 <entity-find entity-name="growerp.mobile.CompanyPersonAndLoginGroup" list="admins">
                     <econdition field-name="userGroupId" value="GROWERP_M_ADMIN"/>
@@ -529,11 +515,14 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="product1" from="[ productName: 'cola', description:'description', price: 34, image: 'cola']"/>    
                 <set field="product2" from="[ productName: 'wiskey', description:'description', price: 31, image: 'wiskey']"/>    
                 <set field="products1" from="[ product1, product2]"/>
-                <set field="category1" from="[categoryName: 'drinks', image: 'drinks', image: 'drinks', products: products1]"/>    
-                <set field="product3" from="[ productName: 'macaroni', description:'description', price: 12, image: 'macaroni']"/>    
+                <set field="category1" from="[categoryName: 'drinks', image: 'drinks', image: 'drinks', 
+                                            products: products1]"/>    
+                <set field="product3" from="[ productName: 'macaroni', description:'description',
+                                            price: 12, image: 'macaroni']"/>    
                 <set field="product4" from="[ productName: 'hamburger', description:'description', price: 33, image: 'hamburger']"/>    
                 <set field="products2" from="[ product3, product4]"/>
-                <set field="category2" from="[categoryName: 'food', image: 'drinks', image: 'food', products: products2]"/>    
+                <set field="category2" from="[categoryName: 'food', image: 'drinks', image: 'food',
+                                            products: products2]"/>    
                 <set field="categories" from="[category1, category2]"/>    
 
                 <set field="users" from="
@@ -571,6 +560,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="create#mantle.product.category.ProductCategory"
                     in-map="[categoryName: counter.toString() + el.categoryName,
                             description: el.description,
+                            productCategoryTypeEnumId: 'PctCatalog',
                             ownerPartyId: companyPartyId]"
                     out-map="context"/>
                 <log message="===== catId: $productCategoryId created"/>

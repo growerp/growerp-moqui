@@ -24,7 +24,7 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <actions>
             <service-call 
-                name="growerp.100.CommonServices100.get#RelatedCompanyPartyId" out-map="context"/>
+                name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId" out-map="context"/>
             <set field="pagePath" value="/${type}/${id}/"/>
             <set field="contentLocation" value="dbresource://C${ownerPartyId}/images${pagePath}"/>
             <set field="ec" from="context.ec"/>

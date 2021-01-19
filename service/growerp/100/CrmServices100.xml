@@ -46,7 +46,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <log message="====getOpportunity start: $start limit: $limit"/>
             <service-call
-                name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
+                name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId"
                     out-map="context"/>
             <entity-find entity-name="growerp.mobile.crm.OpportunityPartyAndStage"
                 list="opps" offset="start" limit="limit">
@@ -125,7 +125,7 @@ along with this software (see the LICENSE.md file). If not, see
             <script> // convert JSON data
                 Object opportunity = new groovy.json.JsonSlurper().parseText(opportunity).opportunity</script>
             <service-call
-                name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
+                name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId"
                 out-map="context"/>
             <entity-find-one value-field="oldValue"
                     entity-name="mantle.sales.opportunity.SalesOpportunity"
@@ -187,7 +187,7 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <service-call
-                name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
+                name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId"
                 out-map="context"/>
             <entity-find-one value-field="oldValue"
                     entity-name="mantle.sales.opportunity.SalesOpportunity"

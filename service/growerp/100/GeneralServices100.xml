@@ -14,6 +14,113 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
 
+    <service verb="get" noun="RelatedCompanyPartyId">
+        <in-parameters>
+            <parameter name="userPartyId"/><!-- of this particular user -->
+        </in-parameters>
+        <out-parameters>
+            <parameter name="ownerPartyId"/>
+            <parameter name="partyId" />
+        </out-parameters>
+        <actions>
+            <if condition="!userPartyId">
+                <if condition="ec.user &amp;&amp; ec.user?.userAccount?.partyId">
+                    <set field="userPartyId" from="ec.user.userAccount.partyId" />
+                    <else>
+                        <return/><!-- just return null if no related comany found -->
+                    </else>
+                </if>
+            </if>
+            <entity-find entity-name="mantle.party.PartyRelationship" list="relList">
+                <date-filter />
+                <econdition field-name="fromPartyId" from="userPartyId" />
+                <econdition field-name="toRoleTypeId" value="OrgInternal" />
+                <select-field field-name="toPartyId" />
+            </entity-find>
+            <if condition="relList">
+                <set field="ownerPartyId" from="relList[0].toPartyId" />
+                <set field="partyId" from="ownerPartyId" />
+                <else>
+                    <return message="User ${userPartyId} has no related company!!"/>
+                </else>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="get" noun="Stats">
+        <out-parameters><parameter name="stats"/></out-parameters>
+        <actions>
+            <set field="stats" from="[:]"/>
+            <service-call 
+                name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId"
+                out-map="context"/>
+            <entity-find-count entity-name="growerp.mobile.CompanyPersonAndLoginGroup"
+                count-field="admins">
+                <econdition field-name="ownerPartyId"/>
+                <econdition field-name="userGroupId" value="GROWERP_M_ADMIN"/>
+            </entity-find-count>
+            <entity-find-count entity-name="growerp.mobile.CompanyPersonAndLoginGroup"
+                count-field="employees">
+                <econdition field-name="ownerPartyId"/>
+                <econdition field-name="userGroupId" operator="in"
+                    from="['GROWERP_M_EMPLOYEE','GROWERP_M_ADMIN']"/>
+            </entity-find-count>
+            <entity-find-count entity-name="growerp.mobile.CompanyPersonAndLoginGroup"
+                count-field="leads">
+                <econdition field-name="ownerPartyId"/>
+                <econdition field-name="userGroupId" value="GROWERP_M_LEAD"/>
+            </entity-find-count>
+            <entity-find-count entity-name="growerp.mobile.CompanyPersonAndLoginGroup"
+                count-field="customers">
+                <econdition field-name="ownerPartyId"/>
+                <econdition field-name="userGroupId" value="GROWERP_M_CUSTOMER"/>
+            </entity-find-count>
+            <entity-find-count entity-name="growerp.mobile.CompanyPersonAndLoginGroup"
+                count-field="suppliers">
+                <econdition field-name="ownerPartyId"/>
+                <econdition field-name="userGroupId" value="GROWERP_M_SUPPLIER"/>
+            </entity-find-count>
+
+            <entity-find-count entity-name="mantle.product.Product"
+                count-field="products">
+                <econdition field-name="ownerPartyId"/>
+            </entity-find-count>
+            <entity-find-count entity-name="mantle.product.category.ProductCategory"
+                count-field="categories">
+                <econdition field-name="productCategoryTypeEnumId"
+                    operator="not-equals" value="PctRoot"/>
+                <econdition field-name="ownerPartyId"/>
+            </entity-find-count>
+            <entity-find-count entity-name="mantle.sales.opportunity.SalesOpportunity"
+                count-field="opportunities">
+                <econdition field-name="ownerPartyId"/>
+            </entity-find-count>
+
+            <entity-find-count entity-name="mantle.order.OrderPart"
+                count-field="openSlsOrders">
+                <econdition field-name="vendorPartyId" from="ownerPartyId"/>
+            </entity-find-count>
+            <entity-find-count entity-name="mantle.order.OrderPart"
+                count-field="openPurOrders">
+                <econdition field-name="customerPartyId" from="ownerPartyId"/>
+            </entity-find-count>
+
+            <set field="stats" from="[
+                admins: admins.toString(),
+                employees: employees.toString(),
+                suppliers: suppliers.toString(),
+                leads: leads.toString(),
+                customers: customers.toString(),
+                openSlsOrders: openSlsOrders.toString(),
+                openPurOrders: openPurOrders.toString(),
+                opportunities: opportunities.toString(),
+                categories: categories.toString(),
+                products: products.toString()
+            ]"/>
+            <log message="====employees: $employees"/>
+        </actions>
+    </service>
+
     <service verb="check" noun="ApiKey">
         <out-parameters><parameter name="ok"/></out-parameters>
         <actions><set field="ok" value="ok"/></actions>
@@ -49,6 +156,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="user" type="Map"/>
             <parameter name="company" type="Map"/>
             <parameter name="passwordChange" default="false"/>
+            <parameter name="stats"/>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="moqui.security.UserAccount" 
@@ -88,9 +196,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <script>ec.user.loginUser(username, password)</script>
                 <service-call name="growerp.100.PartyServices100.get#User"
                     in-map="[userPartyId: userAccount.partyId]" out-map="context"/>
-                    <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"/>
+                <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"/>
                 <set field="apiKey" from="ec.user.getLoginKey()"/>
                 <set field="moquiSessionToken" from="ec.web.sessionToken"/>
+                <service-call name="growerp.100.GeneralServices100.get#Stats" out-map="context"/>
             </if>
         </actions>
     </service>
@@ -116,7 +225,7 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <actions>
             <if condition="ec.user.userAccount"><!-- only possible with a loggedin user -->
-                <service-call name="growerp.100.CommonServices100.get#RelatedCompanyPartyId"
+                <service-call name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId"
                     out-map="context"/>
                 <!-- make sure that username is only searched for in the logged in user own company -->
                 <entity-find entity-name="growerp.mobile.CompanyPersonAndLogin" list="accounts">
