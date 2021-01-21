@@ -14,7 +14,7 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-2.1.xsd">
 
-    <view-entity entity-name="OrderHeaderAndPartAndItem" package="growerp.order">
+    <view-entity entity-name="OrderHeaderPartItemAndParties" package="growerp.order">
         <member-entity entity-alias="ORHD" entity-name="mantle.order.OrderHeader"/>
         <member-entity entity-alias="OPRT" entity-name="mantle.order.OrderPart" join-from-alias="ORHD">
             <key-map field-name="orderId"/></member-entity>
@@ -36,24 +36,29 @@ along with this software (see the LICENSE.md file). If not, see
 
     <view-entity entity-name="CompanyPersonAndLoginGroup" package="growerp.mobile">
         <description>get all people related to a certain companyId = PR => toPartyId</description>
-        <member-entity entity-alias="PR" entity-name="PartyRelationship">
+        <member-entity entity-alias="PTYORG" entity-name="Party">
             <entity-condition>
-                <econdition field-name="toRoleTypeId" value="OrgInternal"/>
-                <date-filter/></entity-condition></member-entity>
-        <member-entity entity-alias="PTYPERSON" entity-name="Party" join-from-alias="PR">
-            <key-map field-name="fromPartyId" related="partyId"/>
-            <entity-condition>
-                <econdition field-name="personDisabled" operator="equals" value="N" or-null="true"/>
+                <econdition field-name="orgDisabled" operator="equals"
+                        value="N" or-null="true"/>
             </entity-condition>
         </member-entity>
-        <member-entity entity-alias="PTYORG" entity-name="Party" join-from-alias="PR">
-            <key-map field-name="toPartyId" related="partyId"/>
-            <entity-condition>
-                <econdition field-name="orgDisabled" operator="equals" value="N" or-null="true"/>
-            </entity-condition>
-        </member-entity>
-        <member-entity entity-alias="PERSON" entity-name="mantle.party.Person" join-from-alias="PR">
+        <member-entity entity-alias="ORG" entity-name="mantle.party.Organization"
+                join-from-alias="PTYORG">
+            <key-map field-name="partyId"/></member-entity>
+        <member-entity entity-alias="PR" entity-name="PartyRelationship"
+                join-from-alias="ORG">
+            <key-map field-name="partyId" related="toPartyId"/>
+            <entity-condition><date-filter/></entity-condition></member-entity>
+        <member-entity entity-alias="PTYPERSON" entity-name="Party"
+                join-from-alias="PR">
             <key-map field-name="fromPartyId" related="partyId"/>
+            <entity-condition>
+                <econdition field-name="orgDisabled" operator="equals"
+                        value="N" or-null="true"/></entity-condition>
+        </member-entity>
+        <member-entity entity-alias="PERSON" entity-name="mantle.party.Person"
+                join-from-alias="PTYPERSON">
+            <key-map field-name="partyId"/>
         </member-entity>
         <member-entity entity-alias="ACCT" entity-name="moqui.security.UserAccount" join-from-alias="PR">
             <key-map field-name="fromPartyId" related="partyId"/>
@@ -68,15 +73,18 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="userGroupId" related="userGroupId"/>
         </member-entity>
 
-        <alias entity-alias="PR" name="companyPartyId" field="toPartyId"/>
-        <alias entity-alias="PR" name="companyRoleTypeId" field="toRoleTypeId"/>
-        <alias entity-alias="PR" name="userPartyId" field="fromPartyId"/>
+        <alias entity-alias="PTYORG" name="orgDisabled" field="disabled"/>
+        <alias entity-alias="PTYORG" name="orgOwnerPartyId" field="ownerPartyId"/>
+        <alias entity-alias="ORG" name="companyName" field="organizationName"/>
+        <alias entity-alias="ORG" name="companyPartyId" field="partyId"/>
+        <alias entity-alias="PR" name="orgRoleTypeId" field="toRoleTypeId"/>
         <alias entity-alias="PR" name="fromDate"/><!-- date registered in the system -->
         <alias entity-alias="PR" name="thruDate"/>
-        <alias entity-alias="PTYPERSON" name="personDisabled" field="disabled"/>
+        <alias entity-alias="PR" name="userRoleTypeId" field="fromRoleTypeId"/>
+        <alias entity-alias="PTYPERSON" name="userDisabled" field="disabled"/>
         <alias entity-alias="PTYPERSON" name="externalId"/>
         <alias entity-alias="PTYPERSON" name="ownerPartyId"/>
-        <alias entity-alias="PTYORG" name="orgDisabled" field="disabled"/>
+        <alias entity-alias="PERSON" name="userPartyId" field="partyId"/>
         <alias entity-alias="PERSON" name="firstName"/>
         <alias entity-alias="PERSON" name="lastName"/>
         <alias entity-alias="ACCT" name="userId"/>
@@ -90,7 +98,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias entity-alias="UGMEM" name="ugThruDate" field="thruDate"/>
     </view-entity>
 
-
+    <!-- depreciated!!!! -->
     <view-entity entity-name="CompanyPersonAndLogin" package="growerp.mobile">
         <description>get all people related to a certain companyId = PR => toPartyId</description>
         <member-entity entity-alias="PR" entity-name="PartyRelationship">
@@ -263,35 +271,79 @@ along with this software (see the LICENSE.md file). If not, see
         <alias name="price" entity-alias="PRICE"/>
     </view-entity>
 
-    <view-entity entity-name="OpportunityPartyAndStage" package="growerp.mobile.crm">
-        <member-entity entity-alias="OPPOR" entity-name="mantle.sales.opportunity.SalesOpportunity"/>
-        <member-entity entity-alias="STAGE" entity-name="mantle.sales.opportunity.SalesOpportunityStage"
+    <view-entity entity-name="OpportunityAndStageAndParties" package="growerp.mobile.crm">
+        <member-entity entity-alias="OPPOR"
+            entity-name="mantle.sales.opportunity.SalesOpportunity"/>
+        <member-entity entity-alias="STAGE"
+            entity-name="mantle.sales.opportunity.SalesOpportunityStage"
                 join-from-alias="OPPOR">
-            <key-map field-name="opportunityStageId"/>
-        </member-entity>
-        <member-entity entity-alias="PARTY" entity-name="mantle.sales.opportunity.SalesOpportunityParty"
+            <key-map field-name="opportunityStageId"/></member-entity>
+        <member-entity entity-alias="ACCOUNTPERSON"
+            entity-name="mantle.party.Person" join-from-alias="OPPOR" join-optional="true">
+            <key-map field-name="accountPartyId" related="partyId"/></member-entity>
+        <member-entity entity-alias="ACCOUNTPCM"
+            entity-name="mantle.party.contact.PartyContactMech"
+            join-from-alias="ACCOUNTPERSON" join-optional="true">
+            <key-map field-name="partyId"/>
+            <entity-condition>
+                <econdition field-name="accountContactMechPurposeId"
+                    operator="equals" value="EmailPrimary"/>
+            </entity-condition></member-entity>
+        <member-entity entity-alias="ACCOUNTCM"
+            entity-name="mantle.party.contact.ContactMech"
+            join-from-alias="ACCOUNTPCM" join-optional="true">
+            <key-map field-name="contactMechId"/>
+            <entity-condition>
+                <econdition field-name="accountCmTypeId" operator="equals" value="CmtEmailAddress"/>
+            </entity-condition></member-entity>
+        <member-entity entity-alias="SOPPARTY" entity-name="mantle.sales.opportunity.SalesOpportunityParty"
                 join-from-alias="OPPOR" join-optional="true">
             <key-map field-name="salesOpportunityId"/>
         </member-entity>
-        <member-entity entity-alias="LEAD" entity-name="moqui.security.UserAccount"
-                join-from-alias="PARTY" join-optional="true">
+        <member-entity entity-alias="LEADPERSON"
+            entity-name="mantle.party.Person" join-from-alias="SOPPARTY"
+                join-optional="true">
+            <key-map field-name="partyId"/></member-entity>
+        <member-entity entity-alias="LEADPCM"
+            entity-name="mantle.party.contact.PartyContactMech"
+            join-from-alias="LEADPERSON" join-optional="true">
             <key-map field-name="partyId"/>
-        </member-entity>
+            <entity-condition>
+                <econdition field-name="leadContactMechPurposeId"
+                    operator="equals" value="EmailPrimary"/>
+            </entity-condition></member-entity>
+        <member-entity entity-alias="LEADCM"
+            entity-name="mantle.party.contact.ContactMech"
+            join-from-alias="LEADPCM" join-optional="true">
+            <key-map field-name="contactMechId"/>
+            <entity-condition>
+                <econdition field-name="leadCmTypeId" operator="equals" value="CmtEmailAddress"/>
+            </entity-condition></member-entity>
         <alias name="opportunityId" field="salesOpportunityId" entity-alias="OPPOR"/>
         <alias name="ownerPartyId" entity-alias="OPPOR"/>
         <alias name="opportunityName" entity-alias="OPPOR"/>
         <alias name="description" entity-alias="OPPOR"/>
         <alias name="nextStep" entity-alias="OPPOR"/>
-        <alias name="stageId" field="opportunityStageId" entity-alias="STAGE"/>
+        <alias name="lastUpdatedStamp" entity-alias="OPPOR"/>
         <alias name="estAmount" field="estimatedAmount" entity-alias="OPPOR"/>
         <alias name="estProbability" field="estimatedProbability" entity-alias="OPPOR"/>
         <alias name="accountPartyId" entity-alias="OPPOR"/>
-        <alias name="fromDate" entity-alias="PARTY"></alias>
-        <alias name="thruDate" entity-alias="PARTY"></alias>
-        <alias name="leadPartyId" field="partyId" entity-alias="LEAD"/>
-        <alias name="fullName" field="userFullName" entity-alias="LEAD"/>
-        <alias name="email" field="emailAddress" entity-alias="LEAD"/>
-        <alias name="lastUpdatedStamp" entity-alias="OPPOR"/>
-    </view-entity>
+        <alias name="stageId" field="opportunityStageId" entity-alias="STAGE"/>
+        <alias name="accountFirstName" field="firstName" entity-alias="ACCOUNTPERSON"/>
+        <alias name="accountLastName" field="lastName" entity-alias="ACCOUNTPERSON"/>
+        <alias name="accountCmTypeId" field="contactMechTypeEnumId" entity-alias="ACCOUNTCM"/>
+        <alias name="accountContactMechPurposeId"
+            field="contactMechPurposeId" entity-alias="ACCOUNTPCM"/>
+        <alias name="accountEmail" field="infoString" entity-alias="ACCOUNTCM"/>
+        <alias name="fromDate" entity-alias="SOPPARTY"></alias>
+        <alias name="thruDate" entity-alias="SOPPARTY"></alias>
+        <alias name="leadPartyId" field="partyId" entity-alias="LEADPERSON"/>
+        <alias name="leadFirstName" field="firstName" entity-alias="LEADPERSON"/>
+        <alias name="leadLastName" field="lastName" entity-alias="LEADPERSON"/>
+        <alias name="leadCmTypeId" field="contactMechTypeEnumId" entity-alias="LEADCM"/>
+        <alias name="leadContactMechPurposeId"
+            field="contactMechPurposeId" entity-alias="LEADPCM"/>
+        <alias name="leadEmail" field="infoString" entity-alias="LEADCM"/>
+</view-entity>
 
 </entities>

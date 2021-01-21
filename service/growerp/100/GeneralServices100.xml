@@ -14,6 +14,38 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
 
+    <service verb="get" noun="RelatedCompanyAndOwner">
+        <description>Retrieves owner and company of a logged in or other person user</description>
+        <in-parameters>
+            <parameter name="userPartyId"/><!-- of this particular user -->
+        </in-parameters>
+        <out-parameters>
+            <parameter name="ownerPartyId"/>
+            <parameter name="companyPartyId" />
+        </out-parameters>
+        <actions>
+            <if condition="!userPartyId">
+                <if condition="ec.user &amp;&amp; ec.user?.userAccount?.partyId">
+                    <set field="userPartyId" from="ec.user.userAccount.partyId" />
+                    <else>
+                        <return message="No user Provided and not logged in"/>
+                    </else>
+                </if>
+            </if>
+            <entity-find entity-name="growerp.mobile.CompanyPersonAndLoginGroup" list="relList">
+                <date-filter />
+                <econdition field-name="userPartyId" />
+                <select-field field-name="companyPartyId,ownerPartyId"/></entity-find>
+                <if condition="relList">
+                    <set field="companyPartyId" from="relList[0].companyPartyId" />
+                    <set field="ownerPartyId" from="relList[0].ownerPartyId" />
+                <else>
+                    <return message="User $userPartyId not found!"/>
+                </else>
+            </if>
+        </actions>
+    </service>
+
     <service verb="get" noun="RelatedCompanyPartyId">
         <in-parameters>
             <parameter name="userPartyId"/><!-- of this particular user -->
@@ -23,6 +55,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="partyId" />
         </out-parameters>
         <actions>
+            <log level="warn" message="get#RelatedCompanyPartyId depreciated! Use: get#RelatedCompanyAndOwner"/>
             <if condition="!userPartyId">
                 <if condition="ec.user &amp;&amp; ec.user?.userAccount?.partyId">
                     <set field="userPartyId" from="ec.user.userAccount.partyId" />

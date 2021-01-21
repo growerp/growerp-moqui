@@ -103,9 +103,7 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <script> // convert JSON data
-                import groovy.json.JsonSlurper
-                JsonSlurper slurper = new JsonSlurper()
-                Object compIn = new JsonSlurper().parseText(company).company
+                Object compIn = new groovy.json.JsonSlurper().parseText(company).company
             </script>
             <!-- check access user belongs to this company override companyPartyId-->
             <service-call name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId"
@@ -155,24 +153,47 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="userGroupId"/><!-- if present select user from particular groups-->
             <parameter name="start" type="Integer" default-value="0"/>
             <parameter name="limit" type="Integer" default-value="20"/>
+            <parameter name="filter"/>
         </in-parameters>
         <out-parameters>
             <parameter name="users" type="List"/>
             <parameter name="user" type="Map"/>
         </out-parameters>
         <actions>
-            <log message="====getusers groupId: $userGroupId start: $start limit: $limit"/>
-            <service-call name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId" 
-                    out-map="company"/>
+            <if condition="filter">
+                <set field="filter" value="%${filter}%"/>
+            </if>
+            <service-call name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner"
+                    in-map="[userPartyId: userPartyId]" out-map="context"/>
             <entity-find entity-name="growerp.mobile.CompanyPersonAndLoginGroup"  list="userInfos"
                     offset="start" limit="limit" >
-                <econdition field-name="ownerPartyId" from="company.partyId"/>
-                <econdition field-name="userPartyId" from="userPartyId" ignore-if-empty="true"/>
-                <econdition field-name="userGroupId" from="userGroupId" ignore-if-empty="true"/>
+                <econdition field-name="ownerPartyId"/>
+                <econdition field-name="userPartyId" ignore-if-empty="true"/>
+                <econditions combine="or">
+                    <econdition field-name="lastName" operator="like"
+                        from="filter" ignore-if-empty="true"/>
+                    <econdition field-name="firstName" operator="like"
+                        from="filter" ignore-if-empty="true"/>
+                    <econdition field-name="companyName" operator="like"
+                        from="filter" ignore-if-empty="true"/>
+                </econditions>
+                <econdition field-name="userGroupId" ignore-if-empty="true"/>
                 <order-by field-name="lastName"/><order-by field-name="firstName"/>
             </entity-find>
             <if condition="!userPartyId"><set field="users" from="[]"/></if>
             <iterate entry="userInfo" list="userInfos">
+                <if condition="filter">
+                    <script>
+                        users.add([
+                            partyId: userInfo?.userPartyId,
+                            firstName: userInfo?.firstName,
+                            lastName: userInfo?.lastName,
+                            companyPartyId: userInfo.companyPartyId,
+                            companyName: userInfo.companyName         
+                            ])
+                    </script>
+                    <continue/>
+                </if>
                 <entity-find entity-name="mantle.party.PartyContent" list="contents">
                     <econdition field-name="partyId" from="userInfo.userPartyId"/>
                     <econdition field-name="partyContentTypeEnumId" 
@@ -181,6 +202,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <if condition="contents">    
                     <service-call name="growerp.100.ImageServices100.download#Image"
                         in-map="[contentLocation: contents[0].contentLocation]" out-map="context"/></if>
+                <!-- listing -->
                 <set field="userOut" from="[
                     partyId: userInfo?.userPartyId,
                     email: userInfo?.emailAddress,
@@ -190,11 +212,14 @@ along with this software (see the LICENSE.md file). If not, see
                     userGroupId: userInfo.userGroupId,
                     groupDescription: userInfo?.description,
                     language: userInfo?.locale.toString(),
+                    companyPartyId: userInfo.companyPartyId,
+                    companyName: userInfo.companyName,
                     image: imageFile]"/>
 
                 <if condition="!userPartyId">
                     <script>users.add(userOut)</script>
                     <else>
+                        <!-- more info for single user -->
                         <set field="user1" from="[
                             userId: userInfo?.userId,
                             userGroupId: userInfo?.userGroupId,
@@ -205,11 +230,14 @@ along with this software (see the LICENSE.md file). If not, see
                     </else>
                 </if>
             </iterate>
-            <if condition="users &amp;&amp; !userPartyId">
+            <!--if condition="users &amp;&amp; !userPartyId">
                 <log message="====getusers=result: ${users.size()}"/>
                 <script>users.sort{a, b -> 
                     a.lastName.compareToIgnoreCase(b.lastName) } </script>
-            </if>
+                </if>
+            <if condition="userPartyId">
+                    <log message="====single party: $user"/>
+            </if-->
         </actions>
     </service>
 
@@ -224,24 +252,66 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="user"/>
         </out-parameters>
         <actions>
+            <log message="========in: $user"/>
             <script> // convert JSON data
                 Object userIn = new groovy.json.JsonSlurper().parseText(user).user
             </script>
-            <service-call name="growerp.100.PartyServices100.get#Company" out-map="compOut"/>
-            <service-call name="growerp.100.PartyServices100.register#UserAndCompany"
-                out-map="regOut"
-                in-map="[
-                    firstName: userIn.firstName,
-                    lastName: userIn.lastName,
-                    emailAddress: userIn.email,
-                    locale: userIn.locale,
-                    username: userIn.name,
-                    externalId: userIn.externalid,
-                    userGroupId: userIn.userGroupId,
-                    companyPartyId: compOut.company.partyId]"/>
+            <service-call name="growerp.100.PartyServices100.get#Company"
+                out-map="compOut" in-map="[companyPartyId: userIn.companyPartyId]"/>
+            <log message="=======start create user ${userIn}"/>
+            <if condition="userIn.userGroupId == 'GROWERP_M_ADMIN' || 
+                                    userIn.userGroupId == 'GROWERP_M_EMPLOYEE'">
+                <log message="====before userand comp: ${compOut.company}"/>
+                <service-call name="growerp.100.PartyServices100.register#UserAndCompany"
+                    out-map="regOut"
+                    in-map="[
+                        firstName: userIn.firstName,
+                        lastName: userIn.lastName,
+                        emailAddress: userIn.email,
+                        locale: userIn.locale,
+                        username: userIn.name,
+                        externalId: userIn.externalid,
+                        userGroupId: userIn.userGroupId,
+                        companyPartyId: compOut.company.partyId]"/>
+                    <set field="userPartyId" from="regOut.user.partyId"/>
+                <else>
+                    <if condition="!userIn.companyName">
+                        <return error="true" message="Company name required for new lead, customer or supplier"/>
+                    </if>
+                    <service-call name="mantle.party.PartyServices.create#Account" 
+                        in-map="context + [roleTypeId: 'Employee', loginAfterCreate: false,
+                                firstName: userIn.firstName, lastName: userIn.lastName,
+                                emailAddress: userIn.email]"
+                        out-map="userAccount" />
+                    <set field="userPartyId" from="userAccount.partyId"/>
+                    <entity-find-one entity-name="mantle.party.Party"
+                            value-field="party" for-update="true">
+                        <field-map field-name="partyId" from="userPartyId"/>
+                    </entity-find-one>
+                    <set field="party.ownerPartyId" from="compOut.company.partyId"/>
+                    <entity-update value-field="party"/>
+                    <service-call out-map="comp"
+                        name="mantle.party.PartyServices.create#Organization"
+                        in-map="[organizationName: userIn.companyName,
+                                ownerPartyId: compOut.company.partyId]"/>
+                    
+                    <if condition="userIn.userGroupId == 'GROWERP_M_LEAD' ||
+                        userIn.userGroupId == 'GROWERP_M_CUSTOMER'">
+                        <set field="roleTypeId" value="Customer"/></if>
+                    <if condition="userIn.userGroupId == 'GROWERP_M_SUPPLIER'">
+                        <set field="roleTypeId" value="Supplier"/></if>
+                    <service-call name="create#mantle.party.PartyRelationship"
+                        in-map="[fromPartyId: userPartyId, fromRoleTypeId: 'Employee',
+                            relationshipTypeEnumId: 'PrtEmployee', fromDate: ec.user.nowTimestamp,
+                            toPartyId: comp.partyId, toRoleTypeId: roleTypeId]" />
+                    <service-call name="create#moqui.security.UserGroupMember"
+                        in-map="[userGroupId: userIn.userGroupId, userId: userAccount.userId]" />
+                </else>
+            </if>
             <service-call name="growerp.100.PartyServices100.get#User"
-                in-map="[userPartyId: regOut.user.partyId]"
+                in-map="[userPartyId: userPartyId]"
                 out-map="context"/>
+            <log message="====get create userOUT: $user"/>
         </actions>
     </service>
 
@@ -307,8 +377,21 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="growerp.100.ImageServices100.upload#Image"
                     in-map="[type: 'user', id: userIn.partyId, base64: base64]"/>
             </if>
+            <!-- update company name for customer, lead supplier -->
+            <log message="====userIn: $userIn"/>
+            <if condition="userIn.userGroupId != 'GROWERP_M_ADMIN' &amp;&amp; 
+                                    userIn.userGroupId != 'GROWERP_M_EMPLOYEE'">
+                <entity-find-one value-field="party" entity-name="mantle.party.Organization"
+                        for-update="true">
+                    <field-map field-name="partyId" from="userIn.companyPartyId"/>
+                </entity-find-one>
+                <if condition="userIn.companyName != party.organizationName">
+                    <set field="party.organizationName" from="userIn.companyName"/>
+                    <entity-update value-field="party"/>
+            </if></if>
             <!-- return updated user -->
-            <service-call name="growerp.100.PartyServices100.get#User" in-map="[userPartyId: userIn.partyId]" out-map="context"/>
+            <service-call name="growerp.100.PartyServices100.get#User"
+                in-map="[userPartyId: userIn.partyId]" out-map="context"/>
         </actions>
     </service>
 
@@ -439,7 +522,8 @@ along with this software (see the LICENSE.md file). If not, see
                         in-map="[fromPartyId: userAccount.partyId, fromRoleTypeId: 'Employee',
                             relationshipTypeEnumId: 'PrtEmployee', fromDate: fromDate,
                             toPartyId: companyPartyId, toRoleTypeId: 'OrgInternal']" />
-                    <service-call name="growerp.100.PartyServices100.load#DefaultData" in-map="context"/>
+                    <service-call name="growerp.100.PartyServices100.load#DefaultData" in-map="[
+                                companyPartyId: companyPartyId, userPartyId: userAccount.partyId]"/>
                     <service-call name="growerp.100.PartyServices100.get#User"
                         in-map="[userPartyId: userAccount.partyId]"
                         out-map="context"/>
@@ -491,6 +575,7 @@ along with this software (see the LICENSE.md file). If not, see
         <!-- not reachable outside -->
         <in-parameters>
             <parameter name="companyPartyId" required="true"/>
+            <parameter name="userPartyId" required="true"/>
             <parameter name="currencyId"/>
             <parameter name="classificationId" />
             <parameter name="environment"/>
@@ -512,127 +597,254 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- structure of data, image should be in dbresource://GrowERP/images/...Medium.jpg-->
             <!-- format of the data should be in the catalog format: 
                 https://github.com/growerp/growerp/blob/packages/models/lib/catalog.dart -->
-                <set field="product1" from="[ productName: 'cola', description:'description', price: 34, image: 'cola']"/>    
-                <set field="product2" from="[ productName: 'wiskey', description:'description', price: 31, image: 'wiskey']"/>    
-                <set field="products1" from="[ product1, product2]"/>
-                <set field="category1" from="[categoryName: 'drinks', image: 'drinks', image: 'drinks', 
-                                            products: products1]"/>    
-                <set field="product3" from="[ productName: 'macaroni', description:'description',
-                                            price: 12, image: 'macaroni']"/>    
-                <set field="product4" from="[ productName: 'hamburger', description:'description', price: 33, image: 'hamburger']"/>    
-                <set field="products2" from="[ product3, product4]"/>
-                <set field="category2" from="[categoryName: 'food', image: 'drinks', image: 'food',
-                                            products: products2]"/>    
-                <set field="categories" from="[category1, category2]"/>    
+            <set field="product1" from="[ productName: 'cola', description:'description', price: 34, image: 'cola']"/>    
+            <set field="product2" from="[ productName: 'wiskey', description:'description', price: 31, image: 'wiskey']"/>    
+            <set field="products1" from="[ product1, product2]"/>
+            <set field="category1" from="[categoryName: 'drinks', image: 'drinks', image: 'drinks', 
+                                        products: products1]"/>    
+            <set field="product3" from="[ productName: 'macaroni', description:'description',
+                                        price: 12, image: 'macaroni']"/>    
+            <set field="product4" from="[ productName: 'hamburger', description:'description', price: 33, image: 'hamburger']"/>    
+            <set field="products2" from="[ product3, product4]"/>
+            <set field="category2" from="[categoryName: 'food', image: 'drinks', image: 'food',
+                                        products: products2]"/>    
+            <set field="categories" from="[category1, category2]"/>    
 
-                <set field="users" from="
-                [
-                    [ firstName: 'Jan', lastName: 'Admin', emailAddress: 'jan1@example.com',
-                    locale: 'EN', username: 'jan1', externalId: 'ext',
-                    userGroupId: 'GROWERP_M_ADMIN' ],
-                    [ firstName: 'Jan', lastName: 'Employee', emailAddress: 'jan2@example.com',
+            <set field="users" from=
+            "[
+                [ firstName: 'Jan', lastName: 'Admin1', emailAddress: 'jan1@example.com',
+                locale: 'EN', username: 'jan1', externalId: 'ext',
+                userGroupId: 'GROWERP_M_ADMIN' ],
+                [ firstName: 'Jan', lastName: 'Employee1', emailAddress: 'jan2@example.com',
                     locale: 'EN', username: 'jan2', externalId: 'ext',
                     userGroupId: 'GROWERP_M_EMPLOYEE' ],
-                    [ firstName: 'Jan', lastName: 'Customer', emailAddress: 'jan3@example.com',
+                [ firstName: 'Jan', lastName: 'Customer1', emailAddress: 'jan3@example.com',
                     locale: 'EN', username: 'jan3', externalId: 'ext',
-                    userGroupId: 'GROWERP_M_CUSTOMER' ],
-                    [ firstName: 'Jan', lastName: 'lead', emailAddress: 'jan4@example.com',
+                    userGroupId: 'GROWERP_M_CUSTOMER', companyName: 'Customer org1'],
+                [ firstName: 'Jan', lastName: 'lead1', emailAddress: 'jan4@example.com',
                     locale: 'EN', username: 'jan4', externalId: 'ext',
-                    userGroupId: 'GROWERP_M_LEAD' ],
-                    [ firstName: 'Jan', lastName: 'Supplier', emailAddress: 'jan5@example.com',
+                    userGroupId: 'GROWERP_M_LEAD',  companyName: 'Lead org1'],
+                [ firstName: 'Jan', lastName: 'Supplier1', emailAddress: 'jan5@example.com',
                     locale: 'EN', username: 'jan5', externalId: 'ext',
-                    userGroupId: 'GROWERP_M_SUPPLIER' ]
-                ]"/>
+                    userGroupId: 'GROWERP_M_SUPPLIER', companyName: 'Supplier org1'],
+                [ firstName: 'Jan', lastName: 'Admin2', emailAddress: 'jan11@example.com',
+                    locale: 'EN', username: 'jan11', externalId: 'ext',
+                    userGroupId: 'GROWERP_M_ADMIN'],
+                [ firstName: 'Jan', lastName: 'Employee2', emailAddress: 'jan12@example.com',
+                    locale: 'EN', username: 'jan12', externalId: 'ext',
+                    userGroupId: 'GROWERP_M_EMPLOYEE' ],
+                [ firstName: 'Jan', lastName: 'Customer2', emailAddress: 'jan13@example.com',
+                    locale: 'EN', username: 'jan13', externalId: 'ext',
+                    userGroupId: 'GROWERP_M_CUSTOMER' , companyName: 'Customer org2'],
+                [ firstName: 'Jan', lastName: 'lead2', emailAddress: 'jan14@example.com',
+                    locale: 'EN', username: 'jan14', externalId: 'ext',
+                    userGroupId: 'GROWERP_M_LEAD' , companyName: 'Lead org2'],
+                [ firstName: 'Jan', lastName: 'Supplier2', emailAddress: 'jan15@example.com',
+                    locale: 'EN', username: 'jan15', externalId: 'ext',
+                    userGroupId: 'GROWERP_M_SUPPLIER' , companyName: 'Supplier org2'],
+            ]"/>
 
-                <set field="opportunities" from="
-                [
-                    [ opportunityName: 'The best opportunity', description: 'the best oppr description',
-                        nextStep: 'not sure yet', estimatedAmount: 1000, estimatedProbability: 33,
-                        ownerPartyId: companyPartyId, opportunityStageId: 'Prospecting' ],
-                    [ opportunityName: 'The second best opportunity', description: 'the secondbest oppr description',
-                        nextStep: 'not sure yet', estimatedAmount: 5000, estimatedProbability: 66,
-                        ownerPartyId: companyPartyId, opportunityStageId: 'Proposal' ]
-                ]"/>
+            <set field="opportunities" from="
+            [
+                [ opportunityName: 'The best opportunity', description: 'the best oppr description',
+                    nextStep: 'not sure yet', estimatedAmount: 1000, estimatedProbability: 33,
+                    ownerPartyId: companyPartyId, opportunityStageId: 'Prospecting',
+                    accountPartyId:  userPartyId],
+                [ opportunityName: 'The second best opportunity', description: 'the secondbest oppr description',
+                    nextStep: 'not sure yet', estimatedAmount: 5000, estimatedProbability: 66,
+                    ownerPartyId: companyPartyId, opportunityStageId: 'Proposal',
+                    accountPartyId:  userPartyId ]
+            ]"/>
+
+            <set field="orderItem1" from="[ quantity: 5, price: 22.1]"/>    
+            <set field="orderItem2" from="[ quantity: 9, price: 33.4]"/>    
+            <set field="orderItems1" from="[ orderItem1, orderItem2]"/>
+            <set field="order1" from="[ orderStatusId: 'Placed', orderItems: orderItems1 ]"/>    
+            <set field="orderItem3" from="[ quantity: 3, price: 12.1]"/>    
+            <set field="orderItem4" from="[ quantity: 2, price: 13.4]"/>    
+            <set field="orderItems2" from="[ orderItem1, orderItem2]"/>
+            <set field="order2" from="[ orderStatusId: 'Placed', orderItems: orderItems2 ]"/>    
+            <set field="orders" from="[order1, order2]"/>
+
             <set field="nowDate" from="ec.user.nowTimestamp"/>
             <set field="counter" value="1" type="Integer"/>
             <while condition="counter--">
-            <iterate list="categories" entry="el">
-                <service-call name="create#mantle.product.category.ProductCategory"
-                    in-map="[categoryName: counter.toString() + el.categoryName,
-                            description: el.description,
-                            productCategoryTypeEnumId: 'PctCatalog',
-                            ownerPartyId: companyPartyId]"
-                    out-map="context"/>
-                <log message="===== catId: $productCategoryId created"/>
-                <service-call 
-                    name="create#mantle.product.category.ProductCategoryRollup"
-                    in-map="[parentProductCategoryId: rootProductCategoryId,
-                             productCategoryId: productCategoryId]"/>
-                <service-call name="create#ProductCategoryContent" in-map="[
-                    productCategoryId: productCategoryId,
-                    categoryContentTypeEnumId: 'PcctImageThumbNail',
-                    contentLocation: 'dbresource://GrowERP/images/' +
-                        el.image + 'Small.png']" />
-                <service-call name="create#ProductCategoryContent" in-map="[
-                    productCategoryId: productCategoryId,
-                    categoryContentTypeEnumId: 'PcctImageMedium',
-                    contentLocation: 'dbresource://GrowERP/images/' +
-                        el.image + 'Medium.png']" />
-                <iterate list="el.products" entry="product">
-                    <service-call name="create#mantle.product.Product" in-map="[
-                        productName: counter.toString() + product.productName,
-                        description: product.description,
-                        ownerPartyId: companyPartyId,
-                        productTypeEnumId: 'PtAsset',
-                        assetTypeEnumId: 'AstTpInventory',
-                        assetClassEnumId: 'AsClsInventoryFin']" out-map="context" />
-                    <log message="===== productId: $productId created"/>
-                    <service-call
-                        name="create#mantle.product.category.ProductCategoryMember"
-                        in-map="[productId: productId, productCategoryId: productCategoryId, fromDate: fromDate]"/>
-                    <log message="===== productmember created"/>
-                    <service-call name="create#mantle.product.ProductPrice"
-                        in-map="[productId: productId, priceTypeEnumId: 'PptList',
-                        priceUomId: currencyId, price: product.price,
-                        fromDate: ec.user.nowTimestamp,
-                        pricePurposeEnumId: 'PppPurchase']"/>
-                    <service-call name="create#ProductContent" in-map="[
-                        productId: productId,
-                        productContentTypeEnumId: 'PcntImageSmall',
+                <iterate list="categories" entry="el">
+                    <service-call name="create#mantle.product.category.ProductCategory"
+                        in-map="[categoryName: counter.toString() + el.categoryName,
+                                description: el.description,
+                                productCategoryTypeEnumId: 'PctCatalog',
+                                ownerPartyId: companyPartyId]"
+                        out-map="context"/>
+                    <service-call 
+                        name="create#mantle.product.category.ProductCategoryRollup"
+                        in-map="[parentProductCategoryId: rootProductCategoryId,
+                                productCategoryId: productCategoryId]"/>
+                    <service-call name="create#ProductCategoryContent" in-map="[
+                        productCategoryId: productCategoryId,
+                        categoryContentTypeEnumId: 'PcctImageThumbNail',
                         contentLocation: 'dbresource://GrowERP/images/' +
-                            product.image + 'Small.png']" />
-                    <service-call name="create#ProductContent" in-map="[
-                        productId: productId,
-                        productContentTypeEnumId: 'PcntImageMedium',
+                            el.image + 'Small.png']" />
+                    <service-call name="create#ProductCategoryContent" in-map="[
+                        productCategoryId: productCategoryId,
+                        categoryContentTypeEnumId: 'PcctImageMedium',
                         contentLocation: 'dbresource://GrowERP/images/' +
-                        product.image + 'Medium.png']" />
+                            el.image + 'Medium.png']" />
+                    <set field="index" type="Integer" value="0"/>
+                    <iterate list="el.products" entry="product">
+                        <service-call name="create#mantle.product.Product" in-map="[
+                            productName: counter.toString() + product.productName,
+                            description: product.description,
+                            ownerPartyId: companyPartyId,
+                            productTypeEnumId: 'PtAsset',
+                            assetTypeEnumId: 'AstTpInventory',
+                            assetClassEnumId: 'AsClsInventoryFin']" out-map="context" />
+                        <log message="===== productId: $productId created"/>
+                        <if condition="counter == 0 &amp;&amp; index == 0">
+                            <set field="product1" from="productId"/>
+                        </if>
+                        <if condition="counter == 0 &amp;&amp; index == 1">
+                            <set field="product2" from="productId"/>
+                        </if>
+                        <service-call
+                            name="create#mantle.product.category.ProductCategoryMember"
+                            in-map="[productId: productId, productCategoryId: productCategoryId, fromDate: fromDate]"/>
+                        <service-call name="create#mantle.product.ProductPrice"
+                            in-map="[productId: productId, priceTypeEnumId: 'PptList',
+                            priceUomId: currencyId, price: product.price,
+                            fromDate: ec.user.nowTimestamp,
+                            pricePurposeEnumId: 'PppPurchase']"/>
+                        <service-call name="create#ProductContent" in-map="[
+                            productId: productId,
+                            productContentTypeEnumId: 'PcntImageSmall',
+                            contentLocation: 'dbresource://GrowERP/images/' +
+                                product.image + 'Small.png']" />
+                        <service-call name="create#ProductContent" in-map="[
+                            productId: productId,
+                            productContentTypeEnumId: 'PcntImageMedium',
+                            contentLocation: 'dbresource://GrowERP/images/' +
+                            product.image + 'Medium.png']" />
+                        <set field="index" from="index + 1"/>
+                    </iterate>
                 </iterate>
-            </iterate>
-            <iterate list="users" entry="user">
-                <service-call name="growerp.100.PartyServices100.register#UserAndCompany"
-                    in-map="[
-                    companyPartyId: companyPartyId,
-                    firstName: user.firstName,
-                    lastName: counter.toString() + user.lastName,
-                    emailAddress: companyPartyId + counter.toString() + user.emailAddress,
-                    locale: user.locale,
-                    username: companyPartyId + counter.toString() + user.username,
-                    externalId: user.externalid,
-                    userGroupId: user.userGroupId,
-                ]" out-map="out"/>
-            </iterate>
-            <iterate list="opportunities" entry="opp">
-                <service-call name="create#mantle.sales.opportunity.SalesOpportunity"
-                in-map="[
-                    opportunityName: opp.opportunityName,
-                    description: opp.description,
-                    nextStep: opp.nextStep,
-                    estimatedAmount: opp.estimatedAmount,
-                    estimatedProbability: opp.estimatedProbability,
-                    opportunityStageId: opp.opportunityStageId,
-                    ownerPartyId: companyPartyId
-                ]"/>
-            </iterate>
+                <set field="index" type="Integer" value="0"/>
+                <iterate list="users" entry="us">
+                    <!--service-call name="growerp.100.PartyServices100.register#UserAndCompany"
+                        in-map="[
+                        companyPartyId: companyPartyId,
+                        firstName: us.firstName,
+                        lastName: counter.toString() + us.lastName,
+                        emailAddress: companyPartyId + counter.toString() + us.emailAddress,
+                        locale: 'EN',
+                        username: companyPartyId + counter.toString() + us.username,
+                        externalId: us.externalid,
+                        userGroupId: us.userGroupId,
+                    ]" out-map="context"/-->
+                    <set field="userIn" from="groovy.json.JsonOutput.toJson([user:[
+                        companyPartyId: companyPartyId,
+                        firstName: us.firstName,
+                        lastName: counter.toString() + us.lastName,
+                        email: companyPartyId + counter.toString() + us.emailAddress,
+                        locale: 'EN',
+                        username: companyPartyId + counter.toString() + us.username,
+                        externalId: us.externalid,
+                        userGroupId: us.userGroupId, companyName: us.companyName
+                    ]])"/>
+                    <service-call name="growerp.100.PartyServices100.create#User"
+                            in-map="[user: userIn]" out-map="context"/>
+                    <if condition="counter == 0">
+                        <if condition="user.userGroupId == 'GROWERP_M_LEAD'">
+                            <if condition="!leadCompany1">
+                                <set field="leadCompany1" from="user.companyPartyId"/>
+                                <set field="leadUser1" from="user.partyId"/>
+                                <else><if condition="!leadCompany2">
+                                    <set field="leadCompany2" from="user.companyPartyId"/></if>
+                                    <set field="leadUser2" from="user.partyId"/>
+                                </else>
+                            </if>
+                        </if>
+                    </if>
+                    <if condition="counter == 0">
+                        <if condition="user.userGroupId == 'GROWERP_M_CUSTOMER'">
+                            <if condition="!customerCompany1">
+                                <set field="customerCompany1" from="user.companyPartyId"/>
+                                <set field="customerUser1" from="user.partyId"/>
+                                <else><if condition="!customerCompany2">
+                                    <set field="customerCompany2" from="user.companyPartyId"/></if>
+                                    <set field="customerUser2" from="user.partyId"/>
+                                </else>
+                            </if>
+                        </if>
+                    </if>
+                    <if condition="counter == 0">
+                        <if condition="user.userGroupId == 'GROWERP_M_SUPPLIER'">
+                            <if condition="!supplierCompany1">
+                                <set field="supplierCompany1" from="user.companyPartyId"/>
+                                <set field="supplierUser1" from="user.partyId"/>
+                                <else><if condition="!supplierCompany2">
+                                    <set field="supplierCompany2" from="user.companyPartyId"/></if>
+                                    <set field="supplierUser2" from="user.partyId"/>
+                                </else>
+                            </if>
+                        </if>
+                    </if>
+                    <if condition="counter == 0">
+                        <if condition="user.userGroupId == 'GROWERP_M_EMPLOYEE'">
+                            <if condition="!employeeCompany1">
+                                <set field="employeeCompany1" from="user.companyPartyId"/>
+                                <set field="employeeUser1" from="user.partyId"/>
+                                <else><if condition="!employeeCompany2">
+                                    <set field="employeeCompany2" from="user.companyPartyId"/></if>
+                                    <set field="employeeUser2" from="user.partyId"/>
+                                </else>
+                            </if>
+                        </if>
+                    </if>
+                </iterate>
+                <set field="index" type="Integer" value="0"/>
+                <iterate list="opportunities" entry="opp">
+                    <set field="oppIn" from="groovy.json.JsonOutput.toJson([opportunity:[
+                        opportunityName: opp.opportunityName,
+                        description: opp.description,
+                        nextStep: opp.nextStep,
+                        estimatedAmount: opp.estimatedAmount,
+                        estimatedProbability: opp.estimatedProbability,
+                        opportunityStageId: opp.opportunityStageId,
+                        ownerPartyId: companyPartyId,
+                        accountPartyId: userPartyId,
+                        leadPartyId: index == 0 ? leadUser1 : leadUser2
+                    ]])"/>
+                    <service-call name="growerp.100.CrmServices100.create#Opportunity"
+                                    in-map="[opportunity: oppIn]"/>
+                    <set field="index" from="index + 1"/>
+                </iterate>
+                <entity-find entity-name="mantle.product.store.ProductStore" list="stores">
+                    <econdition field-name="organizationPartyId" from="companyPartyId"/>
+                </entity-find>
+                <set field="productStoreId" from="stores[0].productStoreId"/>
+                <entity-find-one entity-name="mantle.party.Person" value-field="person">
+                    <field-map field-name="partyId" from="employee1"/>
+                </entity-find-one>
+                <set field="placedDate" from="ec.user.nowTimestamp"/>
+                <set field="index" type="Integer" value="0"/>
+                <iterate list="orders" entry="order">
+                    <log message="========== $index =========="/>
+                    <service-call name="mantle.order.OrderServices.create#Order"
+                        in-map="context + [vendorPartyId: index==0?companyPartyId:supplierCompany1,
+                                    customerPartyId: index==0?customerCompany1:companyPartyId,
+                                enteredByPartyId: index==0?employeeUser1:employeeUser2]" 
+                        out-map="context"/>
+                    <iterate list="order.orderItems" entry="item">
+                        <service-call
+                        name="mantle.order.OrderServices.add#OrderProductQuantity"
+                        in-map="context + [productId: product1,
+                                            quantity: item.quantity,
+                                            unitAmount: item.price,
+                                            currencyUomId: currencyId]"
+                        out-map="itemcreate"/>                           
+                    </iterate>
+                    <set field="index" from="index + 1"/>                
+                </iterate>
             </while>
             <!--if condition="environment != 'production'"-->
         </actions>

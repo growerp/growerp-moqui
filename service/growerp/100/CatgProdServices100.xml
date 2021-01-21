@@ -21,6 +21,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="productId"/>
             <parameter name="start" default-value="0" type="Integer"/>
             <parameter name="limit" default-value="10" type="Integer"/>
+            <parameter name="filter"/>
         </in-parameters>
         <out-parameters>
             <parameter name="product" type="Map"/>
@@ -31,6 +32,8 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call
                 name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId"
                  out-map="context"/>
+            <if condition="filter">
+                <set field="filter" value="%${filter}%"/></if>
             <entity-find offset="start" limit="limit"
                     entity-name="growerp.mobile.product.ProductAndPriceAndProductCategory"
                         list="productList">
@@ -41,6 +44,8 @@ along with this software (see the LICENSE.md file). If not, see
                         </econditions>
                         <econdition field-name="productId" operator="is-not-null"/>
                         <econdition field-name="productId" ignore-if-empty="true"/>
+                        <econdition field-name="productName" operator="like"
+                            from="filter" ignore-if-empty="true"/>
                         <order-by field-name="productName"/>
                     </entity-find>
             <if condition="!productId">
@@ -51,6 +56,16 @@ along with this software (see the LICENSE.md file). If not, see
                 </else>
             </if>
             <iterate entry="product" list="productList">
+                <if condition="filter">
+                    <script>
+                        products.add([
+                            productId: product.productId,
+                            productName: product.productName,
+                            price: product.price
+                                ])
+                    </script>
+                    <continue/>
+                </if>
                 <entity-find entity-name="mantle.product.ProductContent" list="contents">
                     <econdition field-name="productId" from="product.productId"/>
                     <econdition field-name="productContentTypeEnumId" from="contentTypeId"/>
@@ -73,7 +88,6 @@ along with this software (see the LICENSE.md file). If not, see
                     </else>
                 </if>
             </iterate>
-            <log message="====get products start: $start limit: $limit result: ${products.size()}"/>
         </actions>
     </service>
 
@@ -87,9 +101,7 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <script> // convert JSON data
-                import groovy.json.JsonSlurper
-                JsonSlurper slurper = new JsonSlurper()
-                Object productIn = new JsonSlurper().parseText(product).product</script>
+                Object productIn = new groovy.json.JsonSlurper().parseText(product).product</script>
             <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"/>
             <set field="ownerPartyId" from="company.partyId"/>
             <set field="quantityUomId" value="OTH_ea"/>
@@ -129,9 +141,7 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <script> // convert JSON data
-                import groovy.json.JsonSlurper
-                JsonSlurper slurper = new JsonSlurper()
-                Object productIn = new JsonSlurper().parseText(product).product</script>
+                Object productIn = new groovy.json.JsonSlurper().parseText(product).product</script>
             <if condition="!productIn.productId"><return error="true" message="ProductId required"/></if>
             <service-call name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId"
                 out-map="context"/>
@@ -207,30 +217,49 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="categoryId"/>
             <parameter name="start" default-value="0" type="Integer"/>
             <parameter name="limit" default-value="20" type="Integer"/>
+            <parameter name="filter"/>
         </in-parameters>
         <out-parameters>
             <parameter name="category" type="Map"/>
             <parameter name="categories" type="List"/>
         </out-parameters>
         <actions>
-            <log message="=====get categories with start: $start and limit $limit"/>
-            <service-call name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId" out-map="context"/>
+            <log message="=====get categories with start: $start and limit $limit filter: $filter"/>
+            <service-call  out-map="context"
+                name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId"/>
             <entity-find
                 entity-name="mantle.product.category.ProductCategory" list="rootList">
                 <econdition field-name="ownerPartyId" from="ownerPartyId?:companyPartyId"/>
-                <econdition field-name="productCategoryTypeEnumId" value="PctRoot"/></entity-find>
+                <econdition field-name="productCategoryTypeEnumId" value="PctRoot"/>
+            </entity-find>
             <if condition="rootList">
                 <set field="parentProductCategoryId" from="rootList[0].productCategoryId"/>
-            <else><return error="true" message="Category root not found for company: ${ownerPartyId}"/></else></if>
-            <entity-find  offset="start" limit="limit"
-                entity-name="growerp.mobile.party.category.ProductCategoryParentsAndChild" list="groups">
+            <else><return error="true"
+                message="Category root not found for company: ${ownerPartyId}"/></else></if>
+            <if condition="filter">
+                <set field="filter" value="%${filter}%"/></if>
+            <entity-find  offset="start" limit="limit" list="groups"
+                entity-name="growerp.mobile.party.category.ProductCategoryParentsAndChild">
                 <date-filter/>
                 <econdition field-name="ownerPartyId" from="ownerPartyId?:companyPartyId"/>
                 <econdition field-name="parentProductCategoryId"/>
-                <econdition field-name="productCategoryId" from="categoryId" ignore-if-empty="true"/></entity-find>
+                <econdition field-name="productCategoryId"
+                    from="categoryId" ignore-if-empty="true"/>
+                <econdition field-name="categoryName" operator="like"
+                    from="filter" ignore-if-empty="true"/>
+            </entity-find>
             <if condition="!categoryId">
                 <set field="categories" from="[]"/></if>
             <iterate entry="group" list="groups">
+                <if condition="filter">
+                    <script>
+                        categories.add([
+                            categoryId: group.productCategoryId,
+                            categoryName: group.categoryName,
+                                ])
+                    </script>
+                    <continue/>
+                </if>
                 <entity-find entity-name="mantle.product.category.ProductCategoryContent" list="contents">
                     <econdition field-name="productCategoryId" from="group.productCategoryId"/>
                     <econdition field-name="categoryContentTypeEnumId"
@@ -274,9 +303,7 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <script> // convert JSON data
-                import groovy.json.JsonSlurper
-                JsonSlurper slurper = new JsonSlurper()
-                Object categoryIn = new JsonSlurper().parseText(category).category</script>
+                Object categoryIn = new groovy.json.JsonSlurper().parseText(category).category</script>
             <service-call out-map="context"
                 name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId"/>
             <entity-find
@@ -315,9 +342,7 @@ along with this software (see the LICENSE.md file). If not, see
         <out-parameters><parameter name="category"/></out-parameters>
         <actions>
             <script> // convert JSON data
-                import groovy.json.JsonSlurper
-                JsonSlurper slurper = new JsonSlurper()
-                Object categoryIn = new JsonSlurper().parseText(category).category</script>
+                Object categoryIn = new groovy.json.JsonSlurper().parseText(category).category</script>
             <service-call name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId" out-map="context"/>
             <entity-find-one value-field="productCategory" entity-name="mantle.product.category.ProductCategory" for-update="true">
                 <field-map field-name="productCategoryId" from="categoryIn.categoryId"/>
