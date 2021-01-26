@@ -828,11 +828,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="placedDate" from="ec.user.nowTimestamp"/>
                 <set field="index" type="Integer" value="0"/>
                 <iterate list="orders" entry="order">
-                    <log message="========== $index =========="/>
                     <service-call name="mantle.order.OrderServices.create#Order"
-                        in-map="context + [vendorPartyId: index==0?companyPartyId:supplierCompany1,
-                                    customerPartyId: index==0?customerCompany1:companyPartyId,
-                                enteredByPartyId: index==0?employeeUser1:employeeUser2]" 
+                        in-map="context + [vendorPartyId: index==0 ? companyPartyId : supplierCompany1,
+                                    customerPartyId: index==0 ? customerCompany1 : companyPartyId,
+                                enteredByPartyId: index==0 ? employeeUser1 : employeeUser2]" 
                         out-map="context"/>
                     <iterate list="order.orderItems" entry="item">
                         <service-call

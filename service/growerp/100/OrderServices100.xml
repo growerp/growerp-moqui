@@ -168,20 +168,24 @@ along with this software (see the LICENSE.md file). If not, see
             </script>
             <service-call out-map="context"
                 name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner"/>
-            <if condition="!order.supplierPartyid || !order.customerPartyId">
-                <return error="true" message="Both customer and supplier should be provided"/>
-            </if>
-            <if condition="order.supplierPartyid != ownerPartyId &amp;&amp; order.customerPartyId != ownerPartyId">
-                <return error="true" message="Either customer or supplier Partyid should be the owner company?"/>
+            <if condition="order.sales">
+                <set field="vendorPartyId" from="ownerCompanyId"/>
+                <set field="customerPartyId" from="order.otherUser.companyPartyId"/>
+                <else>
+                    <set field="customerPartyId" from="ownerCompanyId"/>
+                    <set field="vendorPartyId" from="order.otherUser.companyPartyId"/>
+                </else>
             </if>
             <entity-find entity-name="mantle.product.store.ProductStore" list="stores">
                 <econdition field-name="organizationPartyId" from="ownerPartyId"/>
             </entity-find>
             <set field="productStoreId" from="stores[0].productStoreId"/>
-            <set field="currencyUomId" from="company.currency"/>
-            <set field="customerPartyId" from="order.customerPartyId"/>
+            <entity-find-one entity-name="mantle.ledger.config.PartyAcctgPreference"
+                    value-field="aPref">
+                <field-map field-name="organizationPartyId" from="ownerPartyId"/>
+            </entity-find-one>
+            <set field="currencyId" from="aPref.baseCurrencyUomId"/>
             <set field="placedDate" from="ec.user.nowTimestamp"/>
-            <set field="vendorPartyId" from="order.supplierPartyId"/>
             <service-call name="mantle.order.OrderServices.create#Order"
                 in-map="context" out-map="context"/>
             <iterate entry="item" list="order.orderItems">
