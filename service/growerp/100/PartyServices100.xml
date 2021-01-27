@@ -163,11 +163,11 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="filter">
                 <set field="filter" value="%${filter}%"/>
             </if>
-            <service-call name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner"
-                    in-map="[userPartyId: userPartyId]" out-map="context"/>
-            <entity-find entity-name="growerp.mobile.CompanyPersonAndLoginGroup"  list="userInfos"
-                    offset="start" limit="limit" >
-                <econdition field-name="ownerPartyId"/>
+            <service-call out-map="relatedLogin"
+                name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner"/>
+            <entity-find offset="start" limit="limit" list="userInfos"
+                entity-name="growerp.mobile.CompanyPersonAndLoginGroup">
+                <econdition field-name="ownerPartyId" from="relatedLogin.ownerPartyId"/>
                 <econdition field-name="userPartyId" ignore-if-empty="true"/>
                 <econditions combine="or">
                     <econdition field-name="lastName" operator="like"
@@ -236,14 +236,14 @@ along with this software (see the LICENSE.md file). If not, see
                     a.lastName.compareToIgnoreCase(b.lastName) } </script>
                 </if>
             <if condition="userPartyId">
-                    <log message="====single party: $user"/>
+                <log message="====single party: $user"/>
             </if-->
         </actions>
     </service>
 
     <service verb="create" noun="User">
         <description>
-            add a new user on the same company as the logged in user
+            add a new user on an existing owner company
         </description>
         <in-parameters>
             <parameter name="user"/>
@@ -252,66 +252,57 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="user"/>
         </out-parameters>
         <actions>
-            <log message="========in: $user"/>
             <script> // convert JSON data
                 Object userIn = new groovy.json.JsonSlurper().parseText(user).user
             </script>
-            <service-call name="growerp.100.PartyServices100.get#Company"
-                out-map="compOut" in-map="[companyPartyId: userIn.companyPartyId]"/>
-            <log message="=======start create user ${userIn}"/>
-            <if condition="userIn.userGroupId == 'GROWERP_M_ADMIN' || 
-                                    userIn.userGroupId == 'GROWERP_M_EMPLOYEE'">
-                <log message="====before userand comp: ${compOut.company}"/>
-                <service-call name="growerp.100.PartyServices100.register#UserAndCompany"
-                    out-map="regOut"
-                    in-map="[
-                        firstName: userIn.firstName,
-                        lastName: userIn.lastName,
-                        emailAddress: userIn.email,
-                        locale: userIn.locale,
-                        username: userIn.name,
-                        externalId: userIn.externalid,
-                        userGroupId: userIn.userGroupId,
-                        companyPartyId: compOut.company.partyId]"/>
-                    <set field="userPartyId" from="regOut.user.partyId"/>
+            <if condition="userIn.userGroupId == 'GROWERP_M_EMPLOYEE' ||
+                    userIn.userGroupId == 'GROWERP_M_ADMIN'">
+                <set field="roleTypeId" value="Employee"/></if>
+            <if condition="userIn.userGroupId == 'GROWERP_M_LEAD' ||
+                    userIn.userGroupId == 'GROWERP_M_CUSTOMER'">
+                <set field="roleTypeId" value="Customer"/></if>
+            <if condition="userIn.userGroupId == 'GROWERP_M_SUPPLIER'">
+                <set field="roleTypeId" value="Supplier"/></if>
+
+            <service-call out-map="relComp"
+                name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner"/>
+            <service-call name="mantle.party.PartyServices.create#Account" 
+                in-map="context + [roleTypeId: 'Employee', loginAfterCreate: false,
+                        firstName: userIn.firstName, lastName: userIn.lastName,
+                        emailAddress: userIn.email]"
+                out-map="userAccount" />
+            <set field="userPartyId" from="userAccount.partyId"/>
+            <!-- update owner on userPartyId -->
+            <entity-find-one entity-name="mantle.party.Party"
+                    value-field="party" for-update="true">
+                <field-map field-name="partyId" from="userPartyId"/>
+            </entity-find-one>
+            <set field="party.ownerPartyId" from="relComp.ownerPartyId"/>
+            <entity-update value-field="party"/>
+            <!-- no need to create company for employee and admin -->
+            <if condition="userIn.userGroupId != 'GROWERP_M_ADMIN' &amp;&amp; 
+                            userIn.userGroupId != 'GROWERP_M_EMPLOYEE'">
+                <if condition="!userIn.companyName">
+                    <return error="true"
+                        message="Company name required for new lead, customer or supplier"/>
+                </if>
+                <service-call out-map="comp"
+                    name="mantle.party.PartyServices.create#Organization"
+                    in-map="[organizationName: userIn.companyName,
+                            ownerPartyId: relComp.ownerPartyId]"/>
+                <set field="companyPartyId" from="comp.partyId"/>
                 <else>
-                    <if condition="!userIn.companyName">
-                        <return error="true" message="Company name required for new lead, customer or supplier"/>
-                    </if>
-                    <service-call name="mantle.party.PartyServices.create#Account" 
-                        in-map="context + [roleTypeId: 'Employee', loginAfterCreate: false,
-                                firstName: userIn.firstName, lastName: userIn.lastName,
-                                emailAddress: userIn.email]"
-                        out-map="userAccount" />
-                    <set field="userPartyId" from="userAccount.partyId"/>
-                    <entity-find-one entity-name="mantle.party.Party"
-                            value-field="party" for-update="true">
-                        <field-map field-name="partyId" from="userPartyId"/>
-                    </entity-find-one>
-                    <set field="party.ownerPartyId" from="compOut.company.partyId"/>
-                    <entity-update value-field="party"/>
-                    <service-call out-map="comp"
-                        name="mantle.party.PartyServices.create#Organization"
-                        in-map="[organizationName: userIn.companyName,
-                                ownerPartyId: compOut.company.partyId]"/>
-                    
-                    <if condition="userIn.userGroupId == 'GROWERP_M_LEAD' ||
-                        userIn.userGroupId == 'GROWERP_M_CUSTOMER'">
-                        <set field="roleTypeId" value="Customer"/></if>
-                    <if condition="userIn.userGroupId == 'GROWERP_M_SUPPLIER'">
-                        <set field="roleTypeId" value="Supplier"/></if>
-                    <service-call name="create#mantle.party.PartyRelationship"
-                        in-map="[fromPartyId: userPartyId, fromRoleTypeId: 'Employee',
-                            relationshipTypeEnumId: 'PrtEmployee', fromDate: ec.user.nowTimestamp,
-                            toPartyId: comp.partyId, toRoleTypeId: roleTypeId]" />
-                    <service-call name="create#moqui.security.UserGroupMember"
-                        in-map="[userGroupId: userIn.userGroupId, userId: userAccount.userId]" />
+                    <set field="companyPartyId" from="relComp.ownerPartyId"/>
                 </else>
             </if>
+            <service-call name="create#mantle.party.PartyRelationship"
+                in-map="[fromPartyId: userPartyId, fromRoleTypeId: 'Employee',
+                    relationshipTypeEnumId: 'PrtEmployee', fromDate: ec.user.nowTimestamp,
+                    toPartyId: companyPartyId, toRoleTypeId: roleTypeId]" />
+            <service-call name="create#moqui.security.UserGroupMember"
+                in-map="[userGroupId: userIn.userGroupId, userId: userAccount.userId]" />
             <service-call name="growerp.100.PartyServices100.get#User"
-                in-map="[userPartyId: userPartyId]"
-                out-map="context"/>
-            <log message="====get create userOUT: $user"/>
+                in-map="[userPartyId: userPartyId]" out-map="context"/>
         </actions>
     </service>
 
@@ -378,7 +369,6 @@ along with this software (see the LICENSE.md file). If not, see
                     in-map="[type: 'user', id: userIn.partyId, base64: base64]"/>
             </if>
             <!-- update company name for customer, lead supplier -->
-            <log message="====userIn: $userIn"/>
             <if condition="userIn.userGroupId != 'GROWERP_M_ADMIN' &amp;&amp; 
                                     userIn.userGroupId != 'GROWERP_M_EMPLOYEE'">
                 <entity-find-one value-field="party" entity-name="mantle.party.Organization"
@@ -422,10 +412,7 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
     <service verb="register" noun="UserAndCompany" authenticate="anonymous-all">
-        <description>
-            registers with a minimal setup for a user with a given group to an existing company or when not provided
-            will create an accounting organization with the provided name and currency
-        </description>
+        <description>Register a new accounting/ownercompany with an admin user</description>
         <in-parameters>
             <!-- user information -->
             <parameter name="firstName" required="true" />
@@ -440,7 +427,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="userGroupId" default-value="GROWERP_M_CUSTOMER"/> <!--securitygroup required for non admin users-->
             <parameter name="locale" />
             <!-- company information -->
-            <parameter name="companyPartyId" /> <!-- add users for existing company -->
             <parameter name="companyName"/><!-- can be empty with new user existing company -->
             <parameter name="companyEmailAddress"/>
             <parameter name="currencyId"/>
@@ -457,117 +443,80 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="mantle.party.PartyServices.create#Account" 
                 in-map="context + [roleTypeId: 'Employee', loginAfterCreate: false]"
                 out-map="userAccount" />
+            <set field="userPartyId" from="userAccount.partyId"/>
             <set field="fromDate" from="ec.user.nowTimestamp"/>
             <if condition="userAccount.partyId != null">
-                <if condition="companyPartyId == null">
-                    <service-call name="mantle.party.PartyServices.create#Organization"
-                        in-map="context + [roleTypeId: 'OrgInternal',organizationName: companyName]"
-                        out-map="company" />
-                    <set field="companyPartyId" from="company.partyId" />
-                    <service-call name="mantle.party.ContactServices.create#EmailAddress" 
-                        in-map="[emailAddress: companyEmailAddress, partyId: companyPartyId,
-                            contactMechPurposeId:'EmailPrimary']" out-map="emailOut"/>
-                    <service-call name="mantle.ledger.LedgerServices.init#PartyAccountingConfiguration"
-                        in-map="[sourcePartyId: 'DefaultSettings',
-                                organizationPartyId: companyPartyId, baseCurrencyUomId: currencyId]" />
-                    <if condition="!classificationId">
-                        <return error="true" message="When creating a new company classificationId is required" /></if>
-                    <service-call name="create#mantle.party.PartyClassificationAppl"
-                        in-map="[partyId: companyPartyId, partyClassificationId: classificationId]" />
-                    <!-- create productStore -->
-                    <service-call name="create#mantle.product.store.ProductStore"
-                        out-map="context" in-map="[organizationPartyId: companyPartyId,
-                            requireInventory: 'N',
-                            reservationOrderEnumId:'AsResOrdNoRes',
-                            defaultCurrencyUomId: currencyId]" />
-                    <entity-find-one entity-name="mantle.party.PartyClassification"
-                            value-field="partyClassification">
-                        <field-map field-name="partyClassificationId" from="classificationId"/>
-                    </entity-find-one>
-                    <!-- create root category -->
-                    <service-call name="create#mantle.product.category.ProductCategory" out-map="rootCat" 
-                        in-map="[ownerPartyId: companyPartyId, productCategoryTypeEnumId: 'PctRoot',
-                            categoryName: 'Root category for: ' + partyClassification.description]" />
-                    <service-call name="create#mantle.product.store.ProductStoreCategory" 
-                        in-map="[productCategoryId: rootCat.productCategoryId,
-                            storeCategoryTypeEnumId: 'PsctBrowseRoot',
-                            productStoreId: context.productStoreId, fromDate: fromDate]" />
-                </if>
+                <!-- add the user as admin -->
+                <service-call name="create#moqui.security.UserGroupMember"
+                    in-map="[userGroupId: 'GROWERP_M_ADMIN', userId: userAccount.userId]"/>
+                <!-- create company -->
+                <service-call name="mantle.party.PartyServices.create#Organization"
+                    in-map="context + [roleTypeId: 'OrgInternal',organizationName: companyName]"
+                    out-map="company" />
+                <set field="companyPartyId" from="company.partyId" />
+                <!-- company email address -->
+                <service-call name="mantle.party.ContactServices.create#EmailAddress" 
+                    in-map="[emailAddress: companyEmailAddress, partyId: companyPartyId,
+                        contactMechPurposeId:'EmailPrimary']" out-map="emailOut"/>
+                <!-- initialize accounting with defaults -->
+                <service-call name="mantle.ledger.LedgerServices.init#PartyAccountingConfiguration"
+                    in-map="[sourcePartyId: 'DefaultSettings',
+                            organizationPartyId: companyPartyId, baseCurrencyUomId: currencyId]" />
+                <!-- set classification: admin hotel, ecommerce et -->
+                <if condition="!classificationId">
+                    <return error="true" message="When creating a new company classificationId is required" /></if>
+                <service-call name="create#mantle.party.PartyClassificationAppl"
+                    in-map="[partyId: companyPartyId, partyClassificationId: classificationId]"
+                    out-map="context" />
+                <!-- create productStore -->
+                <service-call name="create#mantle.product.store.ProductStore"
+                    out-map="context" in-map="[organizationPartyId: companyPartyId,
+                        requireInventory: 'N',
+                        reservationOrderEnumId:'AsResOrdNoRes',
+                        defaultCurrencyUomId: currencyId]" />
+                <!-- create root category -->
+                <service-call name="create#mantle.product.category.ProductCategory" out-map="rootCat" 
+                    in-map="[ownerPartyId: companyPartyId, productCategoryTypeEnumId: 'PctRoot',
+                        categoryName: 'Root category for: ' + classificationId]" />
+                <!-- connect to productstore -->
+                <service-call name="create#mantle.product.store.ProductStoreCategory" 
+                    in-map="[productCategoryId: rootCat.productCategoryId,
+                        storeCategoryTypeEnumId: 'PsctBrowseRoot',
+                        productStoreId: context.productStoreId, fromDate: fromDate]" />
                 <!-- set company in as ACTIVE_ORGANIZATION UserPreference to be sure only this company can be looked at-->
                 <service-call name="create#moqui.security.UserPreference"
                     in-map="[userId: userAccount.userId, preferenceKey: 'ACTIVE_ORGANIZATION',
                      preferenceValue: companyPartyId]" />
                 <!-- setup the organization -->
                 <!--service-call name="mantle.party.PartyServices.setup#UserOrganizationInfo" /-->
-                <entity-find-one entity-name="mantle.party.PartyClassificationAppl"
-                         value-field="partyClassificationAppl">
-                    <field-map field-name="partyId" from="companyPartyId" />
-                </entity-find-one>
+                <!--send email -->
                 <!--service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
                     <field-map field-name="emailTemplateId" value="WELCOME" />
                     <field-map field-name="toAddresses" from="emailAddress" />
                     <field-map field-name="bodyParameters" 
-                        from="[classification: partyClassificationAppl.partyClassificationId.substring(3),
+                        from="[classification: partyClassificationId.substring(3),
                             newPassword:newPassword]" />
                 </service-call-->
-                <if condition="company">
-                    <!-- initial company/user needs login for loading default data (create#user calls this service)-->
-                    <!-- add the user as admin -->
-                    <script>ec.user.loginUser(username, newPassword)</script>
-                    <set field="userGroupId" value="GROWERP_M_ADMIN"/>
-                    <service-call name="create#moqui.security.UserGroupMember"
-                        in-map="[userGroupId: userGroupId, userId: userAccount.userId]" />
-                    <!-- attach the user as an employee to the organization. only when new company-->
-                    <service-call name="create#mantle.party.PartyRelationship"
-                        in-map="[fromPartyId: userAccount.partyId, fromRoleTypeId: 'Employee',
-                            relationshipTypeEnumId: 'PrtEmployee', fromDate: fromDate,
-                            toPartyId: companyPartyId, toRoleTypeId: 'OrgInternal']" />
-                    <service-call name="growerp.100.PartyServices100.load#DefaultData" in-map="[
-                                companyPartyId: companyPartyId, userPartyId: userAccount.partyId]"/>
-                    <service-call name="growerp.100.PartyServices100.get#User"
-                        in-map="[userPartyId: userAccount.partyId]"
-                        out-map="context"/>
-                    <else><!--company already exist add additional users -->
-                        <if condition="userGroupId == 'GROWERP_M_EMPLOYEE' || userGroupId == 'GROWERP_M_ADMIN'">
-                            <set field="relationshipTypeEnumId" value="PrtEmployee"/>
-                            <set field="fromRoleTypeId" value="Employee"/>
-                            <else-if condition="userGroupId == 'GROWERP_M_CUSTOMER'">
-                                <set field="relationshipTypeEnumId" value="PrtEmployee"/>
-                                <set field="fromRoleTypeId" value="Customer"/>
-                            </else-if>
-                            <else-if condition="userGroupId == 'GROWERP_M_LEAD'">
-                                <set field="relationshipTypeEnumId" value="PrtEmployee"/>
-                                <set field="fromRoleTypeId" value="Customer"/>
-                            </else-if>
-                            <else-if condition="userGroupId == 'GROWERP_M_SUPPLIER'">
-                                <set field="relationshipTypeEnumId" value="PrtEmployee"/>
-                                <set field="fromRoleTypeId" value="Supplier"/>
-                            </else-if>
-                        </if>
-                        <service-call name="create#mantle.party.PartyRelationship"
-                                in-map="[fromPartyId: userAccount.partyId, fromRoleTypeId: fromRoleTypeId,
-                                    relationshipTypeEnumId: relationshipTypeEnumId, fromDate: fromDate,
-                                    toPartyId: companyPartyId, toRoleTypeId: 'OrgInternal']" />
-                        <service-call name="create#moqui.security.UserGroupMember"
-                            in-map="[userGroupId: userGroupId, userId: userAccount.userId]" />
-                    </else>
-                </if>
+                <!-- attach the user as an employee to the organization-->
+                <service-call name="create#mantle.party.PartyRelationship"
+                    in-map="[fromPartyId: userPartyId, fromRoleTypeId: 'Employee',
+                        relationshipTypeEnumId: 'PrtEmployee', fromDate: fromDate,
+                        toPartyId: companyPartyId, toRoleTypeId: 'OrgInternal']" />
                 <!-- set party ownership -->
-                <entity-find-one entity-name="mantle.party.Party" value-field="ownerParty">
-                    <field-map field-name="partyId" from="userAccount.partyId"/>
-                </entity-find-one>
-                <set field="ownerParty.ownerPartyId" from="companyPartyId"/>
-                <entity-update value-field="ownerParty"/>
+                <entity-find-one entity-name="mantle.party.Party" value-field="userParty"
+                        for-update="true">
+                    <field-map field-name="partyId" from="userPartyId"/></entity-find-one>
+                <set field="userParty.ownerPartyId" from="companyPartyId"/>
+                <entity-update value-field="userParty"/>
+                <!-- load demo data -->
+                <script>ec.user.loginUser(username, newPassword)</script>
+                <service-call name="growerp.100.PartyServices100.load#DefaultData" in-map="[
+                            companyPartyId: companyPartyId, userPartyId: userAccount.partyId]"/>
                 <service-call name="growerp.100.PartyServices100.get#Company"
-                    in-map="[companyPartyId: companyPartyId]" out-map="context"/>
-                <!-- get#user cannot be used, needs login other data will be supplied by the add/update#user-->
-                <entity-find-one entity-name="moqui.security.UserGroup" value-field="userGroup"/>
-                <set field="user" from='[partyId: userAccount.partyId, firstName: firstName,
-                    lastName: lastName, email: emailAddress, name: username,
-                    userId: userAccount.userId, userGroupId: userGroupId,
-                    groupDescription: userGroup.description,
-                    language: "null"]'/>
-            </if>
+                    out-map="context"/>
+                <service-call name="growerp.100.PartyServices100.get#User"
+                    in-map="userPartyId: userPartyId" out-map="context"/>
+                </if>
         </actions>
     </service>
     <!--internal service used in register -->
@@ -648,22 +597,20 @@ along with this software (see the LICENSE.md file). If not, see
             [
                 [ opportunityName: 'The best opportunity', description: 'the best oppr description',
                     nextStep: 'not sure yet', estimatedAmount: 1000, estimatedProbability: 33,
-                    ownerPartyId: companyPartyId, opportunityStageId: 'Prospecting',
-                    accountPartyId:  userPartyId],
+                    opportunityStageId: 'Prospecting'],
                 [ opportunityName: 'The second best opportunity', description: 'the secondbest oppr description',
                     nextStep: 'not sure yet', estimatedAmount: 5000, estimatedProbability: 66,
-                    ownerPartyId: companyPartyId, opportunityStageId: 'Proposal',
-                    accountPartyId:  userPartyId ]
+                    opportunityStageId: 'Proposal']
             ]"/>
 
             <set field="orderItem1" from="[ quantity: 5, price: 22.1]"/>    
             <set field="orderItem2" from="[ quantity: 9, price: 33.4]"/>    
             <set field="orderItems1" from="[ orderItem1, orderItem2]"/>
-            <set field="order1" from="[ orderStatusId: 'Placed', orderItems: orderItems1 ]"/>    
+            <set field="order1" from="[ orderItems: orderItems1 ]"/>
             <set field="orderItem3" from="[ quantity: 3, price: 12.1]"/>    
             <set field="orderItem4" from="[ quantity: 2, price: 13.4]"/>    
             <set field="orderItems2" from="[ orderItem1, orderItem2]"/>
-            <set field="order2" from="[ orderStatusId: 'Placed', orderItems: orderItems2 ]"/>    
+            <set field="order2" from="[ orderItems: orderItems2 ]"/> 
             <set field="orders" from="[order1, order2]"/>
 
             <set field="nowDate" from="ec.user.nowTimestamp"/>
@@ -699,11 +646,10 @@ along with this software (see the LICENSE.md file). If not, see
                             productTypeEnumId: 'PtAsset',
                             assetTypeEnumId: 'AstTpInventory',
                             assetClassEnumId: 'AsClsInventoryFin']" out-map="context" />
-                        <log message="===== productId: $productId created"/>
-                        <if condition="counter == 0 &amp;&amp; index == 0">
+                        <if condition="index == 0">
                             <set field="product1" from="productId"/>
                         </if>
-                        <if condition="counter == 0 &amp;&amp; index == 1">
+                        <if condition="index == 1">
                             <set field="product2" from="productId"/>
                         </if>
                         <service-call
@@ -729,19 +675,7 @@ along with this software (see the LICENSE.md file). If not, see
                 </iterate>
                 <set field="index" type="Integer" value="0"/>
                 <iterate list="users" entry="us">
-                    <!--service-call name="growerp.100.PartyServices100.register#UserAndCompany"
-                        in-map="[
-                        companyPartyId: companyPartyId,
-                        firstName: us.firstName,
-                        lastName: counter.toString() + us.lastName,
-                        emailAddress: companyPartyId + counter.toString() + us.emailAddress,
-                        locale: 'EN',
-                        username: companyPartyId + counter.toString() + us.username,
-                        externalId: us.externalid,
-                        userGroupId: us.userGroupId,
-                    ]" out-map="context"/-->
                     <set field="userIn" from="groovy.json.JsonOutput.toJson([user:[
-                        companyPartyId: companyPartyId,
                         firstName: us.firstName,
                         lastName: counter.toString() + us.lastName,
                         email: companyPartyId + counter.toString() + us.emailAddress,
@@ -752,55 +686,68 @@ along with this software (see the LICENSE.md file). If not, see
                     ]])"/>
                     <service-call name="growerp.100.PartyServices100.create#User"
                             in-map="[user: userIn]" out-map="context"/>
-                    <if condition="counter == 0">
-                        <if condition="user.userGroupId == 'GROWERP_M_LEAD'">
-                            <if condition="!leadCompany1">
-                                <set field="leadCompany1" from="user.companyPartyId"/>
-                                <set field="leadUser1" from="user.partyId"/>
-                                <else><if condition="!leadCompany2">
-                                    <set field="leadCompany2" from="user.companyPartyId"/></if>
-                                    <set field="leadUser2" from="user.partyId"/>
-                                </else>
-                            </if>
+
+                    <if condition="user.userGroupId == 'GROWERP_M_LEAD'">
+                        <if condition="index%2 == 0">
+                            <set field="leadCompany1" from="user.companyPartyId"/>
+                            <set field="leadUser1" from="user.partyId"/>
+                        </if>
+                        <if condition="index%2 == 1">
+                            <set field="leadCompany2" from="user.companyPartyId"/>
+                            <set field="leadUser2" from="user.partyId"/>
                         </if>
                     </if>
-                    <if condition="counter == 0">
-                        <if condition="user.userGroupId == 'GROWERP_M_CUSTOMER'">
-                            <if condition="!customerCompany1">
-                                <set field="customerCompany1" from="user.companyPartyId"/>
-                                <set field="customerUser1" from="user.partyId"/>
-                                <else><if condition="!customerCompany2">
-                                    <set field="customerCompany2" from="user.companyPartyId"/></if>
-                                    <set field="customerUser2" from="user.partyId"/>
-                                </else>
-                            </if>
+                    <if condition="user.userGroupId == 'GROWERP_M_CUSTOMER'">
+                        <if condition="index%2 == 0">
+                            <set field="customerCompany1" from="user.companyPartyId"/>
+                            <set field="customerUser1" from="user.partyId"/>
+                        </if>
+                        <if condition="index%2 == 1">
+                            <set field="customerCompany2" from="user.companyPartyId"/>
+                            <set field="customerUser2" from="user.partyId"/>
                         </if>
                     </if>
-                    <if condition="counter == 0">
-                        <if condition="user.userGroupId == 'GROWERP_M_SUPPLIER'">
-                            <if condition="!supplierCompany1">
-                                <set field="supplierCompany1" from="user.companyPartyId"/>
-                                <set field="supplierUser1" from="user.partyId"/>
-                                <else><if condition="!supplierCompany2">
-                                    <set field="supplierCompany2" from="user.companyPartyId"/></if>
-                                    <set field="supplierUser2" from="user.partyId"/>
-                                </else>
-                            </if>
+                    <if condition="user.userGroupId == 'GROWERP_M_SUPPLIER'">
+                        <if condition="index%2 == 0">
+                            <set field="supplierCompany1" from="user.companyPartyId"/>
+                            <set field="supplierUser1" from="user.partyId"/>
+                        </if>
+                        <if condition="index%2 == 1">
+                            <set field="supplierCompany2" from="user.companyPartyId"/>
+                            <set field="supplierUser2" from="user.partyId"/>
                         </if>
                     </if>
-                    <if condition="counter == 0">
-                        <if condition="user.userGroupId == 'GROWERP_M_EMPLOYEE'">
-                            <if condition="!employeeCompany1">
+                    <if condition="user.userGroupId == 'GROWERP_M_EMPLOYEE'">
+                        <if condition="index$2 == 0">
                                 <set field="employeeCompany1" from="user.companyPartyId"/>
                                 <set field="employeeUser1" from="user.partyId"/>
-                                <else><if condition="!employeeCompany2">
-                                    <set field="employeeCompany2" from="user.companyPartyId"/></if>
-                                    <set field="employeeUser2" from="user.partyId"/>
-                                </else>
-                            </if>
+                        </if>
+                        <if condition="index%2 == 1">
+                            <set field="employeeCompany2" from="user.companyPartyId"/>
+                            <set field="employeeUser2" from="user.partyId"/>
                         </if>
                     </if>
+                    <set field="index" from="index + 1"/>
                 </iterate>
+                <log message="==========create users finish; cc1 $customerCompany1"/>
+                <log message="==========create users finish; sc1 $supplierCompany1"/>
+                <log message="==========create users finish; lc1 $leadCompany1"/>
+                <log message="==========create users finish; ec1 $employeeCompany1"/>
+
+                <log message="==========create users finish; cc2 $customerCompany2"/>
+                <log message="==========create users finish; sc2 $supplierCompany2"/>
+                <log message="==========create users finish; lc2 $leadCompany2"/>
+                <log message="==========create users finish; ec2 $employeeCompany2"/>
+
+                <log message="==========create users finish; cu1 $customerUser1"/>
+                <log message="==========create users finish; su1 $supplierUser1"/>
+                <log message="==========create users finish; lu1 $leadUser1"/>
+                <log message="==========create users finish; eu1 $employeeUser1"/>
+
+                <log message="==========create users finish; cu2 $customerUser2"/>
+                <log message="==========create users finish; su2 $supplierUser2"/>
+                <log message="==========create users finish; lu2 $leadUser2"/>
+                <log message="==========create users finish; eu2 $employeeUser2"/>
                 <set field="index" type="Integer" value="0"/>
                 <iterate list="opportunities" entry="opp">
                     <set field="oppIn" from="groovy.json.JsonOutput.toJson([opportunity:[
@@ -818,32 +765,38 @@ along with this software (see the LICENSE.md file). If not, see
                                     in-map="[opportunity: oppIn]"/>
                     <set field="index" from="index + 1"/>
                 </iterate>
-                <entity-find entity-name="mantle.product.store.ProductStore" list="stores">
-                    <econdition field-name="organizationPartyId" from="companyPartyId"/>
-                </entity-find>
-                <set field="productStoreId" from="stores[0].productStoreId"/>
-                <entity-find-one entity-name="mantle.party.Person" value-field="person">
-                    <field-map field-name="partyId" from="employee1"/>
-                </entity-find-one>
-                <set field="placedDate" from="ec.user.nowTimestamp"/>
+
                 <set field="index" type="Integer" value="0"/>
                 <iterate list="orders" entry="order">
+                    <entity-find entity-name="mantle.product.store.ProductStore" list="stores">
+                        <econdition field-name="organizationPartyId" from="companyPartyId"/>
+                    </entity-find>
+                    <entity-find-one entity-name="mantle.ledger.config.PartyAcctgPreference"
+                            value-field="aPref">
+                        <field-map field-name="organizationPartyId" from="companyPartyId"/>
+                    </entity-find-one>
                     <service-call name="mantle.order.OrderServices.create#Order"
-                        in-map="context + [vendorPartyId: index==0 ? companyPartyId : supplierCompany1,
-                                    customerPartyId: index==0 ? customerCompany1 : companyPartyId,
-                                enteredByPartyId: index==0 ? employeeUser1 : employeeUser2]" 
-                        out-map="context"/>
-                    <iterate list="order.orderItems" entry="item">
+                        in-map="[
+                            currencyUomId: aPref.baseCurrencyUomId,
+                            productStoreId: stores[0].productStoreId,
+                            placedDate: ec.user.nowTimestamp,
+                            customerPartyId: index%2 == 0 ? companyPartyId: supplierCompany2,
+                            vendorPartyId: index%2 == 1 ? customerCompany2 : companyPartyId
+                        ]" out-map="context"/>
+                    <iterate entry="item" list="order.orderItems">
                         <service-call
-                        name="mantle.order.OrderServices.add#OrderProductQuantity"
-                        in-map="context + [productId: product1,
-                                            quantity: item.quantity,
-                                            unitAmount: item.price,
-                                            currencyUomId: currencyId]"
-                        out-map="itemcreate"/>                           
+                            name="mantle.order.OrderServices.add#OrderProductQuantity"
+                            in-map="context + [productId: index==1 ? product1 : product2,
+                                                quantity: item.quantity,
+                                                unitAmount: item.price,
+                                                currencyUomId: aPref.baseCurrencyUomId]"
+                            out-map="itemcreate"/>
                     </iterate>
-                    <set field="index" from="index + 1"/>                
+                    <service-call name="growerp.100.OrderServices100.getOrders"
+                        in-map="[orderId: orderId]" out-map="context"/>
+                    <set field="index" from="index + 1"/>
                 </iterate>
+
             </while>
             <!--if condition="environment != 'production'"-->
         </actions>

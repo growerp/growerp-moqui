@@ -21,7 +21,7 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <out-parameters>
             <parameter name="ownerPartyId"/>
-            <parameter name="companyPartyId" />
+            <parameter name="companyPartyId"/>
         </out-parameters>
         <actions>
             <if condition="!userPartyId">
@@ -34,15 +34,15 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
             <entity-find entity-name="growerp.mobile.CompanyPersonAndLoginGroup" list="relList">
                 <date-filter />
-                <econdition field-name="userPartyId" />
+                <econdition field-name="userPartyId"/>
                 <select-field field-name="companyPartyId,ownerPartyId"/></entity-find>
-                <if condition="relList">
-                    <set field="companyPartyId" from="relList[0].companyPartyId" />
-                    <set field="ownerPartyId" from="relList[0].ownerPartyId" />
+            <if condition="relList">
+                <set field="companyPartyId" from="relList[0].companyPartyId" />
+                <set field="ownerPartyId" from="relList[0].ownerPartyId" />
                 <else>
                     <return message="User $userPartyId not found!"/>
                 </else>
-            </if>
+        </if>
         </actions>
     </service>
 

@@ -74,7 +74,6 @@ along with this software (see the LICENSE.md file). If not, see
         </member-entity>
 
         <alias entity-alias="PTYORG" name="orgDisabled" field="disabled"/>
-        <alias entity-alias="PTYORG" name="orgOwnerPartyId" field="ownerPartyId"/>
         <alias entity-alias="ORG" name="companyName" field="organizationName"/>
         <alias entity-alias="ORG" name="companyPartyId" field="partyId"/>
         <alias entity-alias="PR" name="orgRoleTypeId" field="toRoleTypeId"/>

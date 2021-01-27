@@ -203,7 +203,7 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
     <service verb="update" noun="Order">
-        <description> Update the order, curently just the status.</description>
+        <description> Update the order by re-creatingonly in the 'OrderOpen' status'.</description>
         <in-parameters>
             <parameter name="order" required="true" type="String"/></in-parameters>
         <out-parameters>
@@ -216,7 +216,7 @@ along with this software (see the LICENSE.md file). If not, see
                 Object order = new groovy.json.JsonSlurper().parseText(order).order
             </script>
             <service-call out-map="context"
-                name="growerp.mobile.MobilePartyServices.get#RelatedCompanyPartyId"/>
+                name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner"/>
             <set field="orderId" from="order.orderId"/>
             <entity-find entity-name="OrderHeaderAndPartAndItem" list="items">
                 <econdition field-name="orderId" from="order.orderId"/>

@@ -101,15 +101,14 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <script> // convert JSON data
                 Object opportunity = new groovy.json.JsonSlurper().parseText(opportunity).opportunity</script>
-            <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"/>
-            <set field="ownerPartyId" from="company.partyId"/>
+            <service-call name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner" out-map="context"/>
             <service-call name="create#mantle.sales.opportunity.SalesOpportunity"
-                in-map="[opportunity + [estimatedAmount: opportunity.estAmount,
+                in-map="[estimatedAmount: opportunity.estAmount,
                                         estimatedProbability: opportunity.estProbability,
-                                        ownerPartyId: company.partyId,
+                                        ownerPartyId: ownerPartyId,
                                         opportunityStageId: opportunity.stageId,
-                                        accountPartyId: ec.user.userAccount.partyId,
-                                        ]]" out-map="context"/>
+                                        accountPartyId: userPartyId,
+                                        ]" out-map="context"/>
             <if condition="opportunity.leadPartyId">
                 <service-call name="create#mantle.sales.opportunity.SalesOpportunityParty"
                     in-map="[salesOpportunityId: salesOpportunityId,
@@ -119,7 +118,7 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
             <service-call name="growerp.100.CrmServices100.get#Opportunity"
                 in-map="[opportunityId: salesOpportunityId]" out-map="context"/>
-        </actions>
+            </actions>
     </service>
 
     <service verb="update" noun="Opportunity">
