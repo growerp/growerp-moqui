@@ -475,14 +475,14 @@ along with this software (see the LICENSE.md file). If not, see
                         reservationOrderEnumId:'AsResOrdNoRes',
                         defaultCurrencyUomId: currencyId]" />
                 <!-- create root category -->
-                <service-call name="create#mantle.product.category.ProductCategory" out-map="rootCat" 
+                <service-call name="create#mantle.product.category.ProductCategory" out-map="context" 
                     in-map="[ownerPartyId: companyPartyId, productCategoryTypeEnumId: 'PctRoot',
                         categoryName: 'Root category for: ' + classificationId]" />
                 <!-- connect to productstore -->
                 <service-call name="create#mantle.product.store.ProductStoreCategory" 
-                    in-map="[productCategoryId: rootCat.productCategoryId,
+                    in-map="[productCategoryId: productCategoryId,
                         storeCategoryTypeEnumId: 'PsctBrowseRoot',
-                        productStoreId: context.productStoreId, fromDate: fromDate]" />
+                        productStoreId: productStoreId, fromDate: fromDate]" />
                 <!-- set company in as ACTIVE_ORGANIZATION UserPreference to be sure only this company can be looked at-->
                 <service-call name="create#moqui.security.UserPreference"
                     in-map="[userId: userAccount.userId, preferenceKey: 'ACTIVE_ORGANIZATION',
@@ -510,8 +510,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-update value-field="userParty"/>
                 <!-- load demo data -->
                 <script>ec.user.loginUser(username, newPassword)</script>
-                <service-call name="growerp.100.PartyServices100.load#DefaultData" in-map="[
-                            companyPartyId: companyPartyId, userPartyId: userAccount.partyId]"/>
+                <service-call name="growerp.100.PartyServices100.load#DefaultData" async="true"
+                    include-user-login="true" 
+                    in-map="[companyPartyId: companyPartyId, userPartyId: userAccount.partyId]"/>
                 <service-call name="growerp.100.PartyServices100.get#Company"
                     out-map="context"/>
                 <service-call name="growerp.100.PartyServices100.get#User"
@@ -519,7 +520,7 @@ along with this software (see the LICENSE.md file). If not, see
                 </if>
         </actions>
     </service>
-    <!--internal service used in register -->
+    <!--internal service used in register to run async-->
     <service verb="load" noun="DefaultData" authenticate="anonymous-all" transaction-timeout="3600">
         <!-- not reachable outside -->
         <in-parameters>
@@ -534,13 +535,13 @@ along with this software (see the LICENSE.md file). If not, see
             <!--if condition="!defaultData"><return/></if-->
             <!--script> // convert JSON data
                 Map data = new groovy.json.JsonSlurper().parseText(defaultData)</script-->
-
-            <log message="loading default data with classificationId $classificationId"/>
+            <script>sleep(1000)</script>
+            <set field="counter" value="1" type="Integer"/><!-- sets of demo records, 0: none -->
             <entity-find entity-name="mantle.product.category.ProductCategory" list="rootList">
                 <econdition field-name="productCategoryTypeEnumId" value="PctRoot"/>
                 <econdition field-name="ownerPartyId" from="companyPartyId"/></entity-find>
             <if condition="!rootList">
-                <return error="true" message="Root cat not found for companyId: $companyId"/></if>
+                <return error="true" message="Root cat not found for companyId: $companyPartyId"/></if>
             <set field="rootProductCategoryId" from="rootList[0].productCategoryId"/>
 
             <!-- structure of data, image should be in dbresource://GrowERP/images/...Medium.jpg-->
@@ -614,7 +615,6 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="orders" from="[order1, order2]"/>
 
             <set field="nowDate" from="ec.user.nowTimestamp"/>
-            <set field="counter" value="1" type="Integer"/>
             <while condition="counter--">
                 <iterate list="categories" entry="el">
                     <service-call name="create#mantle.product.category.ProductCategory"
@@ -686,7 +686,6 @@ along with this software (see the LICENSE.md file). If not, see
                     ]])"/>
                     <service-call name="growerp.100.PartyServices100.create#User"
                             in-map="[user: userIn]" out-map="context"/>
-
                     <if condition="user.userGroupId == 'GROWERP_M_LEAD'">
                         <if condition="index%2 == 0">
                             <set field="leadCompany1" from="user.companyPartyId"/>
