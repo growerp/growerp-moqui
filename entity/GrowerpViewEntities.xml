@@ -270,13 +270,10 @@ along with this software (see the LICENSE.md file). If not, see
         <alias name="price" entity-alias="PRICE"/>
     </view-entity>
 
-    <view-entity entity-name="OpportunityAndStageAndParties" package="growerp.mobile.crm">
+    <view-entity entity-name="OpportunityAndStageAndParties"
+                                            package="growerp.mobile.crm">
         <member-entity entity-alias="OPPOR"
             entity-name="mantle.sales.opportunity.SalesOpportunity"/>
-        <member-entity entity-alias="STAGE"
-            entity-name="mantle.sales.opportunity.SalesOpportunityStage"
-                join-from-alias="OPPOR">
-            <key-map field-name="opportunityStageId"/></member-entity>
         <member-entity entity-alias="ACCOUNTPERSON"
             entity-name="mantle.party.Person" join-from-alias="OPPOR" join-optional="true">
             <key-map field-name="accountPartyId" related="partyId"/></member-entity>
@@ -293,9 +290,11 @@ along with this software (see the LICENSE.md file). If not, see
             join-from-alias="ACCOUNTPCM" join-optional="true">
             <key-map field-name="contactMechId"/>
             <entity-condition>
-                <econdition field-name="accountCmTypeId" operator="equals" value="CmtEmailAddress"/>
+                <econdition field-name="accountCmTypeId" operator="equals"
+                     value="CmtEmailAddress"/>
             </entity-condition></member-entity>
-        <member-entity entity-alias="SOPPARTY" entity-name="mantle.sales.opportunity.SalesOpportunityParty"
+        <member-entity entity-alias="SOPPARTY"
+            entity-name="mantle.sales.opportunity.SalesOpportunityParty"
                 join-from-alias="OPPOR" join-optional="true">
             <key-map field-name="salesOpportunityId"/>
         </member-entity>
@@ -316,23 +315,29 @@ along with this software (see the LICENSE.md file). If not, see
             join-from-alias="LEADPCM" join-optional="true">
             <key-map field-name="contactMechId"/>
             <entity-condition>
-                <econdition field-name="leadCmTypeId" operator="equals" value="CmtEmailAddress"/>
+                <econdition field-name="leadCmTypeId"
+                    operator="equals" value="CmtEmailAddress"/>
             </entity-condition></member-entity>
-        <alias name="opportunityId" field="salesOpportunityId" entity-alias="OPPOR"/>
+        <alias name="opportunityId" field="salesOpportunityId"
+                                                    entity-alias="OPPOR"/>
         <alias name="ownerPartyId" entity-alias="OPPOR"/>
         <alias name="opportunityName" entity-alias="OPPOR"/>
         <alias name="description" entity-alias="OPPOR"/>
         <alias name="nextStep" entity-alias="OPPOR"/>
         <alias name="lastUpdatedStamp" entity-alias="OPPOR"/>
         <alias name="estAmount" field="estimatedAmount" entity-alias="OPPOR"/>
-        <alias name="estProbability" field="estimatedProbability" entity-alias="OPPOR"/>
+        <alias name="estProbability" field="estimatedProbability"
+                                                        entity-alias="OPPOR"/>
+        <alias name="stageId" field="opportunityStageId" entity-alias="OPPOR"/>
         <alias name="accountPartyId" entity-alias="OPPOR"/>
-        <alias name="stageId" field="opportunityStageId" entity-alias="STAGE"/>
-        <alias name="accountFirstName" field="firstName" entity-alias="ACCOUNTPERSON"/>
-        <alias name="accountLastName" field="lastName" entity-alias="ACCOUNTPERSON"/>
-        <alias name="accountCmTypeId" field="contactMechTypeEnumId" entity-alias="ACCOUNTCM"/>
+        <alias name="accountFirstName" field="firstName"
+                                                entity-alias="ACCOUNTPERSON"/>
+        <alias name="accountLastName" field="lastName"
+                                                entity-alias="ACCOUNTPERSON"/>
+        <alias name="accountCmTypeId" field="contactMechTypeEnumId"
+                                                    entity-alias="ACCOUNTCM"/>
         <alias name="accountContactMechPurposeId"
-            field="contactMechPurposeId" entity-alias="ACCOUNTPCM"/>
+                        field="contactMechPurposeId" entity-alias="ACCOUNTPCM"/>
         <alias name="accountEmail" field="infoString" entity-alias="ACCOUNTCM"/>
         <alias name="fromDate" entity-alias="SOPPARTY"></alias>
         <alias name="thruDate" entity-alias="SOPPARTY"></alias>
@@ -343,6 +348,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias name="leadContactMechPurposeId"
             field="contactMechPurposeId" entity-alias="LEADPCM"/>
         <alias name="leadEmail" field="infoString" entity-alias="LEADCM"/>
+        <entity-condition><date-filter/></entity-condition>
 </view-entity>
 
 </entities>

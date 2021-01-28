@@ -46,7 +46,7 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <service verb="get" noun="RelatedCompanyPartyId">
+    <service verb="get" noun="RelatedCompanyPartyId"><!-- depreciated -->
         <in-parameters>
             <parameter name="userPartyId"/><!-- of this particular user -->
         </in-parameters>
@@ -126,7 +126,14 @@ along with this software (see the LICENSE.md file). If not, see
             </entity-find-count>
             <entity-find-count entity-name="mantle.sales.opportunity.SalesOpportunity"
                 count-field="opportunities">
+                <econdition field-name="opportunityStageId" operator="not-equals" value="Deleted"/>
                 <econdition field-name="ownerPartyId"/>
+            </entity-find-count>
+            <entity-find-count entity-name="mantle.sales.opportunity.SalesOpportunity"
+                count-field="myOpportunities">
+                <econdition field-name="ownerPartyId"/>
+                <econdition field-name="opportunityStageId" operator="not-equals" value="Deleted"/>
+                <econdition field-name="accountPartyId" from="ec.user.userAccount.partyId"/>
             </entity-find-count>
 
             <entity-find-count entity-name="mantle.order.OrderPart"
@@ -147,10 +154,10 @@ along with this software (see the LICENSE.md file). If not, see
                 openSlsOrders: openSlsOrders.toString(),
                 openPurOrders: openPurOrders.toString(),
                 opportunities: opportunities.toString(),
+                myOpportunities: myOpportunities.toString(),
                 categories: categories.toString(),
                 products: products.toString()
             ]"/>
-            <log message="====employees: $employees"/>
         </actions>
     </service>
 

@@ -13,7 +13,7 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
-    <service verb="get" noun="Crm">
+    <!--service verb="get" noun="Crm">
         <out-parameters>
             <parameter name="crm" type="Map"/>
         </out-parameters>
@@ -31,39 +31,35 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="growerp.100.CrmServices100.get#Opportunity" out-map="opps"/>
             <set field="crm.opportunities" from="opps.opportunities"/>
         </actions>
-    </service>
+    </service-->
 
     <service verb="get" noun="Opportunity">
         <in-parameters>
             <parameter name="opportunityId"/>
             <parameter name="start" type="Integer" default-value="0"/>
             <parameter name="limit" type="Integer" default-value="20"/>
+            <parameter name="all" default-value="true"/>
         </in-parameters>
         <out-parameters>
             <parameter name="opportunities" type="List"/>
             <parameter name="opportunity" type="Map"/>
         </out-parameters>
         <actions>
-            <log message="====getOpportunity start: $start limit: $limit"/>
-            <service-call
-                name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId"
-                    out-map="context"/>
-            <entity-find entity-name="growerp.mobile.crm.OpportunityAndStageAndParties"
-                list="opps" offset="start" limit="limit">
+            <service-call out-map="context"
+                name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner"/>
+            <if condition="all == 'false'">
+                <set field="accountPartyId" from="ec.user.userAccount.partyId"/></if>
+            <entity-find list="opps" offset="start" limit="limit"
+                    entity-name="growerp.mobile.crm.OpportunityAndStageAndParties">
                 <econdition field-name="ownerPartyId"/>
                 <econdition field-name="opportunityId" ignore-if-empty="true"/>
-                <econdition field-name="accountPartyId" from="ec.user.userAccount.partyId"/><!-- only own -->
+                <econdition field-name="accountPartyId" ignore-if-empty="true"/>
                 <econdition field-name="stageId" operator="not-equals" value="Deleted"/>
-                <date-filter/>
                 <order-by field-name="lastUpdatedStamp"/>
             </entity-find>
             <if condition="!opportunityId">
                 <set field="opportunities" from="[]"/></if>
             <iterate list="opps" entry="opp">
-                <if condition="opp.leadPartyId">
-                    <service-call 
-                        name="growerp.100.PartyServices100.get#User" out-map="lead"
-                        in-map="[userPartyId: opp.leadPartyId]"></service-call></if>
                 <set field="opOut" from="[
                     opportunityId: opp.opportunityId,
                     lastUpdated: opp.lastUpdatedStamp.toString() + 'z',
@@ -80,8 +76,7 @@ along with this software (see the LICENSE.md file). If not, see
                     leadPartyId: opp.leadPartyId,
                     leadFirstName: opp.leadFirstName,
                     leadLastName: opp.leadLastName,
-                    leadEmail: opp.leadEmail,
-                ]"/>
+                    leadEmail: opp.leadEmail]"/>
                 <if condition="!opportunityId">
                     <script>opportunities.add(opOut)</script>
                     <else>
@@ -100,25 +95,37 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <script> // convert JSON data
-                Object opportunity = new groovy.json.JsonSlurper().parseText(opportunity).opportunity</script>
-            <service-call name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner" out-map="context"/>
+                Object opportunity = new groovy.json.JsonSlurper()
+                    .parseText(opportunity).opportunity</script>
+            <if condition="!opportunity.stageId">
+                <entity-find list="stages"
+                    entity-name="mantle.sales.opportunity.SalesOpportunityStage">
+                    <order-by field-name="sequenceNum"/></entity-find>
+                <set field="opportunity.stageId" from="stages[0].opportunityStageId"/>
+            </if>
+            <if condition="!opportunity.accountPartyId">
+                <set field="opportunity.accountPartyId"
+                    from="ec.user.userAccount.partyId"/></if>
+            <service-call out-map="context"
+                name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner"/>
             <service-call name="create#mantle.sales.opportunity.SalesOpportunity"
                 in-map="[estimatedAmount: opportunity.estAmount,
-                                        estimatedProbability: opportunity.estProbability,
-                                        ownerPartyId: ownerPartyId,
-                                        opportunityStageId: opportunity.stageId,
-                                        accountPartyId: userPartyId,
-                                        ]" out-map="context"/>
+                        opportunityName: opportunity.opportunityName,
+                        estimatedProbability: opportunity.estProbability,
+                        ownerPartyId: ownerPartyId,
+                        opportunityStageId: opportunity.stageId,
+                        accountPartyId: opportunity.accountPartyId,
+                        ]" out-map="context"/>
             <if condition="opportunity.leadPartyId">
-                <service-call name="create#mantle.sales.opportunity.SalesOpportunityParty"
+                <service-call 
+                    name="create#mantle.sales.opportunity.SalesOpportunityParty"
                     in-map="[salesOpportunityId: salesOpportunityId,
                         partyId: opportunity.leadPartyId,
                         roleTypeId: 'Customer',
-                        fromDate: ec.user.nowTimestamp]" out-map="context"/>
-            </if>
+                        fromDate: ec.user.nowTimestamp]" out-map="context"/></if>
             <service-call name="growerp.100.CrmServices100.get#Opportunity"
                 in-map="[opportunityId: salesOpportunityId]" out-map="context"/>
-            </actions>
+        </actions>
     </service>
 
     <service verb="update" noun="Opportunity">

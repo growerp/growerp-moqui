@@ -424,7 +424,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="username" default="emailAddress"/>
             <parameter name="newPassword" default="org.moqui.util.StringUtilities.getRandomString(6) + '9!'" />
             <parameter name="newPasswordVerify" default="newPassword" />
-            <parameter name="userGroupId" default-value="GROWERP_M_CUSTOMER"/> <!--securitygroup required for non admin users-->
             <parameter name="locale" />
             <!-- company information -->
             <parameter name="companyName"/><!-- can be empty with new user existing company -->
@@ -433,7 +432,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="classificationId"/> <!-- allocate company to application name -->
             <!-- default setup -->
             <parameter name="environment"/>
-            <parameter name="defaultData"/>
         </in-parameters>
         <out-parameters>
             <parameter name="user" />
@@ -510,11 +508,16 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-update value-field="userParty"/>
                 <!-- load demo data -->
                 <script>ec.user.loginUser(username, newPassword)</script>
-                <service-call name="growerp.100.PartyServices100.load#DefaultData" async="true"
-                    include-user-login="true" 
-                    in-map="[companyPartyId: companyPartyId, userPartyId: userAccount.partyId]"/>
+                <service-call name="growerp.100.PartyServices100.load#DefaultData"
+                    include-user-login="true"  async="true"
+                    in-map="[companyPartyId: companyPartyId,
+                             currencyId: currencyId,
+                             classificationId: classificationId,
+                             userPartyId: userAccount.partyId]"/>
+                <!-- return company Data -->
                 <service-call name="growerp.100.PartyServices100.get#Company"
                     out-map="context"/>
+                <!-- retrn user data -->
                 <service-call name="growerp.100.PartyServices100.get#User"
                     in-map="userPartyId: userPartyId" out-map="context"/>
                 </if>
@@ -527,21 +530,17 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="companyPartyId" required="true"/>
             <parameter name="userPartyId" required="true"/>
             <parameter name="currencyId"/>
-            <parameter name="classificationId" />
-            <parameter name="environment"/>
-            <parameter name="defaultData"/>
+            <parameter name="classificationId"/>
+            <parameter name="counter" default="1" type="Integer"/>
         </in-parameters>
         <actions>
-            <!--if condition="!defaultData"><return/></if-->
-            <!--script> // convert JSON data
-                Map data = new groovy.json.JsonSlurper().parseText(defaultData)</script-->
-            <script>sleep(1000)</script>
-            <set field="counter" value="1" type="Integer"/><!-- sets of demo records, 0: none -->
+            <log message="Loading demo data #$counter sets for user: $userPartyId company: $companyPartyId"/>
+            <script>sleep(2000)</script><!-- wait for registration bove to commit -->
             <entity-find entity-name="mantle.product.category.ProductCategory" list="rootList">
                 <econdition field-name="productCategoryTypeEnumId" value="PctRoot"/>
                 <econdition field-name="ownerPartyId" from="companyPartyId"/></entity-find>
             <if condition="!rootList">
-                <return error="true" message="Root cat not found for companyId: $companyPartyId"/></if>
+                <return error="true" message="Root category not found for companyId: $companyPartyId"/></if>
             <set field="rootProductCategoryId" from="rootList[0].productCategoryId"/>
 
             <!-- structure of data, image should be in dbresource://GrowERP/images/...Medium.jpg-->
@@ -717,7 +716,7 @@ along with this software (see the LICENSE.md file). If not, see
                         </if>
                     </if>
                     <if condition="user.userGroupId == 'GROWERP_M_EMPLOYEE'">
-                        <if condition="index$2 == 0">
+                        <if condition="index%2 == 0">
                                 <set field="employeeCompany1" from="user.companyPartyId"/>
                                 <set field="employeeUser1" from="user.partyId"/>
                         </if>
@@ -728,25 +727,6 @@ along with this software (see the LICENSE.md file). If not, see
                     </if>
                     <set field="index" from="index + 1"/>
                 </iterate>
-                <log message="==========create users finish; cc1 $customerCompany1"/>
-                <log message="==========create users finish; sc1 $supplierCompany1"/>
-                <log message="==========create users finish; lc1 $leadCompany1"/>
-                <log message="==========create users finish; ec1 $employeeCompany1"/>
-
-                <log message="==========create users finish; cc2 $customerCompany2"/>
-                <log message="==========create users finish; sc2 $supplierCompany2"/>
-                <log message="==========create users finish; lc2 $leadCompany2"/>
-                <log message="==========create users finish; ec2 $employeeCompany2"/>
-
-                <log message="==========create users finish; cu1 $customerUser1"/>
-                <log message="==========create users finish; su1 $supplierUser1"/>
-                <log message="==========create users finish; lu1 $leadUser1"/>
-                <log message="==========create users finish; eu1 $employeeUser1"/>
-
-                <log message="==========create users finish; cu2 $customerUser2"/>
-                <log message="==========create users finish; su2 $supplierUser2"/>
-                <log message="==========create users finish; lu2 $leadUser2"/>
-                <log message="==========create users finish; eu2 $employeeUser2"/>
                 <set field="index" type="Integer" value="0"/>
                 <iterate list="opportunities" entry="opp">
                     <set field="oppIn" from="groovy.json.JsonOutput.toJson([opportunity:[
@@ -757,11 +737,13 @@ along with this software (see the LICENSE.md file). If not, see
                         estimatedProbability: opp.estimatedProbability,
                         opportunityStageId: opp.opportunityStageId,
                         ownerPartyId: companyPartyId,
-                        accountPartyId: userPartyId,
-                        leadPartyId: index == 0 ? leadUser1 : leadUser2
+                        accountPartyId: index%2 == 0? userPartyId: employeeUser1,
+                        leadPartyId: index%2 == 0 ? leadUser1 : leadUser2
                     ]])"/>
+                    <log message="=====create opportunity: $oppIn"/>
                     <service-call name="growerp.100.CrmServices100.create#Opportunity"
-                                    in-map="[opportunity: oppIn]"/>
+                                    in-map="[opportunity: oppIn]" out-map="context"/>
+                    <log message="=====result opportunity: $opportunity"/>
                     <set field="index" from="index + 1"/>
                 </iterate>
 

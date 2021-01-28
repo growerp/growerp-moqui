@@ -86,7 +86,6 @@ along with this software (see the LICENSE.md file). If not, see
                         <return error="true" message="Could not find company $otherCompanyPartyId from order ${lastItem.orderId} in view CompanyPersonAndLoginGroup"/></if>
                     <service-call name="growerp.100.PartyServices100.get#User"
                         in-map="[userPartyId: others[0].userPartyId]" out-map="userOut"/>
-                    <log message="from get user: $userOut"/>
                     <set field="orderOut" from="[
                         orderId: lastItem.orderId,
                         orderStatusId: lastItem.statusId,
@@ -128,7 +127,6 @@ along with this software (see the LICENSE.md file). If not, see
                     <return error="true" message="Could not find company $otherCompanyPartyId from order ${lastItem.orderId} in view CompanyPersonAndLoginGroup"/></if>
                 <service-call name="growerp.100.PartyServices100.get#User"
                         in-map="[userPartyId: others[0].userPartyId]" out-map="userOut"/>
-                <log message="from get user: ${userOut.user}"/>
                 <set field="orderOut" from="[
                      orderId: lastItem.orderId,
                      orderStatusId: lastItem.statusId,
