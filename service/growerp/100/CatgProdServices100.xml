@@ -22,6 +22,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="start" default-value="0" type="Integer"/>
             <parameter name="limit" default-value="10" type="Integer"/>
             <parameter name="filter"/>
+            <parameter name="search"/>
         </in-parameters>
         <out-parameters>
             <parameter name="product" type="Map"/>
@@ -34,6 +35,8 @@ along with this software (see the LICENSE.md file). If not, see
                  out-map="context"/>
             <if condition="filter">
                 <set field="filter" value="%${filter}%"/></if>
+            <if condition="search">
+                <set field="search" value="%${search}%"/></if>
             <entity-find offset="start" limit="limit"
                     entity-name="growerp.mobile.product.ProductAndPriceAndProductCategory"
                         list="productList">
@@ -46,6 +49,12 @@ along with this software (see the LICENSE.md file). If not, see
                         <econdition field-name="productId" ignore-if-empty="true"/>
                         <econdition field-name="productName" operator="like"
                             from="filter" ignore-if-empty="true"/>
+                        <econditions combine="or">
+                            <econdition field-name="productName"
+                                operator="like" from="search" ignore-if-empty="true"/>
+                            <econdition field-name="description"
+                                operator="like" from="search" ignore-if-empty="true"/>
+                        </econditions>
                         <order-by field-name="productName"/>
                     </entity-find>
             <if condition="!productId">
@@ -224,7 +233,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="categories" type="List"/>
         </out-parameters>
         <actions>
-            <log message="=====get categories with start: $start and limit $limit filter: $filter"/>
             <service-call  out-map="context"
                 name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId"/>
             <entity-find
@@ -373,7 +381,7 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-count count-field="nbrOfProducts" entity-name="mantle.product.category.ProductCategoryMemberProduct">
                 <econdition field-name="productCategoryId" from="categoryId"/>
                     <econditions combine="or">
-                        <econdition field-name="salesDiscontinuationDate" from="null"/>
+                        <econdition field-name="salesDiscontinuationDate" operator="is-null"/>
                         <econdition field-name="salesDiscontinuationDate" operator="greater" from="ec.user.nowTimestamp"/>
                 </econditions><date-filter/></entity-find-count>
             <if condition="nbrOfProducts">

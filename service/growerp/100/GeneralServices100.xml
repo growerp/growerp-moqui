@@ -87,53 +87,74 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call 
                 name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId"
                 out-map="context"/>
-            <entity-find-count entity-name="growerp.mobile.CompanyPersonAndLoginGroup"
-                count-field="admins">
+            <entity-find-count count-field="admins"
+                entity-name="growerp.mobile.CompanyPersonAndLoginGroup">
                 <econdition field-name="ownerPartyId"/>
+                <econdition field-name="userDisabled" value="N"/>
+                <econdition field-name="companyDisabled" value="N"/>
                 <econdition field-name="userGroupId" value="GROWERP_M_ADMIN"/>
             </entity-find-count>
-            <entity-find-count entity-name="growerp.mobile.CompanyPersonAndLoginGroup"
-                count-field="employees">
+            <entity-find-count count-field="employees"
+                entity-name="growerp.mobile.CompanyPersonAndLoginGroup">
                 <econdition field-name="ownerPartyId"/>
+                <econdition field-name="userDisabled" value="N"/>
+                <econdition field-name="companyDisabled" value="N"/>
                 <econdition field-name="userGroupId" operator="in"
                     from="['GROWERP_M_EMPLOYEE','GROWERP_M_ADMIN']"/>
             </entity-find-count>
-            <entity-find-count entity-name="growerp.mobile.CompanyPersonAndLoginGroup"
-                count-field="leads">
+            <entity-find-count count-field="leads"
+                entity-name="growerp.mobile.CompanyPersonAndLoginGroup">
                 <econdition field-name="ownerPartyId"/>
-                <econdition field-name="userGroupId" value="GROWERP_M_LEAD"/>
+                <econdition field-name="userDisabled" value="N"/>
+                <econdition field-name="companyDisabled" value="N"/>
+                <econdition field-name="userGroupId"
+                    value="GROWERP_M_LEAD"/>
             </entity-find-count>
-            <entity-find-count entity-name="growerp.mobile.CompanyPersonAndLoginGroup"
-                count-field="customers">
+            <entity-find-count count-field="customers"
+                entity-name="growerp.mobile.CompanyPersonAndLoginGroup">
                 <econdition field-name="ownerPartyId"/>
-                <econdition field-name="userGroupId" value="GROWERP_M_CUSTOMER"/>
+                <econdition field-name="userDisabled" value="N"/>
+                <econdition field-name="companyDisabled" value="N"/>
+                <econdition field-name="userGroupId"
+                    value="GROWERP_M_CUSTOMER"/>
             </entity-find-count>
-            <entity-find-count entity-name="growerp.mobile.CompanyPersonAndLoginGroup"
-                count-field="suppliers">
+            <entity-find-count count-field="suppliers"
+                entity-name="growerp.mobile.CompanyPersonAndLoginGroup">
                 <econdition field-name="ownerPartyId"/>
-                <econdition field-name="userGroupId" value="GROWERP_M_SUPPLIER"/>
+                <econdition field-name="userDisabled" value="N"/>
+                <econdition field-name="companyDisabled" value="N"/>
+                <econdition field-name="userGroupId"
+                    value="GROWERP_M_SUPPLIER"/>
             </entity-find-count>
 
             <entity-find-count entity-name="mantle.product.Product"
                 count-field="products">
+                <econditions combine="or">
+                    <econdition field-name="salesDiscontinuationDate"
+                        operator="is-null"/>
+                    <econdition field-name="salesDiscontinuationDate"
+                        operator="greater" from="ec.user.nowTimestamp"/>
+                </econditions>
                 <econdition field-name="ownerPartyId"/>
             </entity-find-count>
-            <entity-find-count entity-name="mantle.product.category.ProductCategory"
-                count-field="categories">
-                <econdition field-name="productCategoryTypeEnumId"
-                    operator="not-equals" value="PctRoot"/>
+            <entity-find-count count-field="categories"
+                entity-name="growerp.mobile.party.category.ProductCategoryParentsAndChild">
+                <econdition field-name="ownerPartyId"/>
+                <date-filter/>
+            </entity-find-count>
+            <entity-find-count count-field="opportunities"
+                entity-name="mantle.sales.opportunity.SalesOpportunity">
+                <econdition field-name="opportunityStageId"
+                    operator="not-equals" value="Deleted"/>
                 <econdition field-name="ownerPartyId"/>
             </entity-find-count>
-            <entity-find-count entity-name="mantle.sales.opportunity.SalesOpportunity"
-                count-field="opportunities">
-                <econdition field-name="opportunityStageId" operator="not-equals" value="Deleted"/>
+            <entity-find-count count-field="myOpportunities"
+                entity-name="mantle.sales.opportunity.SalesOpportunity">
                 <econdition field-name="ownerPartyId"/>
-            </entity-find-count>
-            <entity-find-count entity-name="mantle.sales.opportunity.SalesOpportunity"
-                count-field="myOpportunities">
-                <econdition field-name="ownerPartyId"/>
-                <econdition field-name="opportunityStageId" operator="not-equals" value="Deleted"/>
-                <econdition field-name="accountPartyId" from="ec.user.userAccount.partyId"/>
+                <econdition field-name="opportunityStageId"
+                    operator="not-equals" value="Deleted"/>
+                <econdition field-name="accountPartyId"
+                    from="ec.user.userAccount.partyId"/>
             </entity-find-count>
 
             <entity-find-count entity-name="mantle.order.OrderPart"

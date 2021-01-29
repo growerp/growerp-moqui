@@ -269,7 +269,7 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="mantle.party.PartyServices.create#Account" 
                 in-map="context + [roleTypeId: 'Employee', loginAfterCreate: false,
                         firstName: userIn.firstName, lastName: userIn.lastName,
-                        emailAddress: userIn.email]"
+                        emailAddress: userIn.email, disabled: 'N']"
                 out-map="userAccount" />
             <set field="userPartyId" from="userAccount.partyId"/>
             <!-- update owner on userPartyId -->
@@ -289,7 +289,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call out-map="comp"
                     name="mantle.party.PartyServices.create#Organization"
                     in-map="[organizationName: userIn.companyName,
-                            ownerPartyId: relComp.ownerPartyId]"/>
+                            ownerPartyId: relComp.ownerPartyId,
+                            disabled: 'N']"/>
                 <set field="companyPartyId" from="comp.partyId"/>
                 <else>
                     <set field="companyPartyId" from="relComp.ownerPartyId"/>
@@ -429,7 +430,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="companyName"/><!-- can be empty with new user existing company -->
             <parameter name="companyEmailAddress"/>
             <parameter name="currencyId"/>
-            <parameter name="classificationId"/> <!-- allocate company to application name -->
+            <parameter name="classificationId" required="true"/> <!-- allocate company to application name -->
             <!-- default setup -->
             <parameter name="environment"/>
         </in-parameters>
@@ -439,7 +440,8 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <service-call name="mantle.party.PartyServices.create#Account" 
-                in-map="context + [roleTypeId: 'Employee', loginAfterCreate: false]"
+                in-map="context + [roleTypeId: 'Employee',
+                        loginAfterCreate: false, disabled: 'N']"
                 out-map="userAccount" />
             <set field="userPartyId" from="userAccount.partyId"/>
             <set field="fromDate" from="ec.user.nowTimestamp"/>
@@ -449,8 +451,8 @@ along with this software (see the LICENSE.md file). If not, see
                     in-map="[userGroupId: 'GROWERP_M_ADMIN', userId: userAccount.userId]"/>
                 <!-- create company -->
                 <service-call name="mantle.party.PartyServices.create#Organization"
-                    in-map="context + [roleTypeId: 'OrgInternal',organizationName: companyName]"
-                    out-map="company" />
+                    in-map="[roleTypeId: 'OrgInternal',organizationName: companyName,
+                            disabled: 'N']" out-map="company" />
                 <set field="companyPartyId" from="company.partyId" />
                 <!-- company email address -->
                 <service-call name="mantle.party.ContactServices.create#EmailAddress" 
@@ -460,9 +462,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="mantle.ledger.LedgerServices.init#PartyAccountingConfiguration"
                     in-map="[sourcePartyId: 'DefaultSettings',
                             organizationPartyId: companyPartyId, baseCurrencyUomId: currencyId]" />
-                <!-- set classification: admin hotel, ecommerce et -->
-                <if condition="!classificationId">
-                    <return error="true" message="When creating a new company classificationId is required" /></if>
+                <!-- set classification: admin hotel, ecommerce etc -->
                 <service-call name="create#mantle.party.PartyClassificationAppl"
                     in-map="[partyId: companyPartyId, partyClassificationId: classificationId]"
                     out-map="context" />
@@ -481,12 +481,10 @@ along with this software (see the LICENSE.md file). If not, see
                     in-map="[productCategoryId: productCategoryId,
                         storeCategoryTypeEnumId: 'PsctBrowseRoot',
                         productStoreId: productStoreId, fromDate: fromDate]" />
-                <!-- set company in as ACTIVE_ORGANIZATION UserPreference to be sure only this company can be looked at-->
+                <!-- set company in as ACTIVE_ORGANIZATION UserPreference -->
                 <service-call name="create#moqui.security.UserPreference"
                     in-map="[userId: userAccount.userId, preferenceKey: 'ACTIVE_ORGANIZATION',
                      preferenceValue: companyPartyId]" />
-                <!-- setup the organization -->
-                <!--service-call name="mantle.party.PartyServices.setup#UserOrganizationInfo" /-->
                 <!--send email -->
                 <!--service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
                     <field-map field-name="emailTemplateId" value="WELCOME" />
@@ -506,6 +504,12 @@ along with this software (see the LICENSE.md file). If not, see
                     <field-map field-name="partyId" from="userPartyId"/></entity-find-one>
                 <set field="userParty.ownerPartyId" from="companyPartyId"/>
                 <entity-update value-field="userParty"/>
+                <!-- set company ownership (Own itself)-->
+                <entity-find-one entity-name="mantle.party.Party"
+                        value-field="companyParty" for-update="true">
+                    <field-map field-name="partyId" from="companyPartyId"/></entity-find-one>
+                <set field="companyParty.ownerPartyId" from="companyPartyId"/>
+                <entity-update value-field="companyParty"/>
                 <!-- load demo data -->
                 <script>ec.user.loginUser(username, newPassword)</script>
                 <service-call name="growerp.100.PartyServices100.load#DefaultData"
@@ -740,10 +744,8 @@ along with this software (see the LICENSE.md file). If not, see
                         accountPartyId: index%2 == 0? userPartyId: employeeUser1,
                         leadPartyId: index%2 == 0 ? leadUser1 : leadUser2
                     ]])"/>
-                    <log message="=====create opportunity: $oppIn"/>
                     <service-call name="growerp.100.CrmServices100.create#Opportunity"
                                     in-map="[opportunity: oppIn]" out-map="context"/>
-                    <log message="=====result opportunity: $opportunity"/>
                     <set field="index" from="index + 1"/>
                 </iterate>
 

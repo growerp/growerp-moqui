@@ -38,7 +38,7 @@ along with this software (see the LICENSE.md file). If not, see
         <description>get all people related to a certain companyId = PR => toPartyId</description>
         <member-entity entity-alias="PTYORG" entity-name="Party">
             <entity-condition>
-                <econdition field-name="orgDisabled" operator="equals"
+                <econdition field-name="companyDisabled" operator="equals"
                         value="N" or-null="true"/>
             </entity-condition>
         </member-entity>
@@ -53,7 +53,7 @@ along with this software (see the LICENSE.md file). If not, see
                 join-from-alias="PR">
             <key-map field-name="fromPartyId" related="partyId"/>
             <entity-condition>
-                <econdition field-name="orgDisabled" operator="equals"
+                <econdition field-name="companyDisabled" operator="equals"
                         value="N" or-null="true"/></entity-condition>
         </member-entity>
         <member-entity entity-alias="PERSON" entity-name="mantle.party.Person"
@@ -73,7 +73,7 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="userGroupId" related="userGroupId"/>
         </member-entity>
 
-        <alias entity-alias="PTYORG" name="orgDisabled" field="disabled"/>
+        <alias entity-alias="PTYORG" name="companyDisabled" field="disabled"/>
         <alias entity-alias="ORG" name="companyName" field="organizationName"/>
         <alias entity-alias="ORG" name="companyPartyId" field="partyId"/>
         <alias entity-alias="PR" name="orgRoleTypeId" field="toRoleTypeId"/>
@@ -114,7 +114,7 @@ along with this software (see the LICENSE.md file). If not, see
         <member-entity entity-alias="PTYORG" entity-name="Party" join-from-alias="PR">
             <key-map field-name="toPartyId" related="partyId"/>
             <entity-condition>
-                <econdition field-name="orgDisabled" operator="equals" value="N" or-null="true"/>
+                <econdition field-name="companyDisabled" operator="equals" value="N" or-null="true"/>
             </entity-condition>
         </member-entity>
         <member-entity entity-alias="PERSON" entity-name="mantle.party.Person" join-from-alias="PR">
@@ -144,7 +144,7 @@ along with this software (see the LICENSE.md file). If not, see
         <alias entity-alias="PR" name="thruDate"/>
         <alias entity-alias="PTYPERSON" name="personDisabled" field="disabled"/>
         <alias entity-alias="PTYPERSON" name="externalId"/>
-        <alias entity-alias="PTYORG" name="orgDisabled" field="disabled"/>
+        <alias entity-alias="PTYORG" name="companyDisabled" field="disabled"/>
         <alias entity-alias="PERSON" name="firstName"/>
         <alias entity-alias="PERSON" name="lastName"/>
         <alias entity-alias="ACCT" name="userId"/>
