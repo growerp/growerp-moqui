@@ -50,6 +50,8 @@ along with this software (see the LICENSE.md file). If not, see
                         <econdition field-name="productName" operator="like"
                             from="filter" ignore-if-empty="true"/>
                         <econditions combine="or">
+                            <econdition field-name="productId"
+                                operator="like" from="search" ignore-if-empty="true"/>
                             <econdition field-name="productName"
                                 operator="like" from="search" ignore-if-empty="true"/>
                             <econdition field-name="description"
@@ -227,6 +229,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="start" default-value="0" type="Integer"/>
             <parameter name="limit" default-value="20" type="Integer"/>
             <parameter name="filter"/>
+            <parameter name="search"/>
         </in-parameters>
         <out-parameters>
             <parameter name="category" type="Map"/>
@@ -246,6 +249,8 @@ along with this software (see the LICENSE.md file). If not, see
                 message="Category root not found for company: ${ownerPartyId}"/></else></if>
             <if condition="filter">
                 <set field="filter" value="%${filter}%"/></if>
+            <if condition="search">
+                <set field="search" value="%${search}%"/></if>
             <entity-find  offset="start" limit="limit" list="groups"
                 entity-name="growerp.mobile.party.category.ProductCategoryParentsAndChild">
                 <date-filter/>
@@ -255,7 +260,15 @@ along with this software (see the LICENSE.md file). If not, see
                     from="categoryId" ignore-if-empty="true"/>
                 <econdition field-name="categoryName" operator="like"
                     from="filter" ignore-if-empty="true"/>
-            </entity-find>
+                <econditions combine="or">
+                    <econdition field-name="productCategoryId"
+                        operator="like" from="search" ignore-if-empty="true"/>
+                        <econdition field-name="categoryName"
+                        operator="like" from="search" ignore-if-empty="true"/>
+                    <econdition field-name="description"
+                        operator="like" from="search" ignore-if-empty="true"/>
+                </econditions>
+        </entity-find>
             <if condition="!categoryId">
                 <set field="categories" from="[]"/></if>
             <iterate entry="group" list="groups">

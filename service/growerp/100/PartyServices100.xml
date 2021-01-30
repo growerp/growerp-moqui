@@ -154,6 +154,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="start" type="Integer" default-value="0"/>
             <parameter name="limit" type="Integer" default-value="20"/>
             <parameter name="filter"/>
+            <parameter name="search"/>
         </in-parameters>
         <out-parameters>
             <parameter name="users" type="List"/>
@@ -163,6 +164,8 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="filter">
                 <set field="filter" value="%${filter}%"/>
             </if>
+            <if condition="search">
+                <set field="search" value="%${search}%"/></if>
             <service-call out-map="relatedLogin"
                 name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner"/>
             <entity-find offset="start" limit="limit" list="userInfos"
@@ -170,6 +173,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="ownerPartyId" from="relatedLogin.ownerPartyId"/>
                 <econdition field-name="userPartyId" ignore-if-empty="true"/>
                 <econditions combine="or">
+                    <econdition field-name="userPartyId" operator="like"
+                        from="filter" ignore-if-empty="true"/>
                     <econdition field-name="lastName" operator="like"
                         from="filter" ignore-if-empty="true"/>
                     <econdition field-name="firstName" operator="like"
@@ -177,7 +182,15 @@ along with this software (see the LICENSE.md file). If not, see
                     <econdition field-name="companyName" operator="like"
                         from="filter" ignore-if-empty="true"/>
                 </econditions>
-                <econdition field-name="userGroupId" ignore-if-empty="true"/>
+                <econditions combine="or">
+                    <econdition field-name="userPartyId"
+                        operator="like" from="search" ignore-if-empty="true"/>
+                    <econdition field-name="userFullName"
+                        operator="like" from="search" ignore-if-empty="true"/>
+                    <econdition field-name="emailAddress"
+                        operator="like" from="search" ignore-if-empty="true"/>
+                </econditions>
+        <econdition field-name="userGroupId" ignore-if-empty="true"/>
                 <order-by field-name="lastName"/><order-by field-name="firstName"/>
             </entity-find>
             <if condition="!userPartyId"><set field="users" from="[]"/></if>
@@ -535,7 +548,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="userPartyId" required="true"/>
             <parameter name="currencyId"/>
             <parameter name="classificationId"/>
-            <parameter name="counter" default="1" type="Integer"/>
+            <parameter name="counter" default="500" type="Integer"/>
         </in-parameters>
         <actions>
             <log message="Loading demo data #$counter sets for user: $userPartyId company: $companyPartyId"/>

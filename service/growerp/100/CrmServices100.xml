@@ -13,25 +13,6 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
-    <!--service verb="get" noun="Crm">
-        <out-parameters>
-            <parameter name="crm" type="Map"/>
-        </out-parameters>
-        <actions>
-            <set field="crm" from="[:]"/>
-            <service-call name="growerp.100.PartyServices100.get#User" out-map="leads"
-                in-map="[userGroupId: 'GROWERP_M_LEAD']"></service-call>
-            <set field="crm.leads" from="leads.users?leads.users:[]"/>
-            <service-call name="growerp.100.PartyServices100.get#User" out-map="customers"
-                in-map="[userGroupId: 'GROWERP_M_CUSTOMER']"></service-call>
-            <set field="crm.customers" from="customers.users?customers.users:[]"/>
-            <service-call name="growerp.100.PartyServices100.get#User" out-map="suppliers"
-                in-map="[userGroupId: 'GROWERP_M_SUPPLIER']"></service-call>
-            <set field="crm.suppliers" from="suppliers.users?suppliers.users:[]"/>
-            <service-call name="growerp.100.CrmServices100.get#Opportunity" out-map="opps"/>
-            <set field="crm.opportunities" from="opps.opportunities"/>
-        </actions>
-    </service-->
 
     <service verb="get" noun="Opportunity">
         <in-parameters>
@@ -39,6 +20,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="start" type="Integer" default-value="0"/>
             <parameter name="limit" type="Integer" default-value="20"/>
             <parameter name="all" default-value="true"/>
+            <parameter name="search"/>
         </in-parameters>
         <out-parameters>
             <parameter name="opportunities" type="List"/>
@@ -49,13 +31,23 @@ along with this software (see the LICENSE.md file). If not, see
                 name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner"/>
             <if condition="all == 'false'">
                 <set field="accountPartyId" from="ec.user.userAccount.partyId"/></if>
+            <if condition="search">
+                <set field="search" value="%${search}%"/></if>
             <entity-find list="opps" offset="start" limit="limit"
                     entity-name="growerp.mobile.crm.OpportunityAndStageAndParties">
                 <econdition field-name="ownerPartyId"/>
                 <econdition field-name="opportunityId" ignore-if-empty="true"/>
                 <econdition field-name="accountPartyId" ignore-if-empty="true"/>
                 <econdition field-name="stageId" operator="not-equals" value="Deleted"/>
-                <order-by field-name="lastUpdatedStamp"/>
+                <econditions combine="or">
+                    <econdition field-name="opportunityId"
+                        operator="like" from="search" ignore-if-empty="true"/>
+                    <econdition field-name="opportunityName"
+                        operator="like" from="search" ignore-if-empty="true"/>
+                    <econdition field-name="description"
+                        operator="like" from="search" ignore-if-empty="true"/>
+                </econditions>
+        <order-by field-name="lastUpdatedStamp"/>
             </entity-find>
             <if condition="!opportunityId">
                 <set field="opportunities" from="[]"/></if>
