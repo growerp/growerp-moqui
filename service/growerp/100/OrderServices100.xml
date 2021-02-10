@@ -57,7 +57,7 @@ along with this software (see the LICENSE.md file). If not, see
                         from="ec.l10n.parseTimestamp(ec.l10n.format(startDate, 'yyyy-MM-dd')
                             + ' 23:59:59.999', 'yyyy-MM-dd HH:mm:ss.SSS')"/>
                 </if>
-                <if condition="sales == true">
+                <if condition="sales">
                     <set field="vendorPartyId" from="ownerPartyId"/>
                 <else>
                     <set field="customerPartyId" from="ownerPartyId"/></else></if>
@@ -102,7 +102,7 @@ along with this software (see the LICENSE.md file). If not, see
                         orderId: lastItem.orderId,
                         orderStatusId: lastItem.statusId,
                         placedDate: lastItem.placedDate.toString().substring(0,19) + 'Z',
-                        sales: lastItem.vendorPartyId == ownerPartyId,
+                        sales: (lastItem.vendorPartyId == ownerPartyId).toString(),
                         otherUser: userOut.user,
                         grandTotal: lastItem.grandTotal.toString(),
                         invoiceId: lastItem.invoiceId,
@@ -218,7 +218,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="order"/></out-parameters>
         <actions>
             <!-- status sequence:
-                OrderOpen -> (OrderPlaced) -> orderApproved -> OrderCompleted
+                OrderOpen -> OrderPlaced -> orderApproved -> OrderCompleted
             -->
             <script>
                 Object order = new groovy.json.JsonSlurper().parseText(order).order
@@ -241,55 +241,41 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- handle status changes -->
             <if condition="order.orderStatusId != items[0].statusId">
                 <if condition="order.orderStatusId == 'OrderPlaced'">
-                    <log message="====order place"/>
                     <service-call in-map="context" out-map="context"
                         name="mantle.order.OrderServices.place#Order"/>
-                    <set field="statusId" from="null"/>
-                    <log message="====create invoice"/>
-                    <service-call in-map="context" out-map="context"
+                    <if condition="order.sales">
+                        <set field="invStatusId" value="InvoiceFinalized"/>
+                        <else>
+                            <set field="invStatusId" value="InvoiceReceived"/>
+                        </else>
+                    </if>
+                    <service-call in-map="context + [statusId: invStatusId]" out-map="context"
                         name="mantle.account.InvoiceServices.create#EntireOrderPartInvoice"/>
-                    <log message="====create payment"/>
                     <service-call name="mantle.order.OrderServices.add#OrderPartPayment"
-                        in-map="context + [paymentGatewayConfigId: 'PaypalDemo']"
-                        out-map="context"/>
-                    <log message="====authorize moqui payment"/>      
+                        in-map="context" out-map="context"/>
                     <entity-find-one entity-name="mantle.account.payment.Payment"
                         value-field="payment" for-update="true"/>
                     <set field="payment.statusId" value="PmntAuthorized"/>
-                    <!--service-call name="update#mantle.account.payment.Payment" in-map="payment"/>
-                    <log message="====Paypal authorize payment"/>      
-                    <service-call name="mantle.account.PaymentServices.authorize#SinglePayment">
-                        <field-map field-name="paymentGatewayConfigId" value="PaypalDemo"/>
-                        <field-map field-name="paymentId"/>
-                    </service-call-->
+                    <service-call name="update#mantle.account.payment.Payment" in-map="payment"/>
                 </if>
                 <if condition="order.orderStatusId == 'OrderApproved'">
-                    <log message="====order approve"/>
                     <service-call name="mantle.order.OrderServices.approve#Order"
                         in-map="context"/>
-                    <log message="====finalize moqui invoice"/>      
-                    <entity-find-one entity-name="mantle.account.invoice.Invoice"
-                        value-field="invoice" for-update="true"/>
-                    <set field="invoice.statusId" value="InvoiceFinalized"/>
-                    <service-call name="update#mantle.account.invoice.Invoice" in-map="invoice"/>
-                    <!--log message="====capture payment"/>
-                    <service-call name="mantle.account.PaymentServices.capture#SinglePayment">
-                        <field-map field-name="paymentGatewayConfigId" value="PaypalDemo"/>
-                        <field-map field-name="paymentId"/>
-                    </service-call>
-                    <log message="====order send payment"/>      
-                    <service-call name="mantle.account.PaymentServices.send#PromisedPayment">
-                        <field-map field-name="invoiceId"/>
-                        <field-map field-name="paymentId"/>
-                    </service-call-->
                 </if>
                 <if condition="order.orderStatusId == 'OrderCompleted'">
-                    <log message="====order complete"/>
                     <service-call name="mantle.order.OrderServices.complete#Order"
                         in-map="context"/>
-                </if>
+                    <entity-find-one entity-name="mantle.account.invoice.Invoice"
+                        value-field="invoice" for-update="true"/>
+                    <if condition="order.sales">
+                        <set field="invoice.statusId" value="InvoiceSent"/>
+                        <else>
+                            <set field="invoice.statusId" value="InvoiceReceived"/>
+                        </else>
+                    </if>
+                    <service-call name="update#mantle.account.invoice.Invoice" in-map="invoice"/>
+                    </if>
                 <if condition="order.orderStatusId == 'OrderCancelled'">
-                    <log message="====order cancelled"/>
                     <service-call name="mantle.order.OrderServices.cancel#Order"
                         in-map="context"/>
                 </if>
