@@ -548,7 +548,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="userPartyId" required="true"/>
             <parameter name="currencyId"/>
             <parameter name="classificationId"/>
-            <parameter name="counter" default="1" type="Integer"/>
+            <parameter name="counter" default="5" type="Integer"/>
         </in-parameters>
         <actions>
             <log message="Loading demo data #$counter sets for user: $userPartyId company: $companyPartyId"/>
@@ -776,8 +776,8 @@ along with this software (see the LICENSE.md file). If not, see
                             currencyUomId: aPref.baseCurrencyUomId,
                             productStoreId: stores[0].productStoreId,
                             placedDate: ec.user.nowTimestamp,
-                            customerPartyId: index%2 == 0 ? companyPartyId: supplierCompany2,
-                            vendorPartyId: index%2 == 1 ? customerCompany2 : companyPartyId
+                            customerPartyId: index%2 == 0 ? companyPartyId : customerCompany2 ,
+                            vendorPartyId: index%2 == 0 ? supplierCompany2 : companyPartyId
                         ]" out-map="context"/>
                     <iterate entry="item" list="order.orderItems">
                         <service-call
