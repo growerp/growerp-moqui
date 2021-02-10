@@ -499,13 +499,13 @@ along with this software (see the LICENSE.md file). If not, see
                     in-map="[userId: userAccount.userId, preferenceKey: 'ACTIVE_ORGANIZATION',
                      preferenceValue: companyPartyId]" />
                 <!--send email -->
-                <!--service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
+                <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
                     <field-map field-name="emailTemplateId" value="WELCOME" />
                     <field-map field-name="toAddresses" from="emailAddress" />
                     <field-map field-name="bodyParameters" 
                         from="[classification: partyClassificationId.substring(3),
                             newPassword:newPassword]" />
-                </service-call-->
+                </service-call>
                 <!-- attach the user as an employee to the organization-->
                 <service-call name="create#mantle.party.PartyRelationship"
                     in-map="[fromPartyId: userPartyId, fromRoleTypeId: 'Employee',
