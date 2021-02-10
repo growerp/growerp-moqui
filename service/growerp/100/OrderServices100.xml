@@ -113,8 +113,6 @@ along with this software (see the LICENSE.md file). If not, see
                     description: item.itemDescription,
                     quantity: item.quantity.toString(),
                     price: item.unitAmount.toString(),
-                    fromDate: null,
-                    thruDate: null
                     ]"/>
                 <script>orderItems.add(orderItem)</script>
                 <set field="lastItem" from="item"/>
@@ -223,9 +221,12 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call out-map="context"
                 name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner"/>
             <set field="orderId" from="order.orderId"/>
-            <entity-find entity-name="OrderHeaderAndPartAndItem" list="items">
+            <entity-find entity-name="OrderHeaderPartItemAndParties" list="items">
                 <econdition field-name="orderId" from="order.orderId"/>
-                <econdition field-name="vendorPartyId" from="ownerPartyId"/>
+                <econditions combine="or">
+                    <econdition field-name="vendorPartyId" from="ownerPartyId"/>
+                    <econdition field-name="customerPartyId" from="ownerPartyId"/>
+                </econditions>
                 <order-by field-name="orderItemSeqId"/>
             </entity-find>
             <if condition="!items"><return error="true" message="Order not found"/></if>
@@ -250,12 +251,12 @@ along with this software (see the LICENSE.md file). If not, see
                     <entity-find-one entity-name="mantle.account.payment.Payment"
                         value-field="payment" for-update="true"/>
                     <set field="payment.statusId" value="PmntAuthorized"/>
-                    <service-call name="update#mantle.account.payment.Payment" in-map="payment"/>
+                    <!--service-call name="update#mantle.account.payment.Payment" in-map="payment"/>
                     <log message="====Paypal authorize payment"/>      
                     <service-call name="mantle.account.PaymentServices.authorize#SinglePayment">
                         <field-map field-name="paymentGatewayConfigId" value="PaypalDemo"/>
                         <field-map field-name="paymentId"/>
-                    </service-call>
+                    </service-call-->
                 </if>
                 <if condition="order.orderStatusId == 'OrderApproved'">
                     <log message="====order approve"/>
@@ -266,7 +267,7 @@ along with this software (see the LICENSE.md file). If not, see
                         value-field="invoice" for-update="true"/>
                     <set field="invoice.statusId" value="InvoiceFinalized"/>
                     <service-call name="update#mantle.account.invoice.Invoice" in-map="invoice"/>
-                    <log message="====capture payment"/>      
+                    <!--log message="====capture payment"/>
                     <service-call name="mantle.account.PaymentServices.capture#SinglePayment">
                         <field-map field-name="paymentGatewayConfigId" value="PaypalDemo"/>
                         <field-map field-name="paymentId"/>
@@ -275,7 +276,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <service-call name="mantle.account.PaymentServices.send#PromisedPayment">
                         <field-map field-name="invoiceId"/>
                         <field-map field-name="paymentId"/>
-                    </service-call>
+                    </service-call-->
                 </if>
                 <if condition="order.orderStatusId == 'OrderCompleted'">
                     <log message="====order complete"/>
@@ -283,10 +284,13 @@ along with this software (see the LICENSE.md file). If not, see
                         in-map="context"/>
                 </if>
                 <if condition="order.orderStatusId == 'OrderCancelled'">
+                    <log message="====order cancelled"/>
+                    <service-call name="mantle.order.OrderServices.cancel#Order"
+                        in-map="context"/>
                 </if>
             </if>
-            <service-call name="growerp.100.OrderServices100.getOrders"
-                in-map="[orderId: order.orderId]" out-map="context"/>
+                <service-call name="growerp.100.OrderServices100.getOrders"
+                in-map="[orderId: order.orderId, open: false]" out-map="context"/>
         </actions>
     </service>
 </services>
