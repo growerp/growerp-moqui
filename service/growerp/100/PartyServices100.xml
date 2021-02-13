@@ -613,10 +613,10 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="opportunities" from="
             [
                 [ opportunityName: 'The best opportunity', description: 'the best oppr description',
-                    nextStep: 'not sure yet', estimatedAmount: 1000, estimatedProbability: 33,
+                    nextStep: 'not sure yet', estAmount: 1000, estProbability: 33,
                     opportunityStageId: 'Prospecting'],
                 [ opportunityName: 'The second best opportunity', description: 'the secondbest oppr description',
-                    nextStep: 'not sure yet', estimatedAmount: 5000, estimatedProbability: 66,
+                    nextStep: 'not sure yet', estAmount: 5000, estProbability: 66,
                     opportunityStageId: 'Proposal']
             ]"/>
 
@@ -750,8 +750,8 @@ along with this software (see the LICENSE.md file). If not, see
                         opportunityName: opp.opportunityName,
                         description: opp.description,
                         nextStep: opp.nextStep,
-                        estimatedAmount: opp.estimatedAmount,
-                        estimatedProbability: opp.estimatedProbability,
+                        estAmount: opp.estAmount,
+                        estProbability: opp.estProbability,
                         opportunityStageId: opp.opportunityStageId,
                         ownerPartyId: companyPartyId,
                         accountPartyId: index%2 == 0? userPartyId: employeeUser1,

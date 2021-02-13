@@ -105,6 +105,7 @@ along with this software (see the LICENSE.md file). If not, see
                         opportunityName: opportunity.opportunityName,
                         estimatedProbability: opportunity.estProbability,
                         ownerPartyId: ownerPartyId,
+                        nextStep: opportunity.nextStep,
                         opportunityStageId: opportunity.stageId,
                         accountPartyId: opportunity.accountPartyId,
                         ]" out-map="context"/>
