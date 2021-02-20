@@ -383,16 +383,14 @@ along with this software (see the LICENSE.md file). If not, see
                     in-map="[type: 'user', id: userIn.partyId, base64: base64]"/>
             </if>
             <!-- update company name for customer, lead supplier -->
-            <if condition="userIn.userGroupId != 'GROWERP_M_ADMIN' &amp;&amp; 
-                                    userIn.userGroupId != 'GROWERP_M_EMPLOYEE'">
-                <entity-find-one value-field="party" entity-name="mantle.party.Organization"
+            <if condition="userIn.companyName != oldValue.companyName">
+                <entity-find-one value-field="companyParty" entity-name="mantle.party.Organization"
                         for-update="true">
                     <field-map field-name="partyId" from="userIn.companyPartyId"/>
                 </entity-find-one>
-                <if condition="userIn.companyName != party.organizationName">
-                    <set field="party.organizationName" from="userIn.companyName"/>
-                    <entity-update value-field="party"/>
-            </if></if>
+                <set field="companyParty.organizationName" from="userIn.companyName"/>
+                <entity-update value-field="companyParty"/>
+            </if>
             <!-- return updated user -->
             <service-call name="growerp.100.PartyServices100.get#User"
                 in-map="[userPartyId: userIn.partyId]" out-map="context"/>
@@ -566,13 +564,13 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="product1" from="[ productName: 'cola', description:'description', price: 34, image: 'cola']"/>    
             <set field="product2" from="[ productName: 'wiskey', description:'description', price: 31, image: 'wiskey']"/>    
             <set field="products1" from="[ product1, product2]"/>
-            <set field="category1" from="[categoryName: 'drinks', image: 'drinks', image: 'drinks', 
+            <set field="category1" from="[categoryName: 'drinks', description: 'catg description', image: 'drinks', image: 'drinks', 
                                         products: products1]"/>    
             <set field="product3" from="[ productName: 'macaroni', description:'description',
                                         price: 12, image: 'macaroni']"/>    
             <set field="product4" from="[ productName: 'hamburger', description:'description', price: 33, image: 'hamburger']"/>    
             <set field="products2" from="[ product3, product4]"/>
-            <set field="category2" from="[categoryName: 'food', image: 'drinks', image: 'food',
+            <set field="category2" from="[categoryName: 'food', description: 'catg description', image: 'drinks', image: 'food',
                                         products: products2]"/>    
             <set field="categories" from="[category1, category2]"/>    
 
