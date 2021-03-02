@@ -107,8 +107,8 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.Enumeration description="Medical and Health Care" enumId="ItemExpMedical" parentEnumId="ItemExpense" enumTypeId="ItemType"/>
     <moqui.basic.Enumeration description="Royalties" enumId="ItemExpRoyalties" parentEnumId="ItemExpense" enumTypeId="ItemType"/>
     <moqui.basic.Enumeration description="Supplies" enumId="ItemExpSupplies" parentEnumId="ItemExpense" enumTypeId="ItemType"/>
-    <moqui.basic.Enumeration description="Taxes and Licenses" enumId="ItemExpTaxesLic" parentEnumId="ItemExpense" enumTypeId="ItemType"/-->
-    <moqui.basic.Enumeration description="Expenses" enumId="ItemExpOther" parentEnumId="ItemExpense" enumTypeId="ItemType"/>
+    <moqui.basic.Enumeration description="Taxes and Licenses" enumId="ItemExpTaxesLic" parentEnumId="ItemExpense" enumTypeId="ItemType"/>
+    <moqui.basic.Enumeration description="Expenses other" enumId="ItemExpOther" parentEnumId="ItemExpense" enumTypeId="ItemType"/-->
 
     <!--moqui.basic.Enumeration description="Travel Meals/Entertainment" enumId="ItemExpTravMealsEnt" parentEnumId="ItemExpense" enumTypeId="ItemType"/>
     <moqui.basic.Enumeration description="Travel Local/Parking/Tolls" enumId="ItemExpTravLocal" parentEnumId="ItemExpense" enumTypeId="ItemType"/>
@@ -392,7 +392,7 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.EnumGroupMember enumId="ItemServiceProduct" enumGroupEnumId="EngItemsProduct"/>
     <!--moqui.basic.EnumGroupMember enumId="ItemRental" enumGroupEnumId="EngItemsProduct"/>
     <moqui.basic.EnumGroupMember enumId="ItemReplacement" enumGroupEnumId="EngItemsProduct"/>
-    <moqui.basic.EnumGroupMember enumId="ItemInventory" enumGroupEnumId="EngItemsProduct"/>
+    <moqui.basic.EnumGroupMember enumId="ItemInventory" enumGroupEnumId="EngItemsProduct"/-->
     <moqui.basic.EnumGroupMember enumId="ItemAsset" enumGroupEnumId="EngItemsProduct"/>
-    <moqui.basic.EnumGroupMember enumId="ItemExpSupplies" enumGroupEnumId="EngItemsProduct"/-->
+    <moqui.basic.EnumGroupMember enumId="ItemExpSupplies" enumGroupEnumId="EngItemsProduct"/>
 </entity-facade-xml>

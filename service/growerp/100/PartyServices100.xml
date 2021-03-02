@@ -30,12 +30,15 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="get" noun="Companies">
         <in-parameters>
             <parameter name="partyClassificationId"/>
+            <parameter name="start" type="Integer" default-value="0"/>
+            <parameter name="limit" type="Integer" default-value="20"/>
         </in-parameters>
         <out-parameters>
             <parameter name="companies"/>
         </out-parameters>
         <actions>
-            <entity-find entity-name="growerp.mobile.party.CompanyPreferenceAndClassification" list="parties">
+            <entity-find  list="parties" offset="start" limit="limit"
+                entity-name="growerp.mobile.party.CompanyPreferenceAndClassification">
                 <econdition field-name="partyClassificationId" ignore-if-empty="true"/>
                 <econditions combine="or">
                     <econdition field-name="disabled" operator="not-equals" value="Y"/>
@@ -44,8 +47,9 @@ along with this software (see the LICENSE.md file). If not, see
             </entity-find>
             <set field="companies" from="[]" />
             <iterate list="parties" entry="party">
-                <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"
-                    in-map="[companyPartyId: party.partyId, contentTypeId: 'PcntImageSmall']"/>
+                <set field="company"
+                    from="[partyId: party.partyId, name: party.organizationName,
+                                currencyId: party.baseCurrencyUomId]"/>
                 <script>companies.add(company)</script>
             </iterate>
         </actions>
@@ -78,6 +82,22 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="growerp.100.ImageServices100.download#Image"
                     in-map="[contentLocation: contents[0].contentLocation]" out-map="context"/>
             </if>
+            <!-- itemtypes for orderItem and invoiceItem -->
+            <set field="itemTypes" from="[:]"/>
+            <set field="itemTypes['sales']" from="[]"/>
+            <entity-find entity-name="moqui.basic.EnumAndGroup" list="salesItemTypes">
+                <econdition field-name="enumGroupEnumId" value="EngItemsSales"/>
+                <order-by field-name="description"/></entity-find>
+            <iterate list="salesItemTypes" entry="itemType">
+                <script>itemTypes['sales'].add([itemTypeId: itemType.enumId, description: itemType.description])</script>
+            </iterate>
+            <set field="itemTypes['purchase']" from="[]"/>
+            <entity-find entity-name="moqui.basic.EnumAndGroup" list="purchaseItemTypes">
+                <econdition field-name="enumGroupEnumId" operator="in" value="EngItemsPurchase,EngItemsProduct"/>
+                <order-by field-name="description"/></entity-find>
+            <iterate list="purchaseItemTypes" entry="itemType">
+                <script>itemTypes['purchase'].add([itemTypeId: itemType.enumId, description: itemType.description])</script>
+            </iterate>
             <set field="company" from="[
                 partyId: companyPartyId,
                 name: org.organizationName,
@@ -85,7 +105,8 @@ along with this software (see the LICENSE.md file). If not, see
                 classificationDescr: org.description,
                 email: emailAddress,
                 currencyId: org.baseCurrencyUomId,
-                image: imageFile
+                image: imageFile,
+                itemTypes: itemTypes
                 ]"/>
         </actions>
     </service>
@@ -302,7 +323,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call out-map="comp"
                     name="mantle.party.PartyServices.create#Organization"
                     in-map="[organizationName: userIn.companyName,
-                            ownerPartyId: relComp.ownerPartyId,
+                            ownerPartyId: relComp.ownerPartyId, roleTypeId: roleTypeId,
                             disabled: 'N']"/>
                 <set field="companyPartyId" from="comp.partyId"/>
                 <else>
@@ -549,7 +570,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="counter" default="5" type="Integer"/>
         </in-parameters>
         <actions>
-            <log message="Loading demo data #$counter sets for user: $userPartyId company: $companyPartyId"/>
             <script>sleep(2000)</script><!-- wait for registration bove to commit -->
             <entity-find entity-name="mantle.product.category.ProductCategory" list="rootList">
                 <econdition field-name="productCategoryTypeEnumId" value="PctRoot"/>

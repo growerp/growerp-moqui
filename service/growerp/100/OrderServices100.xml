@@ -100,6 +100,7 @@ along with this software (see the LICENSE.md file). If not, see
                         in-map="[userPartyId: others[0].userPartyId]" out-map="userOut"/>
                     <set field="orderOut" from="[
                         orderId: lastItem.orderId,
+                        description: lastItem.orderName,
                         orderStatusId: lastItem.statusId,
                         placedDate: lastItem.placedDate.toString().substring(0,19) + 'Z',
                         sales: (lastItem.vendorPartyId == ownerPartyId).toString(),
@@ -115,6 +116,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="orderItem" from="[
                     orderItemSeqId: item.orderItemSeqId,
                     productId: item.productId,
+                    itemTypeId: item.itemTypeEnumId,
                     description: item.itemDescription,
                     quantity: item.quantity.toString(),
                     price: item.unitAmount.toString(),
@@ -139,6 +141,7 @@ along with this software (see the LICENSE.md file). If not, see
                         in-map="[userPartyId: others[0].userPartyId]" out-map="userOut"/>
                 <set field="orderOut" from="[
                      orderId: lastItem.orderId,
+                     description: lastItem.orderName,
                      orderStatusId: lastItem.statusId,
                      placedDate: lastItem.placedDate.toString().substring(0,19) + 'Z',
                      sales: (lastItem.vendorPartyId == ownerPartyId).toString(),
@@ -174,7 +177,6 @@ along with this software (see the LICENSE.md file). If not, see
             <script>
                 Object order = new groovy.json.JsonSlurper().parseText(order).order
             </script>
-            <log message="======incoming order: $order"/>
             <service-call out-map="context"
                 name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner"/>
             <if condition="order.sales">
@@ -196,15 +198,26 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="currencyId" from="aPref.baseCurrencyUomId"/>
             <set field="placedDate" from="ec.user.nowTimestamp"/>
             <service-call name="mantle.order.OrderServices.create#Order"
-                in-map="context" out-map="context"/>
+                in-map="context + [orderName: order.description]" out-map="context"/>
             <iterate entry="item" list="order.orderItems">
-                <service-call
-                    name="mantle.order.OrderServices.add#OrderProductQuantity"
-                    in-map="context + [productId: item.productId,
-                                        quantity: item.quantity,
-                                        unitAmount: item.price,
-                                        currencyUomId: currencyId]"
-                    out-map="itemcreate"/>
+                <if condition="item.productId">
+                    <service-call
+                            name="mantle.order.OrderServices.add#OrderProductQuantity"
+                        in-map="context + [productId: item.productId,
+                                            quantity: item.quantity,
+                                            unitAmount: item.price,
+                                            currencyUomId: currencyId]"
+                        out-map="itemcreate"/>
+                    <else>
+                        <service-call
+                            name="mantle.order.OrderServices.create#OrderItem"
+                        in-map="context + [itemDescription: item.description,
+                                            quantity: item.quantity,
+                                            unitAmount: item.price,
+                                            currencyUomId: currencyId]"
+                        out-map="itemcreate"/>
+                    </else>
+                </if>
             </iterate>
             <service-call name="growerp.100.OrderServices100.getOrders"
                 in-map="[orderId: orderId]" out-map="context"/>
@@ -239,6 +252,14 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="paymentId" from="items[0].paymentId"/>
             <set field="invoiceId" from="items[0].invoiceId"/>
             <set field="orderPartSeqId" value="01"/>
+            <!-- orderheader -->
+            <if condition="items[0].orderName != order.description">
+                <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader">
+                    <field-map field-name="orderId" from="order.orderId"/>
+                </entity-find-one>
+                <set field="orderHeader.orderName" from="order.description"/>
+                <entity-update value-field="orderHeader"/>
+            </if>
             <!-- handle status changes -->
             <if condition="order.orderStatusId != items[0].statusId">
                 <if condition="order.orderStatusId == 'OrderPlaced'">

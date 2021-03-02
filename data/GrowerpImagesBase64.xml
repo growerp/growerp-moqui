@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <entity-facade-xml type="seed">
-    <moqui.resource.DbResource resourceId="growerp" isfile="N" filename="GrowERP"/>
+    <moqui.resource.DbResource resourceId="growerp" filename="GrowERP"/>
     <moqui.resource.DbResource resourceId="growerp_images" parentResourceId="growerp" filename="images"/>
     <moqui.resource.DbResource resourceId="growerp_02" parentResourceId="growerp_images" filename="barSmall.png" isFile="Y"/>
     <moqui.resource.DbResourceFile lastUpdatedStamp="1571908930764" resourceId="growerp_02" rootVersionName="01" mimeType="image/png" versionName="01">

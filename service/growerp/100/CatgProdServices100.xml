@@ -18,6 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
         <description> get a single, or all products (will page lateron</description>
         <in-parameters>
             <parameter name="companyPartyId"/>
+            <parameter name="categoryId"/>
             <parameter name="productId"/>
             <parameter name="start" default-value="0" type="Integer"/>
             <parameter name="limit" default-value="10" type="Integer"/>
@@ -33,7 +34,22 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call out-map="context"
                 name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner"/>
             <if condition="!companyPartyId">
-                <return error="true" message="If not logged in, companyPartyId is mandatory"/></if>
+                <!-- if not provided and not logged in use the one which was first created -->
+                <entity-find entity-name="mantle.party.Organization" list="parties" limit="1">
+                    <order-by field-name="partyId"/></entity-find>
+                <set field="companyPartyId" from="parties[0].partyId"/>
+                <log message="Using first allocated companyPartyId"/></if>
+            <if condition="categoryId == '###first one###'">
+                <!-- for ecommerce startup we only need products in the first alphabetical category
+                    but do not know which one that is -->
+                <entity-find
+                    entity-name="mantle.product.category.ProductCategory" list="catList" limit="1">
+                    <econdition field-name="ownerPartyId" from="companyPartyId"/>
+                    <econdition field-name="productCategoryTypeEnumId" operator="not-equals" value="PctRoot"/>
+                    <order-by field-name="categoryName"/>
+                </entity-find>
+                <set field="categoryId" from="catList[0].productCategoryId"/>
+                </if>
             <if condition="filter">
                 <set field="filter" value="%${filter}%"/></if>
             <if condition="search">
@@ -41,11 +57,8 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find offset="start" limit="limit"
                     entity-name="growerp.mobile.product.ProductAndPriceAndProductCategory"
                         list="productList">
-                        <econditions combine="or">
-                            <econdition field-name="ownerPartyId" from="companyPartyId"/>
-                            <!--econdition field-name="ownerPartyId" value="_NA_"/>
-                            <econdition field-name="ownerPartyId" operator="is-null"/-->
-                        </econditions>
+                        <econdition field-name="ownerPartyId" from="companyPartyId"/>
+                        <econdition field-name="categoryId" ignore-if-empty="true"/>
                         <econdition field-name="productId" operator="is-not-null"/>
                         <econdition field-name="productId" ignore-if-empty="true"/>
                         <econdition field-name="productName" operator="like"
@@ -90,7 +103,7 @@ along with this software (see the LICENSE.md file). If not, see
                     productName: product.productName?:'?',
                     description: product.description,
                     price: product.price.toString(),
-                    categoryId: product.productCategoryId,
+                    categoryId: product.categoryId,
                     categoryName: product.categoryName,
                     image: imageFile? imageFile : null]"/>
                 <if condition="productId">
@@ -242,8 +255,11 @@ along with this software (see the LICENSE.md file). If not, see
                     name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner"/>
             </if>
             <if condition="!companyPartyId">
-                <return error="true" message="If not logged in, companyPartyId is mandatory"/>
-            </if>
+                <!-- if not provided and not logged in use the one which was first created -->
+                <entity-find entity-name="mantle.party.Organization" list="parties" limit="1">
+                    <order-by field-name="partyId"/></entity-find>
+                <set field="companyPartyId" from="parties[0].partyId"/>
+                <log message="Using first allocated companyPartyId"/></if>
             <entity-find
                 entity-name="mantle.product.category.ProductCategory" list="rootList">
                 <econdition field-name="ownerPartyId" from="companyPartyId"/>
@@ -297,7 +313,7 @@ along with this software (see the LICENSE.md file). If not, see
                         in-map="[contentLocation: contents[0].contentLocation]" out-map="context"/></if>
                 <entity-find-count entity-name="growerp.mobile.product.ProductAndPriceAndProductCategory" count-field="nbrOfProducts">
                     <econdition field-name="ownerPartyId" from="companyPartyId"/>
-                    <econdition field-name="productCategoryId" from="group.productCategoryId"/></entity-find-count>
+                    <econdition field-name="categoryId" from="group.productCategoryId"/></entity-find-count>
                 <set field="groupOut" from="[
                     categoryId: group.productCategoryId,
                     categoryName: group.categoryName,
