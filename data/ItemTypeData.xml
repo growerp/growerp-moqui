@@ -392,7 +392,7 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.basic.EnumGroupMember enumId="ItemServiceProduct" enumGroupEnumId="EngItemsProduct"/>
     <!--moqui.basic.EnumGroupMember enumId="ItemRental" enumGroupEnumId="EngItemsProduct"/>
     <moqui.basic.EnumGroupMember enumId="ItemReplacement" enumGroupEnumId="EngItemsProduct"/>
-    <moqui.basic.EnumGroupMember enumId="ItemInventory" enumGroupEnumId="EngItemsProduct"/-->
+    <moqui.basic.EnumGroupMember enumId="ItemInventory" enumGroupEnumId="EngItemsProduct"/>
     <moqui.basic.EnumGroupMember enumId="ItemAsset" enumGroupEnumId="EngItemsProduct"/>
-    <moqui.basic.EnumGroupMember enumId="ItemExpSupplies" enumGroupEnumId="EngItemsProduct"/>
+    <moqui.basic.EnumGroupMember enumId="ItemExpSupplies" enumGroupEnumId="EngItemsProduct"/-->
 </entity-facade-xml>
