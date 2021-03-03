@@ -16,13 +16,15 @@ git clone https://github.com/growerp/mantle-udm.git runtime/component/mantle-udm
 git clone https://github.com/growerp/mantle-usl.git runtime/component/mantle-usl
 git clone https://github.com/growerp/SimpleScreens.git runtime/component/SimpleScreens
 git clone https://github.com/growerp/moqui-fop.git runtime/component/moqui-fop
-./gradlew load
+./gradlew build
+java -jar moqui.war load types=seed,seed-initial,install
 java -jar moqui.war
 browser: http://localhost:8080/vapps 
 
+login with John Doe button on the left.
+
 the mobile frontends can be downloaded here: 
 --------------------------------------------
-flutter master: growerp branch master: https://github.com/growerp/growerp/master
+flutter admin: growerp branch master: https://github.com/growerp/growerp/master
 flutter ecommerce: growerp branch ecommerce: https://github.com/growerp/growerp/ecommerce
 flutter hotel: growerp branch hotel: https://github.com/growerp/growerp/hotel
-restaurant NativescriptVue: https://github.com/growerp/GrowERP-Mobile

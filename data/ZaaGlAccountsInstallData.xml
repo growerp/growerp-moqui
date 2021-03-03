@@ -15,7 +15,7 @@ along with this software (see the LICENSE.md file). If not, see
 <entity-facade-xml type="install">
     <!-- Uses syntax in https://docs.oracle.com/javase/8/docs/api/javax/swing/text/MaskFormatter.html -->
     <!-- Only used if PartyAcctgPreference.glAccountCodeMask is empty or the context only supports this global or user setting -->
-    <moqui.security.UserGroupPreference userGroupId="ALL_USERS" preferenceKey="GlAccountCodeMask" preferenceValue="###-###-###"/>
+    <moqui.security.UserGroupPreference userGroupId="ALL_USERS" preferenceKey="GlAccountCodeMask" preferenceValue="###-##"/>
 
     <!-- ========== GL Account Class - account classification for add/subtract to balance, reporting, etc ========== -->
     <!-- for reference see the "GL Account Class Reference.md" file in SimpleScreens -->

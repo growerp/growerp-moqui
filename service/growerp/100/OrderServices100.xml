@@ -224,6 +224,22 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <service verb="pay" noun="Order">
+        <description> Update the order by re-creatingonly in the 'OrderOpen' status'.</description>
+        <in-parameters>
+            <parameter name="order" required="true" type="String"/></in-parameters>
+        <out-parameters>
+            <parameter name="order"/></out-parameters>
+        <actions>
+            <script>
+                Object order = new groovy.json.JsonSlurper().parseText(order).order
+            </script>
+            <service-call in-map="[invoiceId: order.invoiceId, order.paymentId]"
+                name="mantle.account.PaymentServices.send#PromisedPayment">
+            </service-call>
+        </actions>
+    </service>
+
     <service verb="update" noun="Order">
         <description> Update the order by re-creatingonly in the 'OrderOpen' status'.</description>
         <in-parameters>
@@ -260,12 +276,16 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="orderHeader.orderName" from="order.description"/>
                 <entity-update value-field="orderHeader"/>
             </if>
+            <set field="sales" value="false"/>
+            <if condition="items[0].vendorPartyId == ownerPartyId">
+                <set field="sales" value="true"/></if>
+            <log message="=======sales????======${sales}"/>
             <!-- handle status changes -->
             <if condition="order.orderStatusId != items[0].statusId">
                 <if condition="order.orderStatusId == 'OrderPlaced'">
                     <service-call in-map="context" out-map="context"
                         name="mantle.order.OrderServices.place#Order"/>
-                    <if condition="order.sales">
+                    <if condition="sales == 'true'">
                         <set field="invStatusId" value="InvoiceFinalized"/>
                         <else>
                             <set field="invStatusId" value="InvoiceReceived"/>
@@ -289,7 +309,7 @@ along with this software (see the LICENSE.md file). If not, see
                         in-map="context"/>
                     <entity-find-one entity-name="mantle.account.invoice.Invoice"
                         value-field="invoice" for-update="true"/>
-                    <if condition="order.sales">
+                    <if condition="sales == 'true'">
                         <set field="invoice.statusId" value="InvoiceSent"/>
                         <else>
                             <set field="invoice.statusId" value="InvoiceReceived"/>

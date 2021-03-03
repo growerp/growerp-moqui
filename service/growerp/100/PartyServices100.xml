@@ -117,7 +117,6 @@ along with this software (see the LICENSE.md file). If not, see
         </description>
         <in-parameters>
             <parameter name="company"/>
-            <parameter name="base64"/>
         </in-parameters>
         <out-parameters>
             <parameter name="company" type="Map"/>
@@ -157,9 +156,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-update value-field="pref" />
             </if>
             <!-- update image -->
-            <if condition="base64">
+            <if condition="compIn.image">
                 <service-call name="growerp.100.ImageServices100.upload#Image"
-                    in-map="[type: 'user', id: compIn.partyId, base64: base64]"/>
+                    in-map="[type: 'company', id: compIn.partyId,
+                        base64: compIn.image]"/>
             </if>
             <service-call name="growerp.100.PartyServices100.get#Company" out-map="context"/>
         </actions>
@@ -211,7 +211,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <econdition field-name="emailAddress"
                         operator="like" from="search" ignore-if-empty="true"/>
                 </econditions>
-        <econdition field-name="userGroupId" ignore-if-empty="true"/>
+                <econdition field-name="userGroupId" ignore-if-empty="true"/>
                 <order-by field-name="lastName"/><order-by field-name="firstName"/>
             </entity-find>
             <if condition="!userPartyId"><set field="users" from="[]"/></if>
@@ -336,6 +336,12 @@ along with this software (see the LICENSE.md file). If not, see
                     toPartyId: companyPartyId, toRoleTypeId: roleTypeId]" />
             <service-call name="create#moqui.security.UserGroupMember"
                 in-map="[userGroupId: userIn.userGroupId, userId: userAccount.userId]" />
+            <!-- add image -->
+            <if condition="userIn.image">
+                <service-call name="growerp.100.ImageServices100.upload#Image"
+                    in-map="[type: 'user', id: userIn.partyId,
+                        base64: userIn.image]"/>
+            </if>
             <service-call name="growerp.100.PartyServices100.get#User"
                 in-map="[userPartyId: userPartyId]" out-map="context"/>
         </actions>
@@ -347,7 +353,6 @@ along with this software (see the LICENSE.md file). If not, see
         </description>
         <in-parameters>
             <parameter name="user"/>
-            <parameter name="base64"/>
         </in-parameters>
         <out-parameters>
             <parameter name="user"/>
@@ -399,9 +404,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="party.externalId" from="userIn.externalId"/>
                 <entity-update value-field="party"/></if>
             <!-- update image -->
-            <if condition="base64">
+            <if condition="userIn.image">
                 <service-call name="growerp.100.ImageServices100.upload#Image"
-                    in-map="[type: 'user', id: userIn.partyId, base64: base64]"/>
+                    in-map="[type: 'user', id: userIn.partyId,
+                        base64: userIn.image]"/>
             </if>
             <!-- update company name for customer, lead supplier -->
             <if condition="userIn.companyName != oldValue.companyName">
@@ -501,6 +507,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- create productStore -->
                 <service-call name="create#mantle.product.store.ProductStore"
                     out-map="context" in-map="[organizationPartyId: companyPartyId,
+                        storeName: 'First Store of ' + companyName,
                         requireInventory: 'N',
                         reservationOrderEnumId:'AsResOrdNoRes',
                         defaultCurrencyUomId: currencyId]" />
@@ -553,7 +560,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- return company Data -->
                 <service-call name="growerp.100.PartyServices100.get#Company"
                     out-map="context"/>
-                <!-- retrn user data -->
+                <!-- return user data -->
                 <service-call name="growerp.100.PartyServices100.get#User"
                     in-map="userPartyId: userPartyId" out-map="context"/>
                 </if>
@@ -795,7 +802,7 @@ along with this software (see the LICENSE.md file). If not, see
                             productStoreId: stores[0].productStoreId,
                             placedDate: ec.user.nowTimestamp,
                             customerPartyId: index%2 == 0 ? companyPartyId : customerCompany2 ,
-                            vendorPartyId: index%2 == 0 ? supplierCompany2 : companyPartyId
+                            vendorPartyId: index%2 == 0 ? supplierCompany2 : companyPartyId,
                         ]" out-map="context"/>
                     <iterate entry="item" list="order.orderItems">
                         <service-call
@@ -808,6 +815,22 @@ along with this software (see the LICENSE.md file). If not, see
                     </iterate>
                     <service-call name="growerp.100.OrderServices100.getOrders"
                         in-map="[orderId: orderId]" out-map="context"/>
+
+                    <!-- set first two orders to complete -->
+                    <!--if condition="index &lt; 2">
+                        <set field="orderIn" from="groovy.json.JsonOutput.toJson([order:[
+                            orderId: orderId,statusId: 'OrderPlaced']])"/>
+                        <service-call name="growerp.100.OrderServices100.update#Order"
+                            in-map="[order: orderIn]" out-map="context"/>
+                        <set field="orderIn" from="groovy.json.JsonOutput.toJson([order:[
+                            orderId: orderId, statusId: 'OrderApproved']])"/>
+                        <service-call name="growerp.100.OrderServices100.update#Order"
+                            in-map="[order: orderIn]" out-map="context"/>
+                        <set field="orderIn" from="groovy.json.JsonOutput.toJson([order:[
+                            orderId: orderId, statusId: 'OrderCompleted']])"/>
+                        <service-call name="growerp.100.OrderServices100.update#Order"
+                            in-map="[order: orderIn]" out-map="context"/>
+                    </if-->
                     <set field="index" from="index + 1"/>
                 </iterate>
 
