@@ -123,6 +123,13 @@ along with this software (see the LICENSE.md file). If not, see
                             partyId: id,
                             partyContentTypeEnumId: 'PcntImageLarge',
                             contentLocation: contentLocation + 'large']" />
+                    <if condition="type == 'company'">
+                        <service-call name="create#mantle.party.PartyContent"
+                            in-map="[
+                                partyId: id,
+                                partyContentTypeEnumId: 'PcntLogoImage',
+                                contentLocation: contentLocation + 'large']" />
+                    </if>
                 </if>
                 <if condition="type == 'product'">
                     <entity-delete-by-condition 
