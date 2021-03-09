@@ -14,13 +14,14 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
 
-    <service verb="get" noun="Orders">
+    <service verb="get" noun="FinDoc">
         <description>
             Get order information by order, item and party
         </description>
         <in-parameters>
-            <parameter name="orderId"/>
+            <parameter name="id"/><!-- depending on type can be invoice/payment/order -->
             <parameter name="sales" type="Boolean"/>
+            <parameter name="docType"/>
             <parameter name="open" type="Boolean" default-value="true"/>
             <parameter name="startDate"><description>Format should be YYYY-MM-DD</description></parameter>
             <parameter name="start" default-value="0" type="Integer"/>
@@ -28,155 +29,277 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="search"/>
         </in-parameters>
         <out-parameters>
-            <parameter name="orders" type="List"/>
-            <parameter name="order" type="Map"/>
+            <parameter name="finDocs" type="List"/>
+            <parameter name="finDoc" type="Map"/>
         </out-parameters>
         <actions>
-            <service-call
-                name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId"
-                 out-map="context"/>
-            <service-call name="growerp.100.GeneralServices100.get#RelatedCompanyPartyId" out-map="context" />
-            <if condition="orderId">
-                <entity-find
-                        entity-name="growerp.order.OrderHeaderPartItemAndParties" list="items">
-                    <econdition field-name="orderId"/>
-                    <econditions combine="or">
-                        <econdition field-name="vendorPartyId" from="ownerPartyId"/>
-                        <econdition field-name="customerPartyId" from="ownerPartyId"/>
-                    </econditions>
-                    <order-by field-name="orderItemSeqId"/>
-                </entity-find>
-            <else>
-                <set field="statusList"
-                    from="['OrderOpen','OrderPlaced','OrderApproved']"/>
-                <if condition="open">
-                    <set field="status" from="statusList"/>
-                </if>
-                <if condition="startDate">
-                    <set field="tsDate"
-                        from="ec.l10n.parseTimestamp(ec.l10n.format(startDate, 'yyyy-MM-dd')
-                            + ' 23:59:59.999', 'yyyy-MM-dd HH:mm:ss.SSS')"/>
-                </if>
-                <if condition="sales">
-                    <set field="vendorPartyId" from="ownerPartyId"/>
-                <else>
-                    <set field="customerPartyId" from="ownerPartyId"/></else></if>
-                <if condition="search">
-                    <set field="search" value="%${search}%"/></if>
-                <entity-find offset="start" limit="limit"
-                        entity-name="growerp.order.OrderHeaderPartItemAndParties" list="items">
-                    <econdition field-name="orderId" ignore-if-empty="true"/>
-                    <econdition field-name="vendorPartyId" from="vendorPartyId" ignore-if-empty="true"/>
-                    <econdition field-name="customerPartyId" from="customerPartyId" ignore-if-empty="true"/>
-                    <econdition field-name="statusId" operator="in" from="status" ignore-if-empty="true"/>
-                    <econdition field-name="placedDate" operator="less-equals" from="tsDate" ignore-if-empty="true"/>
-                    <econditions combine="or">
-                        <econdition field-name="orderId"
-                            operator="like" from="search" ignore-if-empty="true"/>
-                    </econditions>
-                    <order-by field-name="orderId"/>
-                    <order-by field-name="orderItemSeqId"/>
-                </entity-find></else></if>
-            <set field="lastItem" from="null"/>
-            <if condition="!orderId">
-                <set field="orders" from="[]"/>
+            <service-call out-map="context"
+                name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner"/>
+            <if condition="startDate">
+                <set field="tsDate"
+                    from="ec.l10n.parseTimestamp(ec.l10n.format(startDate, 'yyyy-MM-dd')
+                        + ' 23:59:59.999', 'yyyy-MM-dd HH:mm:ss.SSS')"/>
             </if>
-            <set field="orderItems" from="[]"/>
-            <iterate entry="item" list="items">
-                <if condition="lastItem &amp;&amp; lastItem.orderId != item.orderId">
-                    <if condition="lastItem.customerPartyId == ownerPartyId">
-                       <set field="otherCompanyPartyId" from="lastItem.vendorPartyId"/>
-                       <else>
-                            <set field="otherCompanyPartyId" from="lastItem.customerPartyId"/>
-                        </else>
-                    </if>
-                    <entity-find list="others" 
-                            entity-name="growerp.mobile.CompanyPersonAndLoginGroup">
-                        <econdition field-name="companyPartyId" from="otherCompanyPartyId"/>
-                        <date-filter/><select-field field-name="userPartyId"/></entity-find>
-                    <if condition="!others">
-                        <return error="true" message="Could not find company $otherCompanyPartyId from order ${lastItem.orderId} in view CompanyPersonAndLoginGroup"/></if>
-                    <service-call name="growerp.100.PartyServices100.get#User"
-                        in-map="[userPartyId: others[0].userPartyId]" out-map="userOut"/>
-                    <set field="orderOut" from="[
-                        orderId: lastItem.orderId,
-                        description: lastItem.orderName,
-                        orderStatusId: lastItem.statusId,
-                        placedDate: lastItem.placedDate.toString().substring(0,19) + 'Z',
-                        sales: (lastItem.vendorPartyId == ownerPartyId).toString(),
-                        otherUser: userOut.user,
-                        grandTotal: lastItem.grandTotal.toString(),
-                        invoiceId: lastItem.invoiceId,
-                        paymentId: lastItem.paymentId,
-                        orderItems: orderItems
-                        ]"/>
-                    <script>orders.add(orderOut)</script>
-                    <set field="orderItems" from="[]"/>
-                </if>
-                <set field="orderItem" from="[
-                    orderItemSeqId: item.orderItemSeqId,
-                    productId: item.productId,
-                    itemTypeId: item.itemTypeEnumId,
-                    description: item.itemDescription,
-                    quantity: item.quantity.toString(),
-                    price: item.unitAmount.toString(),
-                    ]"/>
-                <script>orderItems.add(orderItem)</script>
-                <set field="lastItem" from="item"/>
-            </iterate>
-            <if condition="lastItem">
-                <if condition="lastItem.customerPartyId == ownerPartyId">
-                    <set field="otherCompanyPartyId" from="lastItem.vendorPartyId"/>
-                    <else>
-                         <set field="otherCompanyPartyId" from="lastItem.customerPartyId"/>
-                     </else>
-                </if>
-                <entity-find list="others" 
-                    entity-name="growerp.mobile.CompanyPersonAndLoginGroup">
-                        <econdition field-name="companyPartyId" from="otherCompanyPartyId"/>
-                        <date-filter/><select-field field-name="userPartyId"/></entity-find>
-                <if condition="!others">
-                    <return error="true" message="Could not find company $otherCompanyPartyId from order ${lastItem.orderId} in view CompanyPersonAndLoginGroup"/></if>
-                <service-call name="growerp.100.PartyServices100.get#User"
-                        in-map="[userPartyId: others[0].userPartyId]" out-map="userOut"/>
-                <set field="orderOut" from="[
-                     orderId: lastItem.orderId,
-                     description: lastItem.orderName,
-                     orderStatusId: lastItem.statusId,
-                     placedDate: lastItem.placedDate.toString().substring(0,19) + 'Z',
-                     sales: (lastItem.vendorPartyId == ownerPartyId).toString(),
-                     otherUser: userOut.user,
-                     grandTotal: lastItem.grandTotal.toString(),
-                     invoiceId: lastItem.invoiceId,
-                     paymentId: lastItem.paymentId,
-                     orderItems: orderItems
-                     ]"/>
-                <if condition="orderId">
-                    <set field="order" from="orderOut"/>
-                    <else>
-                        <script>orders.add(orderOut)</script>
+            <if condition="sales">
+                <set field="vendorPartyId" from="ownerPartyId"/>
+            <else>
+                <set field="customerPartyId" from="ownerPartyId"/></else></if>
+            <if condition="search">
+                <set field="search" value="%${search}%"/></if>
+
+            <set field="finDocs" from="[]"/>
+            <set field="finDocItems" from="[]"/>
+
+            <if condition="docType == 'order'">
+                <set field="orderStatusValues" from="[OrderOpen: 'finDocPrep',
+                                                    OrderPlaced: 'finDocCreated',
+                                                    OrderApproved: 'finDocApproved',
+                                                    OrderCompleted: 'finDocCompleted',
+                                                    OrderCancelled: 'findocCancelled']"/>
+                <if condition="id"><!-- single document -->
+                    <entity-find
+                            entity-name="growerp.order.OrderHeaderPartItemAndParties" list="items">
+                        <econdition field-name="orderId" from="id"/>
+                        <econditions combine="or">
+                            <econdition field-name="vendorPartyId" from="ownerPartyId"/>
+                            <econdition field-name="customerPartyId" from="ownerPartyId"/>
+                        </econditions>
+                        <order-by field-name="orderItemSeqId"/>
+                    </entity-find>
+                    <else><!-- multiple documents -->
+                        <set field="statusList"
+                            from="['OrderOpen','OrderPlaced','OrderApproved']"/> <!-- OrderCompleted OrderCancelled' -->
+                        <if condition="open">
+                            <set field="status" from="statusList"/>
+                        </if>
+                        <entity-find offset="start" limit="limit"
+                                entity-name="growerp.order.OrderHeaderPartItemAndParties" list="items">
+                            <econdition field-name="vendorPartyId" from="vendorPartyId" ignore-if-empty="true"/>
+                            <econdition field-name="customerPartyId" from="customerPartyId" ignore-if-empty="true"/>
+                            <econdition field-name="statusId" operator="in" from="status" ignore-if-empty="true"/>
+                            <econdition field-name="placedDate" operator="less-equals" from="tsDate" ignore-if-empty="true"/>
+                            <econditions combine="or">
+                                <econdition field-name="orderId"
+                                    operator="like" from="search" ignore-if-empty="true"/>
+                            </econditions>
+                            <order-by field-name="orderId"/>
+                            <order-by field-name="orderItemSeqId"/>
+                        </entity-find>
                     </else>
                 </if>
+                <set field="lastItem" from="null"/>
+                <iterate entry="item" list="items">
+                    <if condition="lastItem &amp;&amp; lastItem.orderId != item.orderId">
+                        <set field="finDocOut.items" from="finDocItems"/> 
+                        <script>finDocs.add(finDocOut)</script>
+                    </if>   
+                    <if condition="!lastItem || lastItem.invoiceId != item.invoiceId">
+                        <if condition="item.customerPartyId == ownerPartyId">
+                            <set field="otherCompanyPartyId" from="item.vendorPartyId"/>
+                            <else>
+                                <set field="otherCompanyPartyId" from="item.customerPartyId"/>
+                            </else>
+                        </if>
+                        <entity-find list="others" 
+                                entity-name="growerp.mobile.CompanyPersonAndLoginGroup">
+                            <econdition field-name="companyPartyId" from="otherCompanyPartyId"/>
+                            <date-filter/><select-field field-name="userPartyId"/></entity-find>
+                        <if condition="!others">
+                            <return error="true" message="Could not find company $otherCompanyPartyId from order ${lastItem.orderId} in view CompanyPersonAndLoginGroup"/></if>
+                        <service-call name="growerp.100.PartyServices100.get#User"
+                            in-map="[userPartyId: others[0].userPartyId]" out-map="userOut"/>
+                        <set field="finDocOut" from="[
+                            orderId: item.orderId,
+                            invoiceId: item.invoiceId,
+                            paymentId: item.paymentId,
+                            description: item.orderName,
+                            statusId: orderStatusValues[item.statusId],
+                            createdDate: item.placedDate.toString().substring(0,19) + 'Z',
+                            sales: (item.vendorPartyId == ownerPartyId).toString(),
+                            docType: docType,
+                            otherUser: userOut.user,
+                            grandTotal: item.grandTotal.toString(),
+                            ]"/>
+                        <set field="finDocItems" from="[]"/>
+                    </if>
+                    <set field="finDocItem" from="[
+                        itemSeqId: item.orderItemSeqId,
+                        productId: item.productId,
+                        itemTypeId: item.itemTypeEnumId,
+                        description: item.itemDescription,
+                        quantity: item.quantity.toString(),
+                        price: item.unitAmount.toString(),
+                        ]"/>
+                    <script>finDocItems.add(finDocItem)</script>
+                    <set field="lastItem" from="item"/>
+                </iterate>
+                <set field="finDocOut.items" from="finDocItems"/> 
+                <if condition="lastItem &amp;&amp; !id">
+                    <script>finDocs.add(finDocOut)</script>
+                </if>
+                <if condition="id">
+                    <set field="finDoc" from="finDocOut"/>
+                </if>
             </if>
-            <!--if condition="orderId">
-                <log message="==== open order send: ${order}"/>
-                <else>
-                    <log message="==== open orders send: ${orders.size()}"/>
-                </else>
-            </if-->
+            <if condition="docType == 'invoice'">
+                <if condition="id"><!-- single document -->
+                    <entity-find
+                            entity-name="growerp.order.InvoiceAndItem" list="items">
+                        <econdition field-name="invoiceId" from="id"/>
+                        <econditions combine="or">
+                            <econdition field-name="fromPartyId" from="ownerPartyId"/>
+                            <econdition field-name="toPartyId" from="ownerPartyId"/>
+                        </econditions>
+                        <order-by field-name="invoiceItemSeqId"/>
+                    </entity-find>
+                    <else>
+                        <entity-find
+                            entity-name="growerp.order.InvoiceAndItem" list="items">
+                            <econdition field-name="toPartyId" from="vendorPartyId" ignore-if-empty="true"/>
+                            <econdition field-name="fromPartyId" from="customerPartyId" ignore-if-empty="true"/>
+                            <econdition field-name="statusId" operator="in" from="status" ignore-if-empty="true"/>
+                            <econdition field-name="invoiceDate" operator="less-equals" from="tsDate" ignore-if-empty="true"/>
+                            <econditions combine="or">
+                                <econdition field-name="invoiceId"
+                                    operator="like" from="search" ignore-if-empty="true"/>
+                            </econditions>
+                            <order-by field-name="invoiceId"/>
+                            <order-by field-name="invoiceItemSeqId"/>
+                        </entity-find>                            
+                    </else>
+                </if>
+                <set field="lastItem" from="null"/>
+                <iterate entry="item" list="items">
+                    <if condition="lastItem &amp;&amp; lastItem.invoiceId != item.invoiceId">
+                        <set field="finDocOut.items" from="finDocItems"/> 
+                        <script>finDocs.add(finDocOut)</script>
+                    </if>   
+                    <if condition="!lastItem || lastItem.invoiceId != item.invoiceId">
+                        <entity-find list="others" 
+                                entity-name="growerp.mobile.CompanyPersonAndLoginGroup">
+                            <econdition field-name="companyPartyId" from="sales ? item.fromPartyId : item.toPartyId"/>
+                            <date-filter/><select-field field-name="userPartyId"/></entity-find>
+                        <if condition="!others">
+                            <return error="true" message="Could not find company ${sales ? item.fromPartyId : item.toPartyId} from invoice ${item.invoiceId} in view CompanyPersonAndLoginGroup"/></if>
+                        <service-call name="growerp.100.PartyServices100.get#User"
+                            in-map="[userPartyId: others[0].userPartyId]" out-map="userOut"/>
+                        <set field="finDocOut" from="[
+                            docType: docType,
+                            sales: (item.fromPartyId == ownerPartyId).toString(),
+                            orderId: item.orderId,
+                            invoiceId: item.invoiceId,
+                            paymentId: item.paymentId,
+                            description: item.description,
+                            statusId: item.statusId,
+                            createdDate: item.invoiceDate.toString().substring(0,19) + 'Z',
+                            otherUser: userOut.user,
+                            grandTotal: item.invoiceTotal.toString(),
+                            ]"/>
+                        <set field="finDocItems" from="[]"/>
+                    </if>                       
+                    <set field="finDocItem" from="[
+                        itemSeqId: item.invoiceItemSeqId,
+                        productId: item.productId,
+                        itemTypeId: item.itemTypeEnumId,
+                        description: item.itemDescription,
+                        quantity: item.quantity.toString(),
+                        price: item.amount.toString(),
+                        ]"/>
+                    <script>finDocItems.add(finDocItem)</script>
+                    <set field="lastItem" from="item"/>
+                </iterate>
+                <set field="finDocOut.items" from="finDocItems"/> 
+                <if condition="lastItem &amp;&amp; !id">
+                    <script>finDocs.add(finDocOut)</script>
+                </if>
+                <if condition="id">
+                    <set field="finDoc" from="finDocOut"/>
+                </if>
+            </if>
+            <if condition="docType == 'payment'">
+                <if condition="id">
+                    <entity-find
+                            entity-name="growerp.order.PaymentAndInfo" list="items">
+                        <econdition field-name="paymentId" from="id"/>
+                        <econditions combine="or">
+                            <econdition field-name="fromPartyId" from="ownerPartyId"/>
+                            <econdition field-name="toPartyId" from="ownerPartyId"/>
+                        </econditions>
+                    </entity-find>
+                    <else>
+                        <entity-find
+                            entity-name="growerp.order.PaymentAndInfo" list="items">
+                            <econdition field-name="toPartyId" from="vendorPartyId" ignore-if-empty="true"/>
+                            <econdition field-name="fromPartyId" from="customerPartyId" ignore-if-empty="true"/>
+                            <econdition field-name="statusId" operator="in" from="status" ignore-if-empty="true"/>
+                            <econdition field-name="paymentDate" operator="less-equals" from="tsDate" ignore-if-empty="true"/>
+                            <econditions combine="or">
+                                <econdition field-name="paymentId"
+                                    operator="like" from="search" ignore-if-empty="true"/>
+                            </econditions>
+                            <order-by field-name="paymentId"/>
+                        </entity-find>
+                    </else>
+                </if>
+                <iterate entry="item" list="items">
+                    <entity-find list="others" 
+                        entity-name="growerp.mobile.CompanyPersonAndLoginGroup">
+                        <econdition field-name="companyPartyId" from="sales ? item.fromPartyId : item.toPartyId"/>
+                        <date-filter/><select-field field-name="userPartyId"/></entity-find>
+                    <if condition="!others">
+                        <return error="true" message="Could not find company ${sales ? item.fromPartyId : item.toPartyId} from payment ${item.paymentId} in view CompanyPersonAndLoginGroup"/></if>
+                    <service-call name="growerp.100.PartyServices100.get#User"
+                        in-map="[userPartyId: others[0].userPartyId]" out-map="userOut"/>
+                    <set field="finDocOut" from="[
+                        orderId: item.orderId,
+                        invoiceId: item.invoiceId,
+                        paymentId: item.paymentId,
+                        statusId: item.statusId,
+                        createdDate: item.effectiveDate.toString().substring(0,19) + 'Z',
+                        sales: (item.toPartyId == ownerPartyId).toString(),
+                        docType: docType,
+                        otherUser: userOut.user,
+                        grandTotal: item.amount.toString(),
+                        ]"/>
+                    <if condition="!id">
+                        <script>finDocs.add(finDocOut)</script>
+                        <else>
+                            <set field="finDoc" from="finDocOut"/>
+                        </else>
+                    </if>
+                </iterate>
+            </if>
         </actions></service>
 
+    <service verb="create" noun="FinDoc">
+        <description>Create a financial document either order, invoice or payment</description>
+        <in-parameters>
+            <parameter name="finDoc" type="String"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="finDoc"></parameter>
+        </out-parameters>
+        <actions>
+            <script>Object finDocIn = new groovy.json.JsonSlurper().parseText(finDoc).finDoc</script>
+            <service-call out-map="context"
+                name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner"/>
+            <if condition="finDocIn.docType == 'order'">
+                <service-call name="growerp.100.OrderServices100.create#Order"
+                    in-map="[order: finDocIn]" out-map="context"/>
+                <else>
+                    <return error="true" message="Document ${finDoc.docType} not supported yet...."/>
+                </else>
+            </if>
+        </actions>
+    </service>
 
     <service verb="create" noun="Order">
         <description> Create an order for the users company</description>
         <in-parameters>
-            <parameter name="order" required="true" type="String"/></in-parameters>
+            <parameter name="order" required="true" type="Map"/></in-parameters>
         <out-parameters>
             <parameter name="order"/></out-parameters>
         <actions>
-            <script>
-                Object order = new groovy.json.JsonSlurper().parseText(order).order
-            </script>
             <service-call out-map="context"
                 name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner"/>
             <if condition="order.sales">
@@ -199,7 +322,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="placedDate" from="ec.user.nowTimestamp"/>
             <service-call name="mantle.order.OrderServices.create#Order"
                 in-map="context + [orderName: order.description]" out-map="context"/>
-            <iterate entry="item" list="order.orderItems">
+            <iterate entry="item" list="order.items">
                 <if condition="item.productId">
                     <service-call
                             name="mantle.order.OrderServices.add#OrderProductQuantity"
@@ -240,24 +363,61 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <service verb="update" noun="FinDoc">
+        <description>Update a financial document either order, invoice or payment</description>
+        <in-parameters>
+            <parameter name="finDoc"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="finDoc" type="Map"></parameter>
+        </out-parameters>
+        <actions>
+            <script>Object finDocIn = new groovy.json.JsonSlurper().parseText(finDoc).finDoc</script>
+            <if condition="finDocIn.docType == 'order'">
+                <set field="orderStatusValues" from="[finDocPrep: 'OrderOpen',
+                                                finDocCreated: 'OrderPlaced',
+                                                finDocApproved: 'OrderApproved',
+                                                finDocCompleted: 'OrderCompleted',
+                                                findocCancelled: 'OrderCancelled']"/>
+                <set field="finDocIn.statusId" from="orderStatusValues[finDocIn.statusId]"/>
+                <service-call name="growerp.100.OrderServices100.update#Order"
+                    in-map="[order: finDocIn]" out-map="context"/>
+                <set field="inMap" from="[id: finDocIn.orderId, docType: 'order']"/>
+            </if>
+            <if condition="finDocIn.docType == 'invoice'">
+                <set field="invoiceStatusValues" from="[finDocPrep: 'InvoiceInProcess',
+                                                finDocCreated: 'InvoiceFinalized',
+                                                finDocApproved: 'InvoiceSent',
+                                                finDocCompleted: 'InvoicePmtRecvd',
+                                                findocCancelled: 'InvoiceWriteOff']"/>
+                <set field="finDocIn.statusId" from="invoiceStatusValues[finDocIn.statusId]"/>
+                <service-call name="growerp.100.OrderServices100.update#Invoice"
+                    in-map="[invoice: finDocIn]" out-map="context"/>
+                <set field="inMap" from="[id: finDocIn.invoiceId, docType: 'invoice']"/>
+            </if>
+            <if condition="finDocIn.doctype != 'invoice' &amp;&amp; finDocIn?.docType != 'order' &amp;&amp; finDocIn.doctype != 'payment'">
+                <return error="true" message="Document ${finDocIn.docType} not supported yet...."/></if>
+            <service-call name="growerp.100.OrderServices100.get#FinDoc"
+                in-map="inMap" out-map="context"/>
+            <log message="======update out put: $finDoc"/>
+        </actions>
+    </service>
+
     <service verb="update" noun="Order">
         <description> Update the order by re-creatingonly in the 'OrderOpen' status'.</description>
         <in-parameters>
-            <parameter name="order" required="true" type="String"/></in-parameters>
+            <parameter name="order" required="true" type="Map"/></in-parameters>
         <out-parameters>
-            <parameter name="order"/></out-parameters>
+            <parameter name="order" type="Map"/></out-parameters>
         <actions>
             <!-- status sequence:
                 OrderOpen -> OrderPlaced -> orderApproved -> OrderCompleted
             -->
-            <script>
-                Object order = new groovy.json.JsonSlurper().parseText(order).order
-            </script>
             <service-call out-map="context"
                 name="growerp.100.GeneralServices100.get#RelatedCompanyAndOwner"/>
             <set field="orderId" from="order.orderId"/>
             <entity-find entity-name="OrderHeaderPartItemAndParties" list="items">
-                <econdition field-name="orderId" from="order.orderId"/>
+                <econdition field-name="orderId"/>
                 <econditions combine="or">
                     <econdition field-name="vendorPartyId" from="ownerPartyId"/>
                     <econdition field-name="customerPartyId" from="ownerPartyId"/>
@@ -276,16 +436,13 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="orderHeader.orderName" from="order.description"/>
                 <entity-update value-field="orderHeader"/>
             </if>
-            <set field="sales" value="false"/>
-            <if condition="items[0].vendorPartyId == ownerPartyId">
-                <set field="sales" value="true"/></if>
-            <log message="=======sales????======${sales}"/>
             <!-- handle status changes -->
-            <if condition="order.orderStatusId != items[0].statusId">
-                <if condition="order.orderStatusId == 'OrderPlaced'">
+            <log message="===new status: ${order.statusId}"/>
+            <if condition="order.statusId != items[0].statusId">
+                <if condition="order.statusId == 'OrderPlaced'">
                     <service-call in-map="context" out-map="context"
                         name="mantle.order.OrderServices.place#Order"/>
-                    <if condition="sales == 'true'">
+                    <if condition="order.sales == 'true'">
                         <set field="invStatusId" value="InvoiceFinalized"/>
                         <else>
                             <set field="invStatusId" value="InvoiceReceived"/>
@@ -300,11 +457,11 @@ along with this software (see the LICENSE.md file). If not, see
                     <set field="payment.statusId" value="PmntAuthorized"/>
                     <service-call name="update#mantle.account.payment.Payment" in-map="payment"/>
                 </if>
-                <if condition="order.orderStatusId == 'OrderApproved'">
+                <if condition="order.statusId == 'OrderApproved'">
                     <service-call name="mantle.order.OrderServices.approve#Order"
                         in-map="context"/>
                 </if>
-                <if condition="order.orderStatusId == 'OrderCompleted'">
+                <if condition="order.statusId == 'OrderCompleted'">
                     <service-call name="mantle.order.OrderServices.complete#Order"
                         in-map="context"/>
                     <entity-find-one entity-name="mantle.account.invoice.Invoice"
@@ -316,14 +473,12 @@ along with this software (see the LICENSE.md file). If not, see
                         </else>
                     </if>
                     <service-call name="update#mantle.account.invoice.Invoice" in-map="invoice"/>
-                    </if>
-                <if condition="order.orderStatusId == 'OrderCancelled'">
+                </if>
+                <if condition="order.statusId == 'OrderCancelled'">
                     <service-call name="mantle.order.OrderServices.cancel#Order"
                         in-map="context"/>
                 </if>
             </if>
-                <service-call name="growerp.100.OrderServices100.getOrders"
-                in-map="[orderId: order.orderId]" out-map="context"/>
         </actions>
     </service>
 </services>

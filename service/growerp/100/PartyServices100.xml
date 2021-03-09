@@ -813,7 +813,7 @@ along with this software (see the LICENSE.md file). If not, see
                                                 currencyUomId: aPref.baseCurrencyUomId]"
                             out-map="itemcreate"/>
                     </iterate>
-                    <service-call name="growerp.100.OrderServices100.getOrders"
+                    <service-call name="growerp.100.OrderServices100.getFinDoc"
                         in-map="[orderId: orderId]" out-map="context"/>
 
                     <!-- set first two orders to complete -->
