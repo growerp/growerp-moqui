@@ -447,23 +447,24 @@ along with this software (see the LICENSE.md file). If not, see
                     </else>
                 </if>
                 <set field="finDocIn.statusId" from="invoiceStatusValues[finDocIn.statusId]"/>
-                <service-call name="growerp.100.OrderServices100.update#Invoice"
-                    in-map="[invoice: finDocIn]" out-map="context"/>
+                <service-call name="update#mantle.account.invoice.Invoice"
+                    in-map="[invoiceId: finDocIn.invoiceId, statusId: finDocIn.statusId]" out-map="context"/>
                 <set field="inMap" from="[id: finDocIn.invoiceId, docType: 'invoice']"/>
             </if>
-            <if condition="finDocIn.docType == 'Payment'">
-                <set field="invoiceStatusValues" from="[
+            <if condition="finDocIn.docType == 'payment'">
+                <set field="paymentStatusValues" from="[
                             finDocPrep: 'PmntProposed',
                             finDocCreated: 'PmntPromised',
                             finDocApproved: 'PmntAuthorized',
                             finDocCompleted: 'PmntDelivered',
                             finDocCancelled: 'PmntCancelled']"/>
-                <set field="finDocIn.statusId" from="invoiceStatusValues[finDocIn.statusId]"/>
-                <service-call name="growerp.100.OrderServices100.update#Payment"
-                    in-map="[payment: finDocIn]" out-map="context"/>
+                <set field="finDocIn.statusId" from="paymentStatusValues[finDocIn.statusId]"/>
+                <service-call name="update#mantle.account.payment.Payment"
+                    in-map="[paymentId: finDocIn.paymentId, statusId: finDocIn.statusId,
+                            effectiveDate: ec.user.nowTimestamp]" out-map="context"/>
                 <set field="inMap" from="[id: finDocIn.paymentId, docType: 'payment']"/>
             </if>
-            <if condition="finDocIn.doctype != 'invoice' &amp;&amp; finDocIn?.docType != 'order' &amp;&amp; finDocIn.doctype != 'payment'">
+            <if condition="finDocIn.docType != 'invoice' &amp;&amp; finDocIn?.docType != 'order' &amp;&amp; finDocIn.docType != 'payment'">
                 <return error="true" message="Document ${finDocIn.docType} not supported yet...."/></if>
             <service-call name="growerp.100.OrderServices100.get#FinDoc"
                 in-map="inMap" out-map="context"/>
